@@ -6,6 +6,6 @@ export interface ApiErrorBody {
 export interface AuthUser {
   id: string;
   email: string;
-  name: string;
+  fullName: string;
   role: string;
 }

@@ -18,7 +18,11 @@ export async function POST(request: Request) {
   const { email, password } = parsed.data;
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+  if (
+    !user ||
+    !user.isActive ||
+    !(await verifyPassword(password, user.passwordHash))
+  ) {
     return NextResponse.json(
       { error: "Invalid email or password" },
       { status: 401 },
@@ -32,7 +36,12 @@ export async function POST(request: Request) {
   });
 
   const response = NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    user: {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+    },
   });
   response.cookies.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,

@@ -6,8 +6,8 @@ import { AUTH_COOKIE_NAME, hashPassword, signAuthToken } from "@/lib/auth";
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  name: z.string().min(1),
-  role: z.enum(["ADMIN", "DESIGNER", "SALES", "CUSTOMER"]).optional(),
+  fullName: z.string().min(1),
+  role: z.enum(["RND", "SALES", "CUSTOMER", "ADMIN"]).optional(),
 });
 
 export async function POST(request: Request) {
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { email, password, name, role } = parsed.data;
+  const { email, password, fullName, role } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
-    data: { email, passwordHash, name, role: role ?? "DESIGNER" },
+    data: { email, passwordHash, fullName, role: role ?? "RND" },
   });
 
   const token = await signAuthToken({
@@ -42,7 +42,12 @@ export async function POST(request: Request) {
   });
 
   const response = NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    user: {
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName,
+      role: user.role,
+    },
   });
   response.cookies.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
