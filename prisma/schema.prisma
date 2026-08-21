@@ -1,0 +1,164 @@
+// Placeholder schema based on the entities described (Users, Customers, Products,
+// Projects, Collections, Feedback). Replace with the actual detailed schema.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  DESIGNER
+  SALES
+  CUSTOMER
+}
+
+enum ProductMaterial {
+  RATTAN
+  BAMBOO
+  WATER_HYACINTH
+  SEAGRASS
+  OTHER
+}
+
+enum ProductStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  ARCHIVED
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum FeedbackStatus {
+  OPEN
+  RESOLVED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole @default(DESIGNER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  feedback        Feedback[]
+  salesProjects    Project[] @relation("ProjectSales")
+  designerProjects Project[] @relation("ProjectDesigner")
+
+  @@map("users")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  company   String?
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projects Project[]
+
+  @@map("customers")
+}
+
+model Collection {
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products Product[]
+
+  @@map("collections")
+}
+
+model Product {
+  id           String          @id @default(uuid())
+  sku          String          @unique
+  name         String
+  description  String?
+  material     ProductMaterial @default(OTHER)
+  model3dUrl   String?
+  thumbnailUrl String?
+  status       ProductStatus   @default(DRAFT)
+  collectionId String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  collection      Collection?      @relation(fields: [collectionId], references: [id])
+  feedback        Feedback[]
+  projectProducts ProjectProduct[]
+
+  @@map("products")
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  customerId  String
+  salesId     String?
+  designerId  String?
+  status      ProjectStatus @default(PLANNING)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  customer Customer         @relation(fields: [customerId], references: [id])
+  sales    User?            @relation("ProjectSales", fields: [salesId], references: [id])
+  designer User?            @relation("ProjectDesigner", fields: [designerId], references: [id])
+  products ProjectProduct[]
+  feedback Feedback[]
+
+  @@map("projects")
+}
+
+model ProjectProduct {
+  id        String  @id @default(uuid())
+  projectId String
+  productId String
+  quantity  Int     @default(1)
+  notes     String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([projectId, productId])
+  @@map("project_products")
+}
+
+model Feedback {
+  id        String         @id @default(uuid())
+  content   String
+  rating    Int?
+  status    FeedbackStatus @default(OPEN)
+  authorId  String
+  productId String?
+  projectId String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  author  User     @relation(fields: [authorId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@map("feedback")
+}
