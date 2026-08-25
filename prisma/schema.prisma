@@ -34,6 +34,8 @@ model User {
   feedback             Feedback[]
   activity             Activity[]
   addedProjectProducts ProjectProduct[]
+  notifications        Notification[]
+  createdCatalogs      Catalog[]
 
   @@map("users")
 }
@@ -60,6 +62,7 @@ model Customer {
   users          User[]
   projects       Project[]
   originProducts Product[] @relation("OriginCustomer")
+  catalogs       Catalog[]
 
   @@map("customers")
 }
@@ -116,6 +119,7 @@ model Product {
   projectProducts ProjectProduct[]
   feedback        Feedback[]
   activity        Activity[]
+  catalogItems    CatalogItem[]
 
   @@map("products")
 }
@@ -123,7 +127,10 @@ model Product {
 enum ProductStatus {
   DRAFT
   DEVELOPING
-  APPROVED
+  // Submitted for Admin review — either uploaded straight to the library,
+  // or released from a closed project. A reject sends it back to DRAFT
+  // (the reason lives in Feedback + a Notification to the designer).
+  PENDING_REVIEW
   RELEASED
   ARCHIVED
 }
@@ -178,7 +185,8 @@ model ProductVersion {
   uploadedBy    User     @relation(fields: [uploadedById], references: [id])
   createdAt     DateTime @default(now())
 
-  feedback Feedback[]
+  feedback     Feedback[]
+  catalogItems CatalogItem[]
 
   @@unique([productId, versionNumber])
   @@map("product_versions")
@@ -205,6 +213,7 @@ model Project {
   projectProducts ProjectProduct[]
   feedback        Feedback[]
   activity        Activity[]
+  catalogs        Catalog[]
 
   @@map("projects")
 }
@@ -259,11 +268,13 @@ enum CustomerApproval {
 }
 
 // FEEDBACK
-// Can be attached to a project, and optionally scoped to a product/version.
+// Usually scoped to a project, but a Product uploaded straight to the
+// library (not tied to any project) needs to carry feedback too — e.g.
+// an Admin's reason for rejecting it — so projectId is optional.
 model Feedback {
   id        String          @id @default(uuid()) @db.Uuid
-  projectId String          @db.Uuid
-  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String?         @db.Uuid
+  project   Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   productId String?         @db.Uuid
   product   Product?        @relation(fields: [productId], references: [id])
   versionId String?         @db.Uuid
@@ -289,4 +300,70 @@ model Activity {
   createdAt DateTime @default(now())
 
   @@map("activity")
+}
+
+// NOTIFICATIONS — a personal inbox, distinct from Activity (the shared
+// audit log). `link` points at whatever page the notification is about,
+// so no extra FKs are needed per notification type.
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@map("notifications")
+}
+
+enum NotificationType {
+  PRODUCT_REJECTED
+}
+
+// CATALOGS — a curated set of Products to hand to a customer who won't
+// log into the app. Built two ways: picked freely from the Library
+// (projectId null), or exported from a specific project's finished
+// designs (projectId set, for traceability).
+model Catalog {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  projectId   String?       @db.Uuid
+  project     Project?      @relation(fields: [projectId], references: [id])
+  customerId  String?       @db.Uuid
+  customer    Customer?     @relation(fields: [customerId], references: [id])
+  createdById String        @db.Uuid
+  createdBy   User          @relation(fields: [createdById], references: [id])
+  status      CatalogStatus @default(DRAFT)
+  // Set once a public "view online" link is generated for this catalog.
+  publicSlug  String?       @unique
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  items CatalogItem[]
+
+  @@map("catalogs")
+}
+
+enum CatalogStatus {
+  DRAFT
+  SENT
+}
+
+model CatalogItem {
+  id        String          @id @default(uuid()) @db.Uuid
+  catalogId String          @db.Uuid
+  catalog   Catalog         @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  productId String          @db.Uuid
+  product   Product         @relation(fields: [productId], references: [id])
+  versionId String?         @db.Uuid
+  version   ProductVersion? @relation(fields: [versionId], references: [id])
+  note      String?
+  sortOrder Int?
+  createdAt DateTime        @default(now())
+
+  @@unique([catalogId, productId])
+  @@map("catalog_items")
 }
