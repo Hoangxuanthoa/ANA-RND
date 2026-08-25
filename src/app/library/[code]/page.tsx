@@ -1,0 +1,256 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useParams, notFound } from "next/navigation";
+import { TopNav } from "@/components/TopNav";
+import { useRole } from "@/components/RoleProvider";
+import {
+  PRODUCTS,
+  PRODUCT_ASSETS,
+  PRODUCT_VERSIONS,
+  PRODUCT_USED_IN,
+  PRODUCT_FEEDBACK,
+} from "@/lib/mock-data";
+import {
+  productStatusBadge,
+  reusePermissionBadge,
+  usageBadge,
+  projectProductStatusBadge,
+  TINT_BG,
+  TINT_FG,
+} from "@/lib/badges";
+import { canManageProduct, canPickProduct } from "@/lib/permissions";
+
+const TABS = [
+  { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
+  { key: "projects", label: `Used in Projects (${PRODUCT_USED_IN.length})` },
+  { key: "feedback", label: `Feedback (${PRODUCT_FEEDBACK.length})` },
+] as const;
+
+export default function ProductDetailPage() {
+  const params = useParams<{ code: string }>();
+  const product = PRODUCTS.find((p) => p.code === params.code);
+  const { role } = useRole();
+  const [assetIndex, setAssetIndex] = useState(0);
+  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("versions");
+
+  if (!product) return notFound();
+
+  const status = productStatusBadge(product.status);
+  const reuse = reusePermissionBadge(product.reuse);
+  const activeAsset = PRODUCT_ASSETS[assetIndex];
+
+  return (
+    <div className="flex min-h-screen flex-col bg-bg">
+      <TopNav />
+      <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-5 p-7">
+        <div className="text-[13px] text-text-faint">
+          <Link href="/library" className="text-accent hover:text-accent-hover">
+            Design Library
+          </Link>{" "}
+          / <span className="text-text">{product.code}</span>
+        </div>
+
+        <div className="flex items-start gap-6">
+          {/* Asset viewer */}
+          <div className="flex flex-1 flex-col gap-3">
+            <div
+              className={`flex h-[440px] items-center justify-center rounded-xl border border-line ${TINT_BG[activeAsset.tint]}`}
+            >
+              <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className={TINT_FG[activeAsset.tint]} stroke="currentColor" strokeWidth="1.2">
+                <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                <path d="M3 8v8l9 5 9-5V8" />
+                <path d="M12 13v8" />
+              </svg>
+            </div>
+            <div className="flex gap-2.5 overflow-x-auto pb-1">
+              {PRODUCT_ASSETS.map((a, i) => (
+                <button
+                  key={a.label}
+                  onClick={() => setAssetIndex(i)}
+                  className={`flex h-[76px] w-[76px] flex-shrink-0 items-center justify-center rounded-lg border-2 ${TINT_BG[a.tint]} ${
+                    i === assetIndex ? "border-accent" : "border-transparent hover:border-text-faint"
+                  }`}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[a.tint]} stroke="currentColor" strokeWidth="1.6">
+                    <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                    <path d="M3 8v8l9 5 9-5V8" />
+                    <path d="M12 13v8" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+            <div className="text-xs text-text-faint">{activeAsset.label}</div>
+          </div>
+
+          {/* Info panel */}
+          <div className="flex w-[360px] flex-shrink-0 flex-col gap-4.5">
+            <div>
+              <div className="mb-2 flex gap-2">
+                <span className={status.className}>{status.label}</span>
+                <span className={reuse.className}>{reuse.label}</span>
+              </div>
+              <h1 className="mb-1 text-[21px] font-extrabold">{product.name}</h1>
+              <div className="text-[13px] font-semibold text-text-faint">{product.code}</div>
+            </div>
+
+            <div>
+              {[
+                ["Category", product.category],
+                ["Material", product.material],
+                ["Designer", product.designer],
+                ["Origin customer", product.originCustomer],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between border-b border-line py-2.5 text-[13px]">
+                  <span className="text-text-muted">{label}</span>
+                  <span className="font-semibold">{value}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
+
+            <div className="flex gap-2.5">
+              {[
+                ["Presented", product.presented],
+                ["Reused", product.reused],
+                ["Approved", product.approved],
+              ].map(([label, value]) => (
+                <div key={label} className="flex-1 rounded-[10px] bg-bg p-3 text-center">
+                  <div className="text-lg font-extrabold">{value}</div>
+                  <div className="text-[10.5px] font-semibold text-text-faint">{label}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {canPickProduct(role) && (
+                <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg bg-accent text-[13px] font-bold text-white hover:bg-accent-hover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Add to Project
+                </button>
+              )}
+              {canManageProduct(role) && (
+                <>
+                  <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 3v12M7 8l5-5 5 5" />
+                      <path d="M5 21h14" />
+                    </svg>
+                    Upload Version
+                  </button>
+                  <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M9 12l2 2 4-4" />
+                      <circle cx="12" cy="12" r="9" />
+                    </svg>
+                    Release to Library
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-6 border-b border-line">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`h-[42px] border-b-2 text-[13.5px] font-bold ${
+                tab === t.key ? "border-accent text-text" : "border-transparent text-text-faint"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "versions" && (
+          <div className="flex flex-col pt-4">
+            <p className="mb-3 text-xs text-text-faint">Lịch sử version — không ghi đè, chỉ thêm mới.</p>
+            {PRODUCT_VERSIONS.map((v, i) => (
+              <div key={v.number} className="flex items-center gap-4 border-b border-line py-3.5 last:border-b-0">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-bg text-xs font-extrabold text-text-muted">
+                  {v.number}
+                </div>
+                <div className="flex-1">
+                  <div className="text-[13.5px] font-bold">{v.note}</div>
+                  <div className="mt-0.5 text-xs text-text-faint">
+                    bởi {v.by} · {v.date}
+                  </div>
+                </div>
+                {i === 0 && (
+                  <span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-1 text-[10.5px] font-bold text-accent-soft-text">
+                    Mới nhất
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "projects" && (
+          <div className="flex flex-col pt-4">
+            {PRODUCT_USED_IN.map((pr) => {
+              const usage = usageBadge(pr.usage);
+              const s = projectProductStatusBadge(pr.status);
+              return (
+                <div key={pr.name} className="flex items-center gap-4 border-b border-line py-3.5 last:border-b-0">
+                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-soft text-blue">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 6a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V6z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-[13.5px] font-bold">{pr.name}</div>
+                    <div className="mt-0.5 text-xs text-text-faint">{pr.customer}</div>
+                  </div>
+                  <span className={usage.className}>{usage.label}</span>
+                  <span className={s.className}>{s.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {tab === "feedback" && (
+          <div className="flex max-w-[720px] flex-col gap-4 pt-4">
+            {PRODUCT_FEEDBACK.map((f, i) => (
+              <div key={i} className="flex gap-3">
+                <div className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TINT_BG[f.tint]} ${TINT_FG[f.tint]}`}>
+                  {f.initials}
+                </div>
+                <div className="flex-1 rounded-[10px] bg-bg p-3.5">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-[12.5px] font-bold">{f.author}</span>
+                    <span className="text-[11.5px] text-text-faint">{f.time}</span>
+                  </div>
+                  <p className="mt-1.5 text-[13px] leading-relaxed">{f.content}</p>
+                </div>
+              </div>
+            ))}
+            <div className="flex items-start gap-2.5 pt-1.5">
+              <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
+                AN
+              </div>
+              <div className="flex flex-1 flex-col gap-2">
+                <textarea
+                  placeholder="Viết bình luận…"
+                  className="min-h-[64px] w-full rounded-[10px] border border-line p-2.5 text-[13px]"
+                />
+                <button className="inline-flex h-[38px] items-center justify-center self-end rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+                  Gửi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
