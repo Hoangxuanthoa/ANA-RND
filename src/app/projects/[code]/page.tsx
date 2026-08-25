@@ -8,11 +8,14 @@ import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
+import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
 import {
   CURRENT_USER_NAME,
+  ROLE_INITIALS,
   PROJECT_PRODUCTS,
   PROJECT_FEEDBACK,
   PROJECT_ACTIVITY,
+  type ProjectProductItem,
 } from "@/lib/mock-data";
 import {
   projectStatusBadge,
@@ -22,16 +25,11 @@ import {
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
-import {
-  canPickProduct,
-  isCustomer as isCustomerRole,
-  canEditProject,
-  canHardDeleteProject,
-} from "@/lib/permissions";
+import { canPickProduct, canEditProject, canHardDeleteProject } from "@/lib/permissions";
 
 const TABS = [
   { key: "products", label: `Product Development (${PROJECT_PRODUCTS.length})` },
-  { key: "feedback", label: `Feedback (${PROJECT_FEEDBACK.length})` },
+  { key: "feedback", label: "General Feedback" },
   { key: "activity", label: "Activity" },
 ] as const;
 
@@ -45,11 +43,11 @@ export default function ProjectDetailPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [quickView, setQuickView] = useState<ProjectProductItem | null>(null);
 
   if (!project) return notFound();
 
   const status = projectStatusBadge(project.status);
-  const customer = isCustomerRole(role);
   const editable = canEditProject(role, userName, project);
   const hardDelete = canHardDeleteProject(project);
   const isClosed = project.status === "CLOSED";
@@ -147,13 +145,15 @@ export default function ProjectDetailPage() {
               const usage = usageBadge(i.usage);
               const s = projectProductStatusBadge(i.status);
               const approval = customerApprovalBadge(i.approval);
-              const showCustomerActions =
-                !isClosed && customer && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
-              const showWatchOnly =
-                !isClosed && !customer && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
+              const needsAttention =
+                !isClosed && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
 
               return (
-                <div key={i.code} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
+                <button
+                  key={i.code}
+                  onClick={() => setQuickView(i)}
+                  className="flex gap-4 rounded-xl border border-line bg-surface p-4 text-left transition hover:shadow-md"
+                >
                   <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[10px] ${TINT_BG[i.tint]}`}>
                     <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[i.tint]} stroke="currentColor" strokeWidth="1.5">
                       <path d="M21 8l-9-5-9 5 9 5 9-5z" />
@@ -175,30 +175,23 @@ export default function ProjectDetailPage() {
                     {i.note && <p className="text-[12.5px] leading-relaxed text-text-muted">{i.note}</p>}
                     <div className="flex items-center justify-between border-t border-line pt-2">
                       <span className={approval.className}>{approval.label}</span>
-                      <div className="flex gap-2">
-                        {showCustomerActions && (
-                          <>
-                            <button className="h-[34px] rounded-md border border-line bg-surface px-3 text-[12.5px] font-bold hover:bg-bg">
-                              Request Change
-                            </button>
-                            <button className="h-[34px] rounded-md bg-green px-3 text-[12.5px] font-bold text-white hover:opacity-90">
-                              Approve
-                            </button>
-                          </>
-                        )}
-                        {showWatchOnly && (
-                          <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-text-faint">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11.5px] font-semibold text-text-faint">
+                          Feedback ({i.feedback.length})
+                        </span>
+                        {needsAttention && (
+                          <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-amber">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                               <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
                               <circle cx="12" cy="12" r="3" />
                             </svg>
-                            Đang chờ khách duyệt
+                            Cần duyệt
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -222,7 +215,7 @@ export default function ProjectDetailPage() {
             ))}
             <div className="flex items-start gap-2.5">
               <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
-                AN
+                {ROLE_INITIALS[role]}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea
@@ -286,6 +279,10 @@ export default function ProjectDetailPage() {
           setEditOpen(false);
         }}
       />
+
+      {quickView && (
+        <ProjectProductQuickView item={quickView} isClosed={isClosed} onClose={() => setQuickView(null)} />
+      )}
     </div>
   );
 }

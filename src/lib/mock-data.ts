@@ -202,6 +202,96 @@ export const PRODUCTS: Product[] = [
     approved: 2,
     tint: "green",
   },
+  {
+    code: "RND-00410",
+    name: "Rattan Room Divider",
+    category: "Decor",
+    material: "Rattan",
+    designer: "An Nguyễn",
+    originCustomer: "—",
+    description: "Vách ngăn phòng đan mây 3 tấm gấp, khung gỗ cao su.",
+    status: "RELEASED",
+    reuse: "REUSABLE",
+    presented: 4,
+    reused: 2,
+    approved: 2,
+    tint: "accent",
+  },
+  {
+    code: "RND-00415",
+    name: "Bamboo Coat Rack",
+    category: "Storage",
+    material: "Bamboo",
+    designer: "Lan Phạm",
+    originCustomer: "—",
+    description: "Giá treo áo tre đứng, 3 tầng, đế chống lật.",
+    status: "DEVELOPING",
+    reuse: "REFERENCE_ONLY",
+    presented: 0,
+    reused: 0,
+    approved: 0,
+    tint: "blue",
+  },
+  {
+    code: "RND-00420",
+    name: "Seagrass Placemat Set",
+    category: "Kitchen & Bath",
+    material: "Seagrass",
+    designer: "An Nguyễn",
+    originCustomer: "Habitat",
+    description: "Bộ lót bàn ăn đan cói, set 6 cái, viền chỉ may tay.",
+    status: "RELEASED",
+    reuse: "REUSABLE",
+    presented: 7,
+    reused: 4,
+    approved: 3,
+    tint: "accent",
+  },
+  {
+    code: "RND-00425",
+    name: "Water Hyacinth Ottoman",
+    category: "Decor",
+    material: "Water Hyacinth",
+    designer: "Lan Phạm",
+    originCustomer: "SCG",
+    description: "Ghế đôn đan bèo tây, khung gỗ, đệm mút bọc vải.",
+    status: "APPROVED",
+    reuse: "REUSABLE",
+    presented: 2,
+    reused: 1,
+    approved: 1,
+    tint: "green",
+  },
+  {
+    code: "RND-00430",
+    name: "Jute Wall Hanging",
+    category: "Decor",
+    material: "Jute",
+    designer: "An Nguyễn",
+    originCustomer: "—",
+    description: "Tranh treo tường đan đay macramé, khung gỗ tròn.",
+    status: "DRAFT",
+    reuse: "EXCLUSIVE",
+    presented: 0,
+    reused: 0,
+    approved: 0,
+    tint: "slate",
+  },
+  {
+    code: "RND-00435",
+    name: "Rattan Pendant Cluster",
+    category: "Lighting",
+    material: "Rattan",
+    designer: "Lan Phạm",
+    originCustomer: "JYSK",
+    description: "Cụm đèn thả 3 bóng đan mây, dây treo điều chỉnh độ cao.",
+    status: "RELEASED",
+    reuse: "REUSABLE",
+    presented: 5,
+    reused: 3,
+    approved: 2,
+    tint: "accent",
+  },
 ];
 
 export const CATEGORIES = [
@@ -298,12 +388,49 @@ export interface ProjectProductItem {
   approval: CustomerApproval;
   note: string;
   tint: "accent" | "blue";
+  // Feedback scoped to this specific product within this project — not
+  // mixed with feedback on other products or general project discussion.
+  feedback: FeedbackItem[];
 }
 
 export const PROJECT_PRODUCTS: ProjectProductItem[] = [
-  { code: "RND-00125", name: "Woven Storage Basket", usage: "REUSE", status: "CUSTOMER_REVIEW", approval: "PENDING", note: "", tint: "accent" },
-  { code: "RND-00305", name: "Stacking Cube Shelf", usage: "REUSE", status: "APPROVED", approval: "APPROVED", note: "", tint: "accent" },
-  { code: "RND-00341", name: "Storage Lid Insert", usage: "NEW", status: "DEVELOPING", approval: "PENDING", note: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.", tint: "blue" },
+  {
+    code: "RND-00125",
+    name: "Woven Storage Basket",
+    usage: "REUSE",
+    status: "CUSTOMER_REVIEW",
+    approval: "PENDING",
+    note: "",
+    tint: "accent",
+    feedback: [
+      { author: "JYSK Buyer", content: "Cho mình xem thêm ảnh mẫu thật của basket size L với.", time: "2 ngày trước", initials: "JY", tint: "green" },
+      { author: "Hà (Sales)", content: "Đã gửi ảnh sample qua email, đang chờ khách xác nhận.", time: "Hôm qua", initials: "HA", tint: "amber" },
+    ],
+  },
+  {
+    code: "RND-00305",
+    name: "Stacking Cube Shelf",
+    usage: "REUSE",
+    status: "APPROVED",
+    approval: "APPROVED",
+    note: "",
+    tint: "accent",
+    feedback: [
+      { author: "JYSK Buyer", content: "Mẫu này đẹp, đúng ý — chốt luôn không cần chỉnh gì thêm.", time: "3 tuần trước", initials: "JY", tint: "green" },
+    ],
+  },
+  {
+    code: "RND-00341",
+    name: "Storage Lid Insert",
+    usage: "NEW",
+    status: "DEVELOPING",
+    approval: "PENDING",
+    note: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.",
+    tint: "blue",
+    feedback: [
+      { author: "An Nguyễn (R&D)", content: "Đang thử 2 phương án khớp nắp, dự kiến xong bản vẽ trong tuần.", time: "4 ngày trước", initials: "AN", tint: "blue" },
+    ],
+  },
 ];
 
 export interface ActivityItem {
@@ -331,7 +458,8 @@ export const PROJECT_ACTIVITY: ActivityItem[] = [
   { actor: "Hà (Sales)", action: "đã gửi RND-00125 cho khách review", time: "10/08/2026", initials: "HA", tint: "amber" },
 ];
 
+// General discussion about the project as a whole — not about one
+// specific product (those threads live on each item in PROJECT_PRODUCTS).
 export const PROJECT_FEEDBACK: FeedbackItem[] = [
-  { author: "JYSK Buyer", content: "Cho mình xem thêm ảnh mẫu thật của basket size L với.", time: "2 ngày trước", initials: "JY", tint: "green" },
-  { author: "Hà (Sales)", content: "Đã gửi ảnh sample qua email, đang chờ khách xác nhận.", time: "Hôm qua", initials: "HA", tint: "amber" },
+  { author: "Hà (Sales)", content: "Khách xin dời deadline sang 20/09 vì bên họ đổi lịch nhập hàng.", time: "1 tuần trước", initials: "HA", tint: "amber" },
 ];

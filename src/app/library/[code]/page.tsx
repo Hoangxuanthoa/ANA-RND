@@ -11,6 +11,7 @@ import {
   PRODUCT_VERSIONS,
   PRODUCT_USED_IN,
   PRODUCT_FEEDBACK,
+  ROLE_INITIALS,
 } from "@/lib/mock-data";
 import {
   productStatusBadge,
@@ -236,7 +237,7 @@ export default function ProductDetailPage() {
             ))}
             <div className="flex items-start gap-2.5 pt-1.5">
               <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
-                AN
+                {ROLE_INITIALS[role]}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea
