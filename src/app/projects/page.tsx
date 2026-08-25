@@ -4,9 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
-import { PROJECTS, type ProjectStatus } from "@/lib/mock-data";
+import { useProjects } from "@/components/ProjectsProvider";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EditProjectModal } from "@/components/EditProjectModal";
+import { CURRENT_USER_NAME, type Project, type ProjectStatus } from "@/lib/mock-data";
 import { projectStatusBadge } from "@/lib/badges";
-import { canCreateProject } from "@/lib/permissions";
+import { canCreateProject, canEditProject, canHardDeleteProject } from "@/lib/permissions";
 
 const STATUS_OPTIONS: { key: ProjectStatus | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -35,17 +38,21 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 export default function ProjectsPage() {
   const { role } = useRole();
+  const { projects, closeProject, deleteProject, updateProject } = useProjects();
+  const userName = CURRENT_USER_NAME[role];
   const isCustomer = role === "CUSTOMER";
   const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
+  const [removeTarget, setRemoveTarget] = useState<Project | null>(null);
+  const [editTarget, setEditTarget] = useState<Project | null>(null);
 
   const filtered = useMemo(() => {
-    const base = isCustomer ? PROJECTS.filter((p) => p.isMine) : PROJECTS;
+    const base = isCustomer ? projects.filter((p) => p.isMine) : projects;
     return status === "ALL" ? base : base.filter((p) => p.status === status);
-  }, [status, isCustomer]);
+  }, [projects, status, isCustomer]);
 
   const gridCols = isCustomer
     ? "grid-cols-[2fr_1.2fr_1fr_1fr_0.6fr]"
-    : "grid-cols-[2fr_1.2fr_1fr_1fr_1fr_1fr_0.6fr]";
+    : "grid-cols-[1.8fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr_0.5fr_auto]";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -89,19 +96,18 @@ export default function ProjectsPage() {
             <span>Status</span>
             <span>Deadline</span>
             <span className="text-right">Products</span>
+            {!isCustomer && <span />}
           </div>
           {filtered.map((p) => {
             const badge = projectStatusBadge(p.status);
+            const editable = canEditProject(role, userName, p);
+            const hardDelete = canHardDeleteProject(p);
             return (
-              <Link
-                key={p.code}
-                href={`/projects/${p.code}`}
-                className={`grid ${gridCols} items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg`}
-              >
-                <div>
+              <div key={p.code} className={`grid ${gridCols} items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg`}>
+                <Link href={`/projects/${p.code}`}>
                   <div className="text-[13.5px] font-bold">{p.name}</div>
                   <div className="mt-0.5 text-[11.5px] font-semibold text-text-faint">{p.code}</div>
-                </div>
+                </Link>
                 <span className="text-[13px] text-text-muted">{p.customer}</span>
                 {!isCustomer && (
                   <>
@@ -112,7 +118,44 @@ export default function ProjectsPage() {
                 <span className={badge.className}>{badge.label}</span>
                 <span className="text-[13px] text-text-muted">{p.deadline}</span>
                 <span className="text-right text-[13px] font-bold">{p.productCount}</span>
-              </Link>
+                {!isCustomer && (
+                  <span className="flex justify-end gap-1.5">
+                    {editable && (
+                      <>
+                        <button
+                          onClick={() => setEditTarget(p)}
+                          title="Sửa"
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                          </svg>
+                        </button>
+                        {p.status !== "CLOSED" && (
+                          <button
+                            onClick={() => setRemoveTarget(p)}
+                            title={hardDelete ? "Xóa" : "Đóng"}
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
+                          >
+                            {hardDelete ? (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
+                              </svg>
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M9 12l2 2 4-4" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
             );
           })}
         </div>
@@ -121,6 +164,39 @@ export default function ProjectsPage() {
           <div className="py-16 text-center text-sm text-text-faint">Không có dự án ở trạng thái này.</div>
         )}
       </div>
+
+      {removeTarget && (
+        <ConfirmDialog
+          open
+          danger={canHardDeleteProject(removeTarget)}
+          title={canHardDeleteProject(removeTarget) ? "Xóa dự án?" : "Đóng dự án?"}
+          description={
+            canHardDeleteProject(removeTarget)
+              ? `"${removeTarget.name}" chưa có sản phẩm nào — xóa sẽ mất hoàn toàn, không khôi phục được.`
+              : `"${removeTarget.name}" đã có hoạt động — sẽ chuyển sang trạng thái Closed và giữ nguyên lịch sử, không xóa dữ liệu.`
+          }
+          confirmLabel={canHardDeleteProject(removeTarget) ? "Xóa" : "Đóng dự án"}
+          onCancel={() => setRemoveTarget(null)}
+          onConfirm={() => {
+            if (canHardDeleteProject(removeTarget)) deleteProject(removeTarget.code);
+            else closeProject(removeTarget.code);
+            setRemoveTarget(null);
+          }}
+        />
+      )}
+
+      {editTarget && (
+        <EditProjectModal
+          key={editTarget.code}
+          open
+          project={editTarget}
+          onCancel={() => setEditTarget(null)}
+          onSave={(patch) => {
+            updateProject(editTarget.code, patch);
+            setEditTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }

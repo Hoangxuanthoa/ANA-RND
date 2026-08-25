@@ -14,6 +14,17 @@ export const ROLE_INITIALS: Record<Role, string> = {
   CUSTOMER: "JY",
 };
 
+// Plain name of "the person currently previewing this role" — matches the
+// `sales` / `rndOwner` / `customer` strings in the mock data below, so
+// ownership checks (canEditProject, isAssignedRndOwner, ...) have someone
+// concrete to compare against.
+export const CURRENT_USER_NAME: Record<Role, string> = {
+  ADMIN: "Minh",
+  RND: "An",
+  SALES: "Hà",
+  CUSTOMER: "JYSK",
+};
+
 export type ProductStatus =
   | "DRAFT"
   | "DEVELOPING"

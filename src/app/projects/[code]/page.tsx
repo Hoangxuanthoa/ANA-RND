@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, notFound } from "next/navigation";
+import { useParams, useRouter, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
+import { useProjects } from "@/components/ProjectsProvider";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EditProjectModal } from "@/components/EditProjectModal";
 import {
-  PROJECTS,
+  CURRENT_USER_NAME,
   PROJECT_PRODUCTS,
   PROJECT_FEEDBACK,
   PROJECT_ACTIVITY,
@@ -19,7 +22,12 @@ import {
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
-import { canPickProduct, isCustomer as isCustomerRole } from "@/lib/permissions";
+import {
+  canPickProduct,
+  isCustomer as isCustomerRole,
+  canEditProject,
+  canHardDeleteProject,
+} from "@/lib/permissions";
 
 const TABS = [
   { key: "products", label: `Product Development (${PROJECT_PRODUCTS.length})` },
@@ -29,14 +37,22 @@ const TABS = [
 
 export default function ProjectDetailPage() {
   const params = useParams<{ code: string }>();
-  const project = PROJECTS.find((p) => p.code === params.code);
+  const router = useRouter();
   const { role } = useRole();
+  const { projects, closeProject, deleteProject, updateProject } = useProjects();
+  const userName = CURRENT_USER_NAME[role];
+  const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   if (!project) return notFound();
 
   const status = projectStatusBadge(project.status);
   const customer = isCustomerRole(role);
+  const editable = canEditProject(role, userName, project);
+  const hardDelete = canHardDeleteProject(project);
+  const isClosed = project.status === "CLOSED";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -60,18 +76,38 @@ export default function ProjectDetailPage() {
               {project.brief}
             </p>
           </div>
-          <div className="flex flex-shrink-0 gap-7">
-            {[
-              ["Customer", project.customer],
-              ["Sales", project.sales],
-              ["R&D Owner", project.rndOwner],
-              ["Deadline", project.deadline],
-            ].map(([label, value]) => (
-              <div key={label} className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-bold text-text-faint">{label}</span>
-                <span className="text-[13px] font-bold">{value}</span>
+          <div className="flex flex-shrink-0 flex-col items-end gap-4">
+            <div className="flex gap-7">
+              {[
+                ["Customer", project.customer],
+                ["Sales", project.sales],
+                ["R&D Owner", project.rndOwner],
+                ["Deadline", project.deadline],
+              ].map(([label, value]) => (
+                <div key={label} className="flex flex-col gap-0.5">
+                  <span className="text-[11px] font-bold text-text-faint">{label}</span>
+                  <span className="text-[13px] font-bold">{value}</span>
+                </div>
+              ))}
+            </div>
+            {editable && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditOpen(true)}
+                  className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
+                >
+                  Sửa
+                </button>
+                {!isClosed && (
+                  <button
+                    onClick={() => setConfirmOpen(true)}
+                    className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-red hover:bg-red-soft"
+                  >
+                    {hardDelete ? "Xóa" : "Đóng dự án"}
+                  </button>
+                )}
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -91,7 +127,12 @@ export default function ProjectDetailPage() {
 
         {tab === "products" && (
           <div className="flex flex-col gap-3.5">
-            {canPickProduct(role) && (
+            {isClosed && (
+              <div className="rounded-lg border border-line bg-bg px-4 py-2.5 text-[12.5px] font-semibold text-text-faint">
+                Dự án đã đóng — chỉ xem, không thao tác được nữa.
+              </div>
+            )}
+            {canPickProduct(role) && !isClosed && (
               <div className="flex justify-end">
                 <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
@@ -107,9 +148,9 @@ export default function ProjectDetailPage() {
               const s = projectProductStatusBadge(i.status);
               const approval = customerApprovalBadge(i.approval);
               const showCustomerActions =
-                customer && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
+                !isClosed && customer && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
               const showWatchOnly =
-                !customer && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
+                !isClosed && !customer && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
 
               return (
                 <div key={i.code} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
@@ -212,6 +253,39 @@ export default function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        danger={hardDelete}
+        title={hardDelete ? "Xóa dự án?" : "Đóng dự án?"}
+        description={
+          hardDelete
+            ? `"${project.name}" chưa có sản phẩm nào — xóa sẽ mất hoàn toàn, không khôi phục được.`
+            : `"${project.name}" đã có hoạt động — sẽ chuyển sang trạng thái Closed và giữ nguyên lịch sử, không xóa dữ liệu.`
+        }
+        confirmLabel={hardDelete ? "Xóa" : "Đóng dự án"}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          if (hardDelete) {
+            deleteProject(project.code);
+            router.push("/projects");
+          } else {
+            closeProject(project.code);
+          }
+          setConfirmOpen(false);
+        }}
+      />
+
+      <EditProjectModal
+        key={project.code}
+        open={editOpen}
+        project={project}
+        onCancel={() => setEditOpen(false)}
+        onSave={(patch) => {
+          updateProject(project.code, patch);
+          setEditOpen(false);
+        }}
+      />
     </div>
   );
 }
