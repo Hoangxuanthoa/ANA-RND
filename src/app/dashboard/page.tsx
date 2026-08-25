@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
-import { PRODUCTS, DASHBOARD_ACTIVITY, ROLE_LABEL } from "@/lib/mock-data";
+import { useProducts } from "@/components/ProductsProvider";
+import { DASHBOARD_ACTIVITY, ROLE_LABEL } from "@/lib/mock-data";
 import { productStatusBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary } from "@/lib/permissions";
 
@@ -13,22 +14,35 @@ function StatCard({
   label,
   bg,
   fg,
+  href,
 }: {
   icon: React.ReactNode;
   value: string;
   label: string;
   bg: string;
   fg: string;
+  href?: string;
 }) {
-  return (
-    <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-5">
+  const content = (
+    <>
       <div className={`flex h-[34px] w-[34px] items-center justify-center rounded-lg ${bg} ${fg}`}>
         {icon}
       </div>
       <div className="text-[26px] font-extrabold leading-none">{value}</div>
       <div className="text-[13px] font-semibold text-text-muted">{label}</div>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-5 transition hover:shadow-md"
+      >
+        {content}
+      </Link>
+    );
+  }
+  return <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-5">{content}</div>;
 }
 
 const IconBox = (
@@ -57,8 +71,11 @@ const IconBell = (
 
 export default function DashboardPage() {
   const { role } = useRole();
+  const { products } = useProducts();
   const isCustomer = role === "CUSTOMER";
-  const recentProducts = PRODUCTS.slice(0, 3);
+  const isAdmin = role === "ADMIN";
+  const recentProducts = products.slice(0, 3);
+  const pendingReviewCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -85,7 +102,14 @@ export default function DashboardPage() {
               <StatCard icon={IconBox} value="326" label="Products" bg="bg-accent-soft" fg="text-accent-soft-text" />
               <StatCard icon={IconFolder} value="12" label="Active Projects" bg="bg-blue-soft" fg="text-blue" />
               <StatCard icon={IconPlus} value="8" label="Recently Added" bg="bg-green-soft" fg="text-green" />
-              <StatCard icon={IconBell} value="5" label="Need Action" bg="bg-amber-soft" fg="text-amber" />
+              <StatCard
+                icon={IconBell}
+                value={isAdmin ? String(pendingReviewCount) : "5"}
+                label={isAdmin ? "Chờ duyệt sản phẩm" : "Need Action"}
+                bg="bg-amber-soft"
+                fg="text-amber"
+                href={isAdmin ? "/review" : undefined}
+              />
             </>
           )}
         </div>

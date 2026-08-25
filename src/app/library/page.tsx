@@ -5,13 +5,8 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { ProductQuickView } from "@/components/ProductQuickView";
 import { useRole } from "@/components/RoleProvider";
-import {
-  PRODUCTS,
-  CATEGORIES,
-  MATERIALS,
-  type Product,
-  type ReusePermission,
-} from "@/lib/mock-data";
+import { useProducts } from "@/components/ProductsProvider";
+import { CATEGORIES, MATERIALS, type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary } from "@/lib/permissions";
 
@@ -54,6 +49,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 
 export default function LibraryPage() {
   const { role } = useRole();
+  const { products } = useProducts();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("ALL");
   const [material, setMaterial] = useState<string>("ALL");
@@ -62,14 +58,14 @@ export default function LibraryPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       if (category !== "ALL" && p.category !== category) return false;
       if (material !== "ALL" && p.material !== material) return false;
       if (reuse !== "ALL" && p.reuse !== reuse) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [query, category, material, reuse]);
+  }, [products, query, category, material, reuse]);
 
   if (!canViewLibrary(role)) {
     return (

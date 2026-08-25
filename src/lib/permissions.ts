@@ -6,6 +6,7 @@ export const canManageProduct = (role: Role) => role === "RND" || role === "ADMI
 export const canCreateProject = (role: Role) => role !== "CUSTOMER";
 export const canPickProduct = (role: Role) => role !== "CUSTOMER";
 export const isCustomer = (role: Role) => role === "CUSTOMER";
+export const canReviewProducts = (role: Role) => role === "ADMIN";
 
 // Ownership: Admin can touch any project; a Sales rep can only edit/close/
 // delete the projects where they are the assigned `sales` — not a colleague's.

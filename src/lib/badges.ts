@@ -15,7 +15,7 @@ export function productStatusBadge(status: ProductStatus) {
   const map: Record<ProductStatus, { cls: string; label: string }> = {
     DRAFT: { cls: "bg-slate-soft text-slate-text", label: "Draft" },
     DEVELOPING: { cls: "bg-blue-soft text-blue", label: "Developing" },
-    APPROVED: { cls: "bg-green-soft text-green", label: "Approved" },
+    PENDING_REVIEW: { cls: "bg-amber-soft text-amber", label: "Pending Review" },
     RELEASED: { cls: "bg-accent-soft text-accent-soft-text", label: "Released" },
     ARCHIVED: { cls: "bg-slate-soft text-slate-text", label: "Archived" },
   };

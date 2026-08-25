@@ -28,7 +28,9 @@ export const CURRENT_USER_NAME: Record<Role, string> = {
 export type ProductStatus =
   | "DRAFT"
   | "DEVELOPING"
-  | "APPROVED"
+  // Submitted for Admin review — either uploaded straight to the library,
+  // or released from a closed project. Reject sends it back to DRAFT.
+  | "PENDING_REVIEW"
   | "RELEASED"
   | "ARCHIVED";
 export type ReusePermission = "REUSABLE" | "REFERENCE_ONLY" | "EXCLUSIVE";
@@ -63,6 +65,11 @@ export interface Product {
   reused: number;
   approved: number;
   tint: "accent" | "blue" | "green" | "slate";
+  // Set when this product was submitted via "Release to Library" from a
+  // closed project, rather than uploaded straight to the library.
+  sourceProjectName?: string;
+  submittedAt?: string;
+  lastRejectionReason?: string;
 }
 
 export const PRODUCTS: Product[] = [
@@ -105,12 +112,13 @@ export const PRODUCTS: Product[] = [
     designer: "Lan Phạm",
     originCustomer: "Habitat",
     description: "Bộ chậu cây tre lồng nhau 3 size, có lót nhựa chống ẩm.",
-    status: "APPROVED",
+    status: "PENDING_REVIEW",
     reuse: "REUSABLE",
     presented: 4,
     reused: 2,
     approved: 2,
-    tint: "green",
+    tint: "blue",
+    submittedAt: "hôm nay",
   },
   {
     code: "RND-00071",
@@ -195,12 +203,12 @@ export const PRODUCTS: Product[] = [
     designer: "Lan Phạm",
     originCustomer: "Habitat",
     description: "Ống đựng dụng cụ bếp đan bèo tây, đáy chống thấm.",
-    status: "APPROVED",
+    status: "RELEASED",
     reuse: "REUSABLE",
     presented: 3,
     reused: 1,
     approved: 2,
-    tint: "green",
+    tint: "accent",
   },
   {
     code: "RND-00410",
@@ -255,12 +263,12 @@ export const PRODUCTS: Product[] = [
     designer: "Lan Phạm",
     originCustomer: "SCG",
     description: "Ghế đôn đan bèo tây, khung gỗ, đệm mút bọc vải.",
-    status: "APPROVED",
+    status: "RELEASED",
     reuse: "REUSABLE",
     presented: 2,
     reused: 1,
     approved: 1,
-    tint: "green",
+    tint: "accent",
   },
   {
     code: "RND-00430",
@@ -291,6 +299,23 @@ export const PRODUCTS: Product[] = [
     reused: 3,
     approved: 2,
     tint: "accent",
+  },
+  {
+    code: "RND-00341",
+    name: "Storage Lid Insert",
+    category: "Storage",
+    material: "Rattan",
+    designer: "An Nguyễn",
+    originCustomer: "JYSK",
+    description: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.",
+    status: "PENDING_REVIEW",
+    reuse: "EXCLUSIVE",
+    presented: 1,
+    reused: 0,
+    approved: 0,
+    tint: "blue",
+    sourceProjectName: "JYSK Storage 2025",
+    submittedAt: "hôm qua",
   },
 ];
 
@@ -463,3 +488,21 @@ export const PROJECT_ACTIVITY: ActivityItem[] = [
 export const PROJECT_FEEDBACK: FeedbackItem[] = [
   { author: "Hà (Sales)", content: "Khách xin dời deadline sang 20/09 vì bên họ đổi lịch nhập hàng.", time: "1 tuần trước", initials: "HA", tint: "amber" },
 ];
+
+// NOTIFICATIONS — a personal inbox (who gets pinged), separate from the
+// shared Activity log (what happened). `recipientName` matches a
+// `designer` string above, e.g. "An Nguyễn".startsWith("An").
+export type NotificationType = "PRODUCT_REJECTED";
+
+export interface NotificationItem {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  link: string;
+  recipientName: string;
+  isRead: boolean;
+  time: string;
+}
+
+export const INITIAL_NOTIFICATIONS: NotificationItem[] = [];

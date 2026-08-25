@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
+import { useProducts } from "@/components/ProductsProvider";
 import {
-  PRODUCTS,
   PRODUCT_ASSETS,
   PRODUCT_VERSIONS,
   PRODUCT_USED_IN,
@@ -31,7 +31,8 @@ const TABS = [
 
 export default function ProductDetailPage() {
   const params = useParams<{ code: string }>();
-  const product = PRODUCTS.find((p) => p.code === params.code);
+  const { products } = useProducts();
+  const product = products.find((p) => p.code === params.code);
   const { role } = useRole();
   const [assetIndex, setAssetIndex] = useState(0);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("versions");
@@ -111,6 +112,13 @@ export default function ProductDetailPage() {
             </div>
 
             <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
+
+            {product.status === "DRAFT" && product.lastRejectionReason && (
+              <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-3">
+                <div className="text-[12px] font-bold text-red">Bị từ chối bởi Admin</div>
+                <p className="mt-1 text-[12.5px] leading-relaxed text-text">{product.lastRejectionReason}</p>
+              </div>
+            )}
 
             <div className="flex gap-2.5">
               {[
