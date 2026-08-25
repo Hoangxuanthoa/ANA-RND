@@ -1,3 +1,8 @@
+// R&D Design Library — Database Schema V1
+// Source of truth: the V1 schema doc. Auth is handled by Supabase Auth
+// (auth.users) — `User.id` here is set to match the corresponding
+// auth.users.id, it is not independently generated.
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,54 +15,50 @@ datasource db {
 
 // USERS
 model User {
-  id        String     @id @default(cuid())
-  fullName  String
-  email     String     @unique
-  passwordHash String
-  role      Role       @default(RND) // RND, SALES, CUSTOMER, ADMIN
-  avatar    String?
-  customerId String?
-  customer  Customer?  @relation(fields: [customerId], references: [id])
-  isActive  Boolean    @default(true)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id         String   @id @db.Uuid
+  fullName   String
+  email      String   @unique
+  role       Role
+  avatar     String?
+  customerId String?  @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
 
   // Relations
-  designedProducts    Product[] @relation("Designer")
-  createdProjects     Project[] @relation("Sales")
-  ownedProjects       Project[] @relation("RNDOwner")
-  uploadedAssets      ProductAsset[]
-  uploadedVersions    ProductVersion[]
-  feedback            Feedback[]
-  activity            Activity[]
-  createdCollections  Collection[]
+  designedProducts     Product[]        @relation("Designer")
+  salesProjects        Project[]        @relation("Sales")
+  rndOwnerProjects      Project[]        @relation("RndOwner")
+  uploadedAssets       ProductAsset[]
+  uploadedVersions     ProductVersion[]
+  feedback             Feedback[]
+  activity             Activity[]
   addedProjectProducts ProjectProduct[]
 
   @@map("users")
 }
 
 enum Role {
+  ADMIN
   RND
   SALES
   CUSTOMER
-  ADMIN
 }
 
 // CUSTOMERS
 model Customer {
-  id            String     @id @default(cuid())
+  id            String   @id @default(uuid()) @db.Uuid
   customerCode  String?
   name          String
   country       String?
   contactName   String?
   contactEmail  String?
   note          String?
-  createdAt     DateTime   @default(now())
+  createdAt     DateTime @default(now())
 
   // Relations
-  users         User[]
-  projects      Project[]
-  collections   Collection[]
+  users          User[]
+  projects       Project[]
   originProducts Product[] @relation("OriginCustomer")
 
   @@map("customers")
@@ -65,73 +66,56 @@ model Customer {
 
 // CATEGORIES
 model Category {
-  id        String     @id @default(cuid())
-  name      String
-  parentId  String?
-  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children  Category[] @relation("CategoryHierarchy")
-  isActive  Boolean    @default(true)
-  products  Product[]
+  id       String     @id @default(uuid()) @db.Uuid
+  name     String
+  parentId String?    @db.Uuid
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  isActive Boolean    @default(true)
+
+  products Product[]
 
   @@map("categories")
 }
 
 // MATERIALS
 model Material {
-  id        String     @id @default(cuid())
-  name      String
-  isActive  Boolean    @default(true)
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String
+  isActive Boolean @default(true)
 
-  // Relations
-  products  ProductMaterial[]
+  products Product[]
 
   @@map("materials")
 }
 
 // PRODUCTS
 model Product {
-  id                 String     @id @default(cuid())
-  productCode        String     @unique
-  name               String
-  categoryId         String
-  category           Category   @relation(fields: [categoryId], references: [id])
-  style              String?
-  designerId         String
-  designer           User       @relation("Designer", fields: [designerId], references: [id])
-  originCustomerId   String?
-  originCustomer     Customer?  @relation("OriginCustomer", fields: [originCustomerId], references: [id])
-  description        String?
-
-  // Dimensions
-  length             Decimal?   @db.Decimal(10, 2)
-  width              Decimal?   @db.Decimal(10, 2)
-  height             Decimal?   @db.Decimal(10, 2)
-  unit               String     @default("cm") // cm, inch, m
-
-  // Order info
-  moq                Int?       // Minimum Order Quantity
-
-  // Packaging
-  packageLength      Decimal?   @db.Decimal(10, 2)
-  packageWidth       Decimal?   @db.Decimal(10, 2)
-  packageHeight      Decimal?   @db.Decimal(10, 2)
-  packageWeight      Decimal?   @db.Decimal(10, 2)
-
-  // Status
-  status             ProductStatus @default(DRAFT) // Draft, Developing, Approved, Released, Archived
-  reusePermission    ReusePermission @default(REUSABLE) // Reusable, Reference Only, Exclusive
-
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+  id                String          @id @default(uuid()) @db.Uuid
+  productCode       String          @unique
+  name              String
+  categoryId        String          @db.Uuid
+  category          Category        @relation(fields: [categoryId], references: [id])
+  materialId        String          @db.Uuid
+  material          Material        @relation(fields: [materialId], references: [id])
+  designerId        String          @db.Uuid
+  designer          User            @relation("Designer", fields: [designerId], references: [id])
+  originCustomerId  String?         @db.Uuid
+  originCustomer    Customer?       @relation("OriginCustomer", fields: [originCustomerId], references: [id])
+  description       String?
+  status            ProductStatus   @default(DRAFT)
+  reusePermission   ReusePermission @default(REUSABLE)
+  // Prep for connecting the existing product website later (see doc section 21).
+  sourceType        SourceType      @default(RND)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   // Relations
-  materials          ProductMaterial[]
-  assets             ProductAsset[]
-  versions           ProductVersion[]
-  projectProducts    ProjectProduct[]
-  collectionItems    CollectionItem[]
-  feedback           Feedback[]
-  activity           Activity[]
+  assets          ProductAsset[]
+  versions        ProductVersion[]
+  projectProducts ProjectProduct[]
+  feedback        Feedback[]
+  activity        Activity[]
 
   @@map("products")
 }
@@ -150,32 +134,23 @@ enum ReusePermission {
   EXCLUSIVE
 }
 
-// PRODUCT_MATERIALS (many-to-many)
-model ProductMaterial {
-  id          String     @id @default(cuid())
-  productId   String
-  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  materialId  String
-  material    Material   @relation(fields: [materialId], references: [id])
-  percentage  Int?       // Percentage of material
-  createdAt   DateTime   @default(now())
-
-  @@unique([productId, materialId])
-  @@map("product_materials")
+enum SourceType {
+  RND
+  EXTERNAL
 }
 
 // PRODUCT_ASSETS
 model ProductAsset {
-  id           String     @id @default(cuid())
-  productId    String
-  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id           String    @id @default(uuid()) @db.Uuid
+  productId    String    @db.Uuid
+  product      Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   assetType    AssetType
   fileName     String
   fileUrl      String
   thumbnailUrl String?
-  uploadedById String
-  uploadedBy   User       @relation(fields: [uploadedById], references: [id])
-  createdAt    DateTime   @default(now())
+  uploadedById String    @db.Uuid
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime  @default(now())
 
   @@map("product_assets")
 }
@@ -192,21 +167,18 @@ enum AssetType {
 }
 
 // PRODUCT_VERSIONS
+// Versions are append-only — never delete or overwrite a previous version.
 model ProductVersion {
-  id               String     @id @default(cuid())
-  productId        String
-  product          Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
-  versionNumber    String
-  note             String?
-  isCustomerReady  Boolean    @default(false)
-  uploadedById     String
-  uploadedBy       User       @relation(fields: [uploadedById], references: [id])
-  createdAt        DateTime   @default(now())
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @db.Uuid
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  versionNumber String
+  note          String?
+  uploadedById  String   @db.Uuid
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id])
+  createdAt     DateTime @default(now())
 
-  // Relations
-  feedback         Feedback[]
-  resolvedFeedback Feedback[] @relation("ResolvedInVersion")
-  collectionItems  CollectionItem[]
+  feedback Feedback[]
 
   @@unique([productId, versionNumber])
   @@map("product_versions")
@@ -214,24 +186,23 @@ model ProductVersion {
 
 // PROJECTS
 model Project {
-  id            String     @id @default(cuid())
-  projectCode   String     @unique
-  projectName   String
-  customerId    String
-  customer      Customer   @relation(fields: [customerId], references: [id])
-  salesId       String
-  sales         User       @relation("Sales", fields: [salesId], references: [id])
-  rndOwnerId    String?
-  rndOwner      User?      @relation("RNDOwner", fields: [rndOwnerId], references: [id])
-  brief         String?
-  deadline      DateTime?
-  status        ProjectStatus @default(DRAFT)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id          String        @id @default(uuid()) @db.Uuid
+  projectCode String        @unique
+  projectName String
+  customerId  String        @db.Uuid
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  salesId     String        @db.Uuid
+  sales       User          @relation("Sales", fields: [salesId], references: [id])
+  rndOwnerId  String?       @db.Uuid
+  rndOwner    User?         @relation("RndOwner", fields: [rndOwnerId], references: [id])
+  brief       String?
+  deadline    DateTime?     @db.Date
+  status      ProjectStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   // Relations
   projectProducts ProjectProduct[]
-  collections     Collection[]
   feedback        Feedback[]
   activity        Activity[]
 
@@ -247,21 +218,21 @@ enum ProjectStatus {
   CLOSED
 }
 
-// PROJECT_PRODUCTS
+// PROJECT_PRODUCTS — resolves the Product <-> Project many-to-many relation
+// and tracks reuse (usageType = REUSE increments the Reused stat).
 model ProjectProduct {
-  id                String     @id @default(cuid())
-  projectId         String
-  project           Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  productId         String
-  product           Product    @relation(fields: [productId], references: [id])
+  id                String               @id @default(uuid()) @db.Uuid
+  projectId         String               @db.Uuid
+  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId         String               @db.Uuid
+  product           Product              @relation(fields: [productId], references: [id])
   usageType         UsageType
   modificationNote  String?
-  customDimensions  String?
   status            ProjectProductStatus @default(DEVELOPING)
-  customerApproval  CustomerApproval @default(PENDING)
-  addedById         String
-  addedBy           User       @relation(fields: [addedById], references: [id])
-  createdAt         DateTime   @default(now())
+  customerApproval  CustomerApproval     @default(PENDING)
+  addedById         String               @db.Uuid
+  addedBy           User                 @relation(fields: [addedById], references: [id])
+  createdAt         DateTime             @default(now())
 
   @@unique([projectId, productId])
   @@map("project_products")
@@ -287,84 +258,35 @@ enum CustomerApproval {
   APPROVED
 }
 
-// COLLECTIONS
-model Collection {
-  id          String     @id @default(cuid())
-  name        String
-  projectId   String?
-  project     Project?   @relation(fields: [projectId], references: [id])
-  customerId  String?
-  customer    Customer?  @relation(fields: [customerId], references: [id])
-  createdById String
-  createdBy   User       @relation(fields: [createdById], references: [id])
-  status      CollectionStatus @default(DRAFT) // Draft, Sent, Approved
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  // Relations
-  items       CollectionItem[]
-
-  @@map("collections")
-}
-
-enum CollectionStatus {
-  DRAFT
-  SENT
-  APPROVED
-}
-
-// COLLECTION_ITEMS
-model CollectionItem {
-  id             String     @id @default(cuid())
-  collectionId   String
-  collection     Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  productId      String
-  product        Product    @relation(fields: [productId], references: [id])
-  versionId      String?
-  version        ProductVersion? @relation(fields: [versionId], references: [id])
-  note           String?
-  sortOrder      Int?
-  createdAt      DateTime   @default(now())
-
-  @@map("collection_items")
-}
-
 // FEEDBACK
+// Can be attached to a project, and optionally scoped to a product/version.
 model Feedback {
-  id                   String     @id @default(cuid())
-  projectId            String
-  project              Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  productId            String?
-  product              Product?   @relation(fields: [productId], references: [id])
-  versionId            String?
-  version              ProductVersion? @relation(fields: [versionId], references: [id])
-  userId               String
-  user                 User       @relation(fields: [userId], references: [id])
-  content              String
-  status               FeedbackStatus @default(OPEN)
-  resolvedInVersionId  String?
-  resolvedInVersion    ProductVersion? @relation(name: "ResolvedInVersion", fields: [resolvedInVersionId], references: [id])
-  createdAt            DateTime   @default(now())
+  id        String          @id @default(uuid()) @db.Uuid
+  projectId String          @db.Uuid
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId String?         @db.Uuid
+  product   Product?        @relation(fields: [productId], references: [id])
+  versionId String?         @db.Uuid
+  version   ProductVersion? @relation(fields: [versionId], references: [id])
+  userId    String          @db.Uuid
+  user      User            @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime        @default(now())
 
   @@map("feedback")
 }
 
-enum FeedbackStatus {
-  OPEN
-  RESOLVED
-}
-
-// ACTIVITY
+// ACTIVITY — feeds the dashboard's "Recent Activity" list.
 model Activity {
-  id          String     @id @default(cuid())
-  userId      String
-  user        User       @relation(fields: [userId], references: [id])
-  projectId   String?
-  project     Project?   @relation(fields: [projectId], references: [id])
-  productId   String?
-  product     Product?   @relation(fields: [productId], references: [id])
-  action      String
-  createdAt   DateTime   @default(now())
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+  projectId String?  @db.Uuid
+  project   Project? @relation(fields: [projectId], references: [id])
+  productId String?  @db.Uuid
+  product   Product? @relation(fields: [productId], references: [id])
+  action    String
+  createdAt DateTime @default(now())
 
   @@map("activity")
 }
