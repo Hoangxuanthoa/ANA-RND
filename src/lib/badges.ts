@@ -26,7 +26,6 @@ export function productStatusBadge(status: ProductStatus) {
 export function reusePermissionBadge(reuse: ReusePermission) {
   const map: Record<ReusePermission, { cls: string; label: string }> = {
     REUSABLE: { cls: "bg-green-soft text-green", label: "Reusable" },
-    REFERENCE_ONLY: { cls: "bg-slate-soft text-slate-text", label: "Reference Only" },
     EXCLUSIVE: { cls: "bg-violet-soft text-violet", label: "Exclusive" },
   };
   const m = map[reuse];
@@ -35,14 +34,22 @@ export function reusePermissionBadge(reuse: ReusePermission) {
 
 export function projectStatusBadge(status: ProjectStatus) {
   const map: Record<ProjectStatus, { cls: string; label: string }> = {
-    DRAFT: { cls: "bg-slate-soft text-slate-text", label: "Draft" },
+    CREATED: { cls: "bg-slate-soft text-slate-text", label: "Created" },
     DEVELOPING: { cls: "bg-blue-soft text-blue", label: "Developing" },
-    CUSTOMER_REVIEW: { cls: "bg-amber-soft text-amber", label: "Customer Review" },
-    APPROVED: { cls: "bg-green-soft text-green", label: "Approved" },
     COMPLETED: { cls: "bg-teal-soft text-teal", label: "Completed" },
     CLOSED: { cls: "bg-slate-soft text-slate-text", label: "Closed" },
   };
   const m = map[status];
+  return { className: `${BADGE_BASE} ${m.cls}`, label: m.label };
+}
+
+export function projectTypeBadge(type: "CUSTOMER" | "INTERNAL" | "MARKETING") {
+  const map: Record<string, { cls: string; label: string }> = {
+    CUSTOMER: { cls: "bg-blue-soft text-blue", label: "Customer" },
+    INTERNAL: { cls: "bg-slate-soft text-slate-text", label: "Nội bộ" },
+    MARKETING: { cls: "bg-violet-soft text-violet", label: "Marketing" },
+  };
+  const m = map[type];
   return { className: `${BADGE_BASE} ${m.cls}`, label: m.label };
 }
 
@@ -93,5 +100,6 @@ export const TINT_AVATAR_BG: Record<Role, string> = {
   ADMIN: "bg-violet",
   RND: "bg-blue",
   SALES: "bg-amber",
+  MARKETING: "bg-teal",
   CUSTOMER: "bg-green",
 };

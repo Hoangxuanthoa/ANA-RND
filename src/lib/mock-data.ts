@@ -1,9 +1,10 @@
-export type Role = "ADMIN" | "RND" | "SALES" | "CUSTOMER";
+export type Role = "ADMIN" | "RND" | "SALES" | "MARKETING" | "CUSTOMER";
 
 export const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Admin",
   RND: "R&D",
   SALES: "Sales",
+  MARKETING: "Marketing",
   CUSTOMER: "Customer",
 };
 
@@ -11,17 +12,19 @@ export const ROLE_INITIALS: Record<Role, string> = {
   ADMIN: "MI",
   RND: "AN",
   SALES: "HA",
+  MARKETING: "LI",
   CUSTOMER: "JY",
 };
 
 // Plain name of "the person currently previewing this role" — matches the
-// `sales` / `rndOwner` / `customer` strings in the mock data below, so
+// `sales` / `rndOwner` / `createdByName` strings in the mock data below, so
 // ownership checks (canEditProject, isAssignedRndOwner, ...) have someone
 // concrete to compare against.
 export const CURRENT_USER_NAME: Record<Role, string> = {
   ADMIN: "Minh",
   RND: "An",
   SALES: "Hà",
+  MARKETING: "Linh",
   CUSTOMER: "JYSK",
 };
 
@@ -33,14 +36,12 @@ export type ProductStatus =
   | "PENDING_REVIEW"
   | "RELEASED"
   | "ARCHIVED";
-export type ReusePermission = "REUSABLE" | "REFERENCE_ONLY" | "EXCLUSIVE";
-export type ProjectStatus =
-  | "DRAFT"
-  | "DEVELOPING"
-  | "CUSTOMER_REVIEW"
-  | "APPROVED"
-  | "COMPLETED"
-  | "CLOSED";
+export type ReusePermission = "REUSABLE" | "EXCLUSIVE";
+export type ProjectType = "CUSTOMER" | "INTERNAL" | "MARKETING";
+// Simplified on purpose: per-product customer approval already lives on
+// ProjectProduct (usage/status/approval below) — the project itself only
+// needs to say whether work has started, not duplicate that per stage.
+export type ProjectStatus = "CREATED" | "DEVELOPING" | "COMPLETED" | "CLOSED";
 export type UsageType = "NEW" | "REUSE";
 export type ProjectProductStatus =
   | "DEVELOPING"
@@ -61,9 +62,7 @@ export interface Product {
   description: string;
   status: ProductStatus;
   reuse: ReusePermission;
-  presented: number;
-  reused: number;
-  approved: number;
+  favorites: number;
   tint: "accent" | "blue" | "green" | "slate";
   // Set when this product was submitted via "Release to Library" from a
   // closed project, rather than uploaded straight to the library.
@@ -84,9 +83,7 @@ export const PRODUCTS: Product[] = [
       "Giỏ đựng đồ đan tay từ mây, khung tre gia cố đáy. Thiết kế module — xếp chồng được, 3 kích cỡ.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 5,
-    reused: 3,
-    approved: 3,
+    favorites: 12,
     tint: "accent",
   },
   {
@@ -98,10 +95,8 @@ export const PRODUCTS: Product[] = [
     originCustomer: "—",
     description: "Đèn thả đan bèo tây, khung dây thép sơn tĩnh điện.",
     status: "DEVELOPING",
-    reuse: "REFERENCE_ONLY",
-    presented: 1,
-    reused: 0,
-    approved: 0,
+    reuse: "REUSABLE",
+    favorites: 2,
     tint: "blue",
   },
   {
@@ -114,9 +109,7 @@ export const PRODUCTS: Product[] = [
     description: "Bộ chậu cây tre lồng nhau 3 size, có lót nhựa chống ẩm.",
     status: "PENDING_REVIEW",
     reuse: "REUSABLE",
-    presented: 4,
-    reused: 2,
-    approved: 2,
+    favorites: 6,
     tint: "blue",
     submittedAt: "hôm nay",
   },
@@ -130,9 +123,7 @@ export const PRODUCTS: Product[] = [
     description: "Khay để đồ phòng tắm đan cói, tay cầm gỗ.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 8,
-    reused: 5,
-    approved: 4,
+    favorites: 15,
     tint: "accent",
   },
   {
@@ -145,9 +136,7 @@ export const PRODUCTS: Product[] = [
     description: "Khung gương treo tường đan mây hình mặt trời.",
     status: "DRAFT",
     reuse: "EXCLUSIVE",
-    presented: 0,
-    reused: 0,
-    approved: 0,
+    favorites: 0,
     tint: "slate",
   },
   {
@@ -160,9 +149,7 @@ export const PRODUCTS: Product[] = [
     description: "Kệ hộp vuông xếp tầng, khung tre ghép mộng.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 6,
-    reused: 4,
-    approved: 3,
+    favorites: 9,
     tint: "accent",
   },
   {
@@ -174,10 +161,8 @@ export const PRODUCTS: Product[] = [
     originCustomer: "—",
     description: "Khăn trải bàn đan đay, viền tua rua thủ công.",
     status: "ARCHIVED",
-    reuse: "REFERENCE_ONLY",
-    presented: 2,
-    reused: 0,
-    approved: 1,
+    reuse: "REUSABLE",
+    favorites: 1,
     tint: "slate",
   },
   {
@@ -190,9 +175,7 @@ export const PRODUCTS: Product[] = [
     description: "Đèn sàn chao hình nón đan mây, chân gỗ cao su.",
     status: "DEVELOPING",
     reuse: "EXCLUSIVE",
-    presented: 1,
-    reused: 0,
-    approved: 0,
+    favorites: 3,
     tint: "blue",
   },
   {
@@ -205,9 +188,7 @@ export const PRODUCTS: Product[] = [
     description: "Ống đựng dụng cụ bếp đan bèo tây, đáy chống thấm.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 3,
-    reused: 1,
-    approved: 2,
+    favorites: 4,
     tint: "accent",
   },
   {
@@ -220,9 +201,7 @@ export const PRODUCTS: Product[] = [
     description: "Vách ngăn phòng đan mây 3 tấm gấp, khung gỗ cao su.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 4,
-    reused: 2,
-    approved: 2,
+    favorites: 7,
     tint: "accent",
   },
   {
@@ -234,10 +213,8 @@ export const PRODUCTS: Product[] = [
     originCustomer: "—",
     description: "Giá treo áo tre đứng, 3 tầng, đế chống lật.",
     status: "DEVELOPING",
-    reuse: "REFERENCE_ONLY",
-    presented: 0,
-    reused: 0,
-    approved: 0,
+    reuse: "REUSABLE",
+    favorites: 0,
     tint: "blue",
   },
   {
@@ -250,9 +227,7 @@ export const PRODUCTS: Product[] = [
     description: "Bộ lót bàn ăn đan cói, set 6 cái, viền chỉ may tay.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 7,
-    reused: 4,
-    approved: 3,
+    favorites: 11,
     tint: "accent",
   },
   {
@@ -265,9 +240,7 @@ export const PRODUCTS: Product[] = [
     description: "Ghế đôn đan bèo tây, khung gỗ, đệm mút bọc vải.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 2,
-    reused: 1,
-    approved: 1,
+    favorites: 3,
     tint: "accent",
   },
   {
@@ -280,9 +253,7 @@ export const PRODUCTS: Product[] = [
     description: "Tranh treo tường đan đay macramé, khung gỗ tròn.",
     status: "DRAFT",
     reuse: "EXCLUSIVE",
-    presented: 0,
-    reused: 0,
-    approved: 0,
+    favorites: 0,
     tint: "slate",
   },
   {
@@ -295,12 +266,13 @@ export const PRODUCTS: Product[] = [
     description: "Cụm đèn thả 3 bóng đan mây, dây treo điều chỉnh độ cao.",
     status: "RELEASED",
     reuse: "REUSABLE",
-    presented: 5,
-    reused: 3,
-    approved: 2,
+    favorites: 8,
     tint: "accent",
   },
   {
+    // Still being designed inside an active (not-yet-closed) project —
+    // Sales already flagged it Exclusive for JYSK. Not submitted for
+    // review yet: that only happens once the project closes.
     code: "RND-00341",
     name: "Storage Lid Insert",
     category: "Storage",
@@ -308,24 +280,31 @@ export const PRODUCTS: Product[] = [
     designer: "An Nguyễn",
     originCustomer: "JYSK",
     description: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.",
-    status: "PENDING_REVIEW",
+    status: "DRAFT",
     reuse: "EXCLUSIVE",
-    presented: 1,
-    reused: 0,
-    approved: 0,
+    favorites: 0,
     tint: "blue",
-    sourceProjectName: "JYSK Storage 2025",
-    submittedAt: "hôm qua",
+  },
+  {
+    // Released from a project that has actually closed (ADE Decor
+    // Refresh) — the valid case for sourceProjectName + PENDING_REVIEW.
+    code: "RND-00440",
+    name: "Decor Wall Sconce",
+    category: "Decor",
+    material: "Rattan",
+    designer: "Lan Phạm",
+    originCustomer: "ADE",
+    description: "Đèn tường trang trí đan mây, có thể gắn theo cụm.",
+    status: "PENDING_REVIEW",
+    reuse: "REUSABLE",
+    favorites: 0,
+    tint: "blue",
+    sourceProjectName: "ADE Decor Refresh",
+    submittedAt: "3 ngày trước",
   },
 ];
 
-export const CATEGORIES = [
-  "Storage",
-  "Lighting",
-  "Decor",
-  "Kitchen & Bath",
-  "Planter",
-];
+export const CATEGORIES = ["Storage", "Lighting", "Decor", "Kitchen & Bath", "Planter"];
 export const MATERIALS = ["Rattan", "Bamboo", "Water Hyacinth", "Seagrass", "Jute"];
 
 export interface AssetItem {
@@ -356,19 +335,6 @@ export const PRODUCT_VERSIONS: VersionItem[] = [
   { number: "V01", note: "Bản thiết kế gốc", by: "An Nguyễn", date: "30/03/2026" },
 ];
 
-export interface UsedInProject {
-  name: string;
-  customer: string;
-  usage: UsageType;
-  status: ProjectProductStatus;
-}
-
-export const PRODUCT_USED_IN: UsedInProject[] = [
-  { name: "JYSK Storage 2025", customer: "JYSK", usage: "REUSE", status: "APPROVED" },
-  { name: "ADE Storage 2026", customer: "ADE", usage: "REUSE", status: "CUSTOMER_REVIEW" },
-  { name: "SCG Basket 2026", customer: "SCG", usage: "NEW", status: "DEVELOPING" },
-];
-
 export interface FeedbackItem {
   author: string;
   content: string;
@@ -377,86 +343,225 @@ export interface FeedbackItem {
   tint: "accent" | "blue" | "green" | "amber";
 }
 
-export const PRODUCT_FEEDBACK: FeedbackItem[] = [
-  { author: "JYSK Buyer", content: "Kích thước hiện tại hơi lớn so với kệ trưng bày, có thể thu nhỏ 10% không?", time: "3 ngày trước", initials: "JY", tint: "green" },
-  { author: "An Nguyễn (R&D)", content: "Đã cập nhật ở V03 — thu nhỏ 10%, giữ nguyên kiểu đan.", time: "2 ngày trước", initials: "AN", tint: "blue" },
-  { author: "Hà (Sales)", content: "Khách đã xem V03, đang chờ phản hồi chính thức.", time: "Hôm qua", initials: "HA", tint: "amber" },
-];
-
 export interface Project {
   code: string;
   name: string;
-  customer: string;
-  sales: string;
-  rndOwner: string;
+  type: ProjectType;
+  customer?: string;
+  sales?: string;
+  rndOwner?: string;
+  // Who actually created it — the basis for edit/delete ownership, since
+  // not every project has a Sales rep (internal/marketing ones may not).
+  createdByName: string;
   status: ProjectStatus;
   deadline: string;
-  productCount: number;
   brief: string;
   isMine: boolean;
+  attachments: string[];
 }
 
 export const PROJECTS: Project[] = [
-  { code: "PRJ-2025-014", name: "JYSK Storage 2025", customer: "JYSK", sales: "Hà", rndOwner: "An", status: "APPROVED", deadline: "20/09/2026", productCount: 4, brief: "Bộ sưu tập giỏ đựng đồ & kệ lưu trữ mây tre cho dòng Storage Q1 2025 — 4 sản phẩm, ưu tiên tái sử dụng từ Design Library hiện có.", isMine: true },
-  { code: "PRJ-2026-002", name: "ADE Storage 2026", customer: "ADE", sales: "Hà", rndOwner: "An", status: "CUSTOMER_REVIEW", deadline: "05/10/2026", productCount: 2, brief: "Mở rộng dòng Storage cho ADE, tái sử dụng thiết kế đã release.", isMine: false },
-  { code: "PRJ-2026-006", name: "SCG Basket 2026", customer: "SCG", sales: "Minh", rndOwner: "An", status: "DEVELOPING", deadline: "30/10/2026", productCount: 3, brief: "Bộ giỏ mới theo brief riêng của SCG, phối hợp 3 chất liệu.", isMine: false },
-  { code: "PRJ-2026-011", name: "JYSK Lighting Q4", customer: "JYSK", sales: "Hà", rndOwner: "Lan", status: "DRAFT", deadline: "—", productCount: 1, brief: "Ý tưởng ban đầu cho dòng đèn Q4, chưa chốt brief.", isMine: true },
-  { code: "PRJ-2026-003", name: "Habitat Kitchen Set", customer: "Habitat", sales: "Minh", rndOwner: "An", status: "COMPLETED", deadline: "15/06/2026", productCount: 6, brief: "Bộ sản phẩm bếp hoàn thiện, đã release toàn bộ.", isMine: false },
-  { code: "PRJ-2025-021", name: "ADE Decor Refresh", customer: "ADE", sales: "Hà", rndOwner: "Lan", status: "CLOSED", deadline: "01/02/2026", productCount: 5, brief: "Dự án làm mới dòng Decor, đã đóng.", isMine: false },
+  {
+    code: "PRJ-2025-014",
+    name: "JYSK Storage 2025",
+    type: "CUSTOMER",
+    customer: "JYSK",
+    sales: "Hà",
+    rndOwner: "An",
+    createdByName: "Hà",
+    status: "DEVELOPING",
+    deadline: "20/09/2026",
+    brief: "Bộ sưu tập giỏ đựng đồ & kệ lưu trữ mây tre cho dòng Storage Q1 2025 — 4 sản phẩm, ưu tiên tái sử dụng từ Design Library hiện có.",
+    isMine: true,
+    attachments: ["brief-jysk-storage-2025.pdf", "moodboard.jpg"],
+  },
+  {
+    code: "PRJ-2026-002",
+    name: "ADE Storage 2026",
+    type: "CUSTOMER",
+    customer: "ADE",
+    sales: "Hà",
+    rndOwner: "An",
+    createdByName: "Hà",
+    status: "DEVELOPING",
+    deadline: "05/10/2026",
+    brief: "Mở rộng dòng Storage cho ADE, tái sử dụng thiết kế đã release.",
+    isMine: false,
+    attachments: [],
+  },
+  {
+    code: "PRJ-2026-006",
+    name: "SCG Basket 2026",
+    type: "CUSTOMER",
+    customer: "SCG",
+    sales: "Minh",
+    rndOwner: "An",
+    createdByName: "Minh",
+    status: "DEVELOPING",
+    deadline: "30/10/2026",
+    brief: "Bộ giỏ mới theo brief riêng của SCG, phối hợp 3 chất liệu.",
+    isMine: false,
+    attachments: [],
+  },
+  {
+    code: "PRJ-2026-011",
+    name: "JYSK Lighting Q4",
+    type: "CUSTOMER",
+    customer: "JYSK",
+    sales: "Hà",
+    rndOwner: "Lan",
+    createdByName: "Hà",
+    status: "CREATED",
+    deadline: "—",
+    brief: "Ý tưởng ban đầu cho dòng đèn Q4, chưa chốt brief.",
+    isMine: true,
+    attachments: [],
+  },
+  {
+    code: "PRJ-2026-003",
+    name: "Habitat Kitchen Set",
+    type: "CUSTOMER",
+    customer: "Habitat",
+    sales: "Minh",
+    rndOwner: "An",
+    createdByName: "Minh",
+    status: "COMPLETED",
+    deadline: "15/06/2026",
+    brief: "Bộ sản phẩm bếp hoàn thiện, đã release toàn bộ.",
+    isMine: false,
+    attachments: [],
+  },
+  {
+    code: "PRJ-2025-021",
+    name: "ADE Decor Refresh",
+    type: "CUSTOMER",
+    customer: "ADE",
+    sales: "Hà",
+    rndOwner: "Lan",
+    createdByName: "Hà",
+    status: "CLOSED",
+    deadline: "01/02/2026",
+    brief: "Dự án làm mới dòng Decor, đã đóng — RND-00440 vừa được release từ đây.",
+    isMine: false,
+    attachments: [],
+  },
+  {
+    code: "PRJ-INT-001",
+    name: "Vật liệu tái chế 2026",
+    type: "INTERNAL",
+    rndOwner: "An",
+    createdByName: "Minh",
+    status: "DEVELOPING",
+    deadline: "—",
+    brief: "Nghiên cứu kết hợp mây tre với nhựa tái chế cho dòng sản phẩm ngoài trời.",
+    isMine: false,
+    attachments: [],
+  },
+  {
+    code: "PRJ-MKT-001",
+    name: "Bộ sưu tập Xuân 2027",
+    type: "MARKETING",
+    rndOwner: "Lan",
+    createdByName: "Linh",
+    status: "CREATED",
+    deadline: "01/03/2027",
+    brief: "Chuẩn bị bộ sưu tập mới cho triển lãm Xuân 2027 — sẽ xuất Collection để gửi đối tác.",
+    isMine: false,
+    attachments: [],
+  },
 ];
 
+// PROJECT_PRODUCTS is global (spans every project), keyed by
+// (projectCode, productCode) — NOT a per-project copy. This is what lets
+// "Used in Projects" on a product page, the Reused count, and a
+// project's own "Product Development" tab all read the same truth
+// instead of drifting apart.
 export interface ProjectProductItem {
-  code: string;
-  name: string;
+  projectCode: string;
+  productCode: string;
   usage: UsageType;
   status: ProjectProductStatus;
   approval: CustomerApproval;
   note: string;
-  tint: "accent" | "blue";
-  // Feedback scoped to this specific product within this project — not
-  // mixed with feedback on other products or general project discussion.
+  // The R&D person actually doing this specific piece of work — distinct
+  // from the project's overall rndOwner. Feeds a personal task queue.
+  assigneeName?: string;
   feedback: FeedbackItem[];
 }
 
 export const PROJECT_PRODUCTS: ProjectProductItem[] = [
   {
-    code: "RND-00125",
-    name: "Woven Storage Basket",
+    projectCode: "PRJ-2025-014",
+    productCode: "RND-00125",
     usage: "REUSE",
     status: "CUSTOMER_REVIEW",
     approval: "PENDING",
     note: "",
-    tint: "accent",
+    assigneeName: "An",
     feedback: [
       { author: "JYSK Buyer", content: "Cho mình xem thêm ảnh mẫu thật của basket size L với.", time: "2 ngày trước", initials: "JY", tint: "green" },
       { author: "Hà (Sales)", content: "Đã gửi ảnh sample qua email, đang chờ khách xác nhận.", time: "Hôm qua", initials: "HA", tint: "amber" },
     ],
   },
   {
-    code: "RND-00305",
-    name: "Stacking Cube Shelf",
+    projectCode: "PRJ-2025-014",
+    productCode: "RND-00305",
     usage: "REUSE",
     status: "APPROVED",
     approval: "APPROVED",
     note: "",
-    tint: "accent",
+    assigneeName: "An",
     feedback: [
       { author: "JYSK Buyer", content: "Mẫu này đẹp, đúng ý — chốt luôn không cần chỉnh gì thêm.", time: "3 tuần trước", initials: "JY", tint: "green" },
     ],
   },
   {
-    code: "RND-00341",
-    name: "Storage Lid Insert",
+    projectCode: "PRJ-2025-014",
+    productCode: "RND-00341",
     usage: "NEW",
     status: "DEVELOPING",
     approval: "PENDING",
     note: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.",
-    tint: "blue",
+    assigneeName: "An",
     feedback: [
       { author: "An Nguyễn (R&D)", content: "Đang thử 2 phương án khớp nắp, dự kiến xong bản vẽ trong tuần.", time: "4 ngày trước", initials: "AN", tint: "blue" },
     ],
   },
+  {
+    projectCode: "PRJ-2026-002",
+    productCode: "RND-00305",
+    usage: "REUSE",
+    status: "CUSTOMER_REVIEW",
+    approval: "PENDING",
+    note: "",
+    assigneeName: "An",
+    feedback: [],
+  },
+  {
+    projectCode: "PRJ-2026-006",
+    productCode: "RND-00125",
+    usage: "REUSE",
+    status: "DEVELOPING",
+    approval: "PENDING",
+    note: "",
+    assigneeName: "An",
+    feedback: [],
+  },
 ];
+
+export function getProjectProducts(projectCode: string) {
+  return PROJECT_PRODUCTS.filter((pp) => pp.projectCode === projectCode);
+}
+
+export function getProductUsages(productCode: string) {
+  return PROJECT_PRODUCTS.filter((pp) => pp.productCode === productCode);
+}
+
+// Reused = number of times picked as usage REUSE across every project.
+// (Collection picks will add to this once the Collection feature ships.)
+export function getReusedCount(productCode: string) {
+  return PROJECT_PRODUCTS.filter((pp) => pp.productCode === productCode && pp.usage === "REUSE").length;
+}
 
 export interface ActivityItem {
   actor: string;
@@ -471,7 +576,7 @@ export const DASHBOARD_ACTIVITY: ActivityItem[] = [
   { actor: "Designer An", action: "đã upload V03 cho", target: "RND-00142", time: "2 giờ trước", initials: "AN", tint: "blue" },
   { actor: "Sales Hà", action: "đã tạo dự án", target: "JYSK Storage 2025", time: "5 giờ trước", initials: "HA", tint: "amber" },
   { actor: "Customer JYSK", action: "yêu cầu chỉnh sửa", target: "SCG Basket 2026", time: "Hôm qua", initials: "JY", tint: "green" },
-  { actor: "R&D An", action: "đã release", target: "RND-00098", time: "2 ngày trước", initials: "AN", tint: "accent" },
+  { actor: "R&D Lan", action: "đã release", target: "RND-00440", time: "2 ngày trước", initials: "LA", tint: "accent" },
   { actor: "Customer ADE", action: "đã approve", target: "ADE Storage 2026", time: "3 ngày trước", initials: "AD", tint: "green" },
 ];
 
@@ -487,6 +592,15 @@ export const PROJECT_ACTIVITY: ActivityItem[] = [
 // specific product (those threads live on each item in PROJECT_PRODUCTS).
 export const PROJECT_FEEDBACK: FeedbackItem[] = [
   { author: "Hà (Sales)", content: "Khách xin dời deadline sang 20/09 vì bên họ đổi lịch nhập hàng.", time: "1 tuần trước", initials: "HA", tint: "amber" },
+];
+
+// Feedback shown on a product's own Library page — general discussion
+// about the design across its whole reuse history, distinct from the
+// project-scoped threads on each PROJECT_PRODUCTS item.
+export const PRODUCT_FEEDBACK: FeedbackItem[] = [
+  { author: "JYSK Buyer", content: "Kích thước hiện tại hơi lớn so với kệ trưng bày, có thể thu nhỏ 10% không?", time: "3 ngày trước", initials: "JY", tint: "green" },
+  { author: "An Nguyễn (R&D)", content: "Đã cập nhật ở V03 — thu nhỏ 10%, giữ nguyên kiểu đan.", time: "2 ngày trước", initials: "AN", tint: "blue" },
+  { author: "Hà (Sales)", content: "Khách đã xem V03, đang chờ phản hồi chính thức.", time: "Hôm qua", initials: "HA", tint: "amber" },
 ];
 
 // NOTIFICATIONS — a personal inbox (who gets pinged), separate from the

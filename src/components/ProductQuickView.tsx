@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/mock-data";
+import { CURRENT_USER_NAME } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
+import { useProducts } from "@/components/ProductsProvider";
+import { useProjects } from "@/components/ProjectsProvider";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canManageProduct, canPickProduct } from "@/lib/permissions";
+import { canManageProduct, canPickProduct, getPickableProjects } from "@/lib/permissions";
 
 interface ProductQuickViewProps {
   product: Product;
@@ -13,8 +17,19 @@ interface ProductQuickViewProps {
 
 export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const { role } = useRole();
+  const userName = CURRENT_USER_NAME[role];
+  const { favoritedCodes, toggleFavorite } = useProducts();
+  const { projects, projectProducts, addProductToProject } = useProjects();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addedNotice, setAddedNotice] = useState<string | null>(null);
+
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
+  const isFavorited = favoritedCodes.has(product.code);
+  const favoriteCount = product.favorites + (isFavorited ? 1 : 0);
+  const reusedCount = projectProducts.filter((pp) => pp.productCode === product.code && pp.usage === "REUSE").length;
+  const isReleased = product.status === "RELEASED";
+  const pickableProjects = getPickableProjects(role, userName, projects);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
@@ -24,9 +39,18 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
       >
         <div className="flex items-start justify-between border-b border-line p-5">
           <div>
-            <div className="mb-2 flex gap-2">
+            <div className="mb-2 flex items-center gap-2">
               <span className={status.className}>{status.label}</span>
               <span className={reuse.className}>{reuse.label}</span>
+              <button
+                onClick={() => toggleFavorite(product.code)}
+                className={`ml-1 flex items-center gap-1 text-[12px] font-bold ${isFavorited ? "text-red" : "text-text-faint hover:text-red"}`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
+                  <path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 000-7.8z" />
+                </svg>
+                {favoriteCount}
+              </button>
             </div>
             <h2 className="text-lg font-extrabold">{product.name}</h2>
             <div className="mt-0.5 text-[13px] font-semibold text-text-faint">{product.code}</div>
@@ -78,16 +102,14 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
         </div>
 
         <div className="flex gap-2.5 px-5">
-          {[
-            ["Presented", product.presented],
-            ["Reused", product.reused],
-            ["Approved", product.approved],
-          ].map(([label, value]) => (
-            <div key={label} className="flex-1 rounded-[10px] bg-bg p-2.5 text-center">
-              <div className="text-base font-extrabold">{value}</div>
-              <div className="text-[10px] font-semibold text-text-faint">{label}</div>
-            </div>
-          ))}
+          <div className="flex-1 rounded-[10px] bg-bg p-2.5 text-center">
+            <div className="text-base font-extrabold">{reusedCount}</div>
+            <div className="text-[10px] font-semibold text-text-faint">Reused</div>
+          </div>
+          <div className="flex-1 rounded-[10px] bg-bg p-2.5 text-center">
+            <div className="text-base font-extrabold">{favoriteCount}</div>
+            <div className="text-[10px] font-semibold text-text-faint">Favorite</div>
+          </div>
         </div>
 
         <div className="flex items-center justify-between gap-3 p-5">
@@ -97,13 +119,41 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
           >
             Xem đầy đủ (versions, used-in, feedback) →
           </Link>
-          <div className="flex gap-2">
-            {canPickProduct(role) && (
-              <button className="inline-flex h-9 items-center rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover">
-                Add to Project
-              </button>
+          <div className="flex items-center gap-2">
+            {addedNotice && <span className="text-[12px] font-semibold text-green">Đã thêm vào {addedNotice}.</span>}
+            {canPickProduct(role) && isReleased && (
+              <div className="relative">
+                <button
+                  onClick={() => setPickerOpen((v) => !v)}
+                  className="inline-flex h-9 items-center rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+                >
+                  Add to Project
+                </button>
+                {pickerOpen && (
+                  <div className="absolute bottom-11 right-0 z-20 w-64 overflow-hidden rounded-lg border border-line bg-surface shadow-md">
+                    {pickableProjects.length === 0 && (
+                      <p className="p-3 text-[12px] text-text-faint">Không có project nào đang mở để thêm.</p>
+                    )}
+                    {pickableProjects.map((p) => (
+                      <button
+                        key={p.code}
+                        onClick={() => {
+                          addProductToProject(p.code, product.code, "REUSE");
+                          setPickerOpen(false);
+                          setAddedNotice(p.name);
+                          setTimeout(() => setAddedNotice(null), 2500);
+                        }}
+                        className="flex w-full flex-col px-3.5 py-2.5 text-left hover:bg-bg"
+                      >
+                        <span className="text-[12.5px] font-bold">{p.name}</span>
+                        <span className="text-[11px] text-text-faint">{p.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
-            {canManageProduct(role) && (
+            {canManageProduct(role) && isReleased && (
               <button className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg">
                 Upload Version
               </button>

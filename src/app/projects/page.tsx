@@ -8,15 +8,13 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { CURRENT_USER_NAME, type Project, type ProjectStatus } from "@/lib/mock-data";
-import { projectStatusBadge } from "@/lib/badges";
-import { canCreateProject, canEditProject, canHardDeleteProject } from "@/lib/permissions";
+import { projectStatusBadge, projectTypeBadge } from "@/lib/badges";
+import { canCreateProject, canEditProject, canHardDeleteProject, canMarkCompleted } from "@/lib/permissions";
 
 const STATUS_OPTIONS: { key: ProjectStatus | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
-  { key: "DRAFT", label: "Draft" },
+  { key: "CREATED", label: "Created" },
   { key: "DEVELOPING", label: "Developing" },
-  { key: "CUSTOMER_REVIEW", label: "Customer Review" },
-  { key: "APPROVED", label: "Approved" },
   { key: "COMPLETED", label: "Completed" },
   { key: "CLOSED", label: "Closed" },
 ];
@@ -38,7 +36,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 export default function ProjectsPage() {
   const { role } = useRole();
-  const { projects, closeProject, deleteProject, updateProject } = useProjects();
+  const { projects, projectProducts, closeProject, markCompleted, deleteProject, updateProject } = useProjects();
   const userName = CURRENT_USER_NAME[role];
   const isCustomer = role === "CUSTOMER";
   const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
@@ -52,12 +50,12 @@ export default function ProjectsPage() {
 
   const gridCols = isCustomer
     ? "grid-cols-[2fr_1.2fr_1fr_1fr_0.6fr]"
-    : "grid-cols-[1.8fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr_0.5fr_auto]";
+    : "grid-cols-[1.6fr_0.9fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr_0.5fr_auto]";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
-      <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-5 p-7">
+      <div className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col gap-5 p-7">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="mb-1 text-[22px] font-extrabold">Projects</h1>
@@ -86,6 +84,7 @@ export default function ProjectsPage() {
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
           <div className={`grid ${gridCols} items-center gap-2 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase`}>
             <span>Project</span>
+            <span>Type</span>
             <span>Customer</span>
             {!isCustomer && (
               <>
@@ -100,24 +99,27 @@ export default function ProjectsPage() {
           </div>
           {filtered.map((p) => {
             const badge = projectStatusBadge(p.status);
+            const typeBadge = projectTypeBadge(p.type);
             const editable = canEditProject(role, userName, p);
             const hardDelete = canHardDeleteProject(p);
+            const productCount = projectProducts.filter((pp) => pp.projectCode === p.code).length;
             return (
               <div key={p.code} className={`grid ${gridCols} items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg`}>
                 <Link href={`/projects/${p.code}`}>
                   <div className="text-[13.5px] font-bold">{p.name}</div>
                   <div className="mt-0.5 text-[11.5px] font-semibold text-text-faint">{p.code}</div>
                 </Link>
-                <span className="text-[13px] text-text-muted">{p.customer}</span>
+                <span className={typeBadge.className}>{typeBadge.label}</span>
+                <span className="text-[13px] text-text-muted">{p.customer ?? "—"}</span>
                 {!isCustomer && (
                   <>
-                    <span className="text-[13px] text-text-muted">{p.sales}</span>
-                    <span className="text-[13px] text-text-muted">{p.rndOwner}</span>
+                    <span className="text-[13px] text-text-muted">{p.sales ?? "—"}</span>
+                    <span className="text-[13px] text-text-muted">{p.rndOwner ?? "—"}</span>
                   </>
                 )}
                 <span className={badge.className}>{badge.label}</span>
                 <span className="text-[13px] text-text-muted">{p.deadline}</span>
-                <span className="text-right text-[13px] font-bold">{p.productCount}</span>
+                <span className="text-right text-[13px] font-bold">{productCount}</span>
                 {!isCustomer && (
                   <span className="flex justify-end gap-1.5">
                     {editable && (
@@ -132,6 +134,17 @@ export default function ProjectsPage() {
                             <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                           </svg>
                         </button>
+                        {canMarkCompleted(role, userName, p) && p.status === "DEVELOPING" && (
+                          <button
+                            onClick={() => markCompleted(p.code)}
+                            title="Đánh dấu Hoàn thành"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-green-soft hover:text-green"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M20 6L9 17l-5-5" />
+                            </svg>
+                          </button>
+                        )}
                         {p.status !== "CLOSED" && (
                           <button
                             onClick={() => setRemoveTarget(p)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { ROLE_INITIALS, type ProjectProductItem } from "@/lib/mock-data";
+import { ROLE_INITIALS, type ProjectProductItem, type Product } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import {
   usageBadge,
@@ -13,11 +13,12 @@ import { isCustomer as isCustomerRole } from "@/lib/permissions";
 
 interface ProjectProductQuickViewProps {
   item: ProjectProductItem;
+  product: Product;
   isClosed: boolean;
   onClose: () => void;
 }
 
-export function ProjectProductQuickView({ item, isClosed, onClose }: ProjectProductQuickViewProps) {
+export function ProjectProductQuickView({ item, product, isClosed, onClose }: ProjectProductQuickViewProps) {
   const { role } = useRole();
   const customer = isCustomerRole(role);
   const usage = usageBadge(item.usage);
@@ -36,16 +37,16 @@ export function ProjectProductQuickView({ item, isClosed, onClose }: ProjectProd
       >
         <div className="flex items-start justify-between border-b border-line p-5">
           <div className="flex gap-4">
-            <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-[10px] ${TINT_BG[item.tint]}`}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[item.tint]} stroke="currentColor" strokeWidth="1.5">
+            <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-[10px] ${TINT_BG[product.tint]}`}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
                 <path d="M21 8l-9-5-9 5 9 5 9-5z" />
                 <path d="M3 8v8l9 5 9-5V8" />
                 <path d="M12 13v8" />
               </svg>
             </div>
             <div>
-              <h2 className="text-[15px] font-extrabold">{item.name}</h2>
-              <div className="mt-0.5 text-xs font-semibold text-text-faint">{item.code}</div>
+              <h2 className="text-[15px] font-extrabold">{product.name}</h2>
+              <div className="mt-0.5 text-xs font-semibold text-text-faint">{product.code}</div>
               <div className="mt-2 flex gap-1.5">
                 <span className={usage.className}>{usage.label}</span>
                 <span className={status.className}>{status.label}</span>
@@ -64,6 +65,10 @@ export function ProjectProductQuickView({ item, isClosed, onClose }: ProjectProd
 
         <div className="flex flex-col gap-4 p-5">
           {item.note && <p className="text-[12.5px] leading-relaxed text-text-muted">{item.note}</p>}
+
+          <div className="text-[12px] text-text-muted">
+            Phụ trách: <span className="font-semibold text-text">{item.assigneeName ?? "Chưa gán"}</span>
+          </div>
 
           <div className="flex items-center justify-between rounded-lg bg-bg px-3.5 py-2.5">
             <span className={approval.className}>{approval.label}</span>

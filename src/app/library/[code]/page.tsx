@@ -6,13 +6,8 @@ import { useParams, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
-import {
-  PRODUCT_ASSETS,
-  PRODUCT_VERSIONS,
-  PRODUCT_USED_IN,
-  PRODUCT_FEEDBACK,
-  ROLE_INITIALS,
-} from "@/lib/mock-data";
+import { useProjects } from "@/components/ProjectsProvider";
+import { PRODUCT_ASSETS, PRODUCT_VERSIONS, PRODUCT_FEEDBACK, ROLE_INITIALS, CURRENT_USER_NAME } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -21,27 +16,37 @@ import {
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
-import { canManageProduct, canPickProduct } from "@/lib/permissions";
+import { canManageProduct, canPickProduct, getPickableProjects } from "@/lib/permissions";
 
 const TABS = [
   { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
-  { key: "projects", label: `Used in Projects (${PRODUCT_USED_IN.length})` },
+  { key: "projects", label: "Used in Projects" },
   { key: "feedback", label: `Feedback (${PRODUCT_FEEDBACK.length})` },
 ] as const;
 
 export default function ProductDetailPage() {
   const params = useParams<{ code: string }>();
-  const { products } = useProducts();
+  const { products, favoritedCodes, toggleFavorite, submitForReview } = useProducts();
+  const { projects, projectProducts, addProductToProject } = useProjects();
   const product = products.find((p) => p.code === params.code);
   const { role } = useRole();
+  const userName = CURRENT_USER_NAME[role];
   const [assetIndex, setAssetIndex] = useState(0);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("versions");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [addedNotice, setAddedNotice] = useState<string | null>(null);
 
   if (!product) return notFound();
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
   const activeAsset = PRODUCT_ASSETS[assetIndex];
+  const isFavorited = favoritedCodes.has(product.code);
+  const favoriteCount = product.favorites + (isFavorited ? 1 : 0);
+  const usages = projectProducts.filter((pp) => pp.productCode === product.code);
+  const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
+  const isReleased = product.status === "RELEASED";
+  const pickableProjects = getPickableProjects(role, userName, projects);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -89,9 +94,20 @@ export default function ProductDetailPage() {
           {/* Info panel */}
           <div className="flex w-[360px] flex-shrink-0 flex-col gap-4.5">
             <div>
-              <div className="mb-2 flex gap-2">
-                <span className={status.className}>{status.label}</span>
-                <span className={reuse.className}>{reuse.label}</span>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex gap-2">
+                  <span className={status.className}>{status.label}</span>
+                  <span className={reuse.className}>{reuse.label}</span>
+                </div>
+                <button
+                  onClick={() => toggleFavorite(product.code)}
+                  className={`flex items-center gap-1 text-[12.5px] font-bold ${isFavorited ? "text-red" : "text-text-faint hover:text-red"}`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
+                    <path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 000-7.8z" />
+                  </svg>
+                  {favoriteCount}
+                </button>
               </div>
               <h1 className="mb-1 text-[21px] font-extrabold">{product.name}</h1>
               <div className="text-[13px] font-semibold text-text-faint">{product.code}</div>
@@ -120,45 +136,82 @@ export default function ProductDetailPage() {
               </div>
             )}
 
+            {product.status === "PENDING_REVIEW" && (
+              <div className="rounded-lg border border-line bg-bg px-3.5 py-3 text-[12.5px] font-semibold text-text-faint">
+                Đang chờ Admin duyệt{product.sourceProjectName ? ` — release từ ${product.sourceProjectName}` : ""}.
+              </div>
+            )}
+
             <div className="flex gap-2.5">
-              {[
-                ["Presented", product.presented],
-                ["Reused", product.reused],
-                ["Approved", product.approved],
-              ].map(([label, value]) => (
-                <div key={label} className="flex-1 rounded-[10px] bg-bg p-3 text-center">
-                  <div className="text-lg font-extrabold">{value}</div>
-                  <div className="text-[10.5px] font-semibold text-text-faint">{label}</div>
-                </div>
-              ))}
+              <div className="flex-1 rounded-[10px] bg-bg p-3 text-center">
+                <div className="text-lg font-extrabold">{reusedCount}</div>
+                <div className="text-[10.5px] font-semibold text-text-faint">Reused</div>
+              </div>
+              <div className="flex-1 rounded-[10px] bg-bg p-3 text-center">
+                <div className="text-lg font-extrabold">{favoriteCount}</div>
+                <div className="text-[10.5px] font-semibold text-text-faint">Favorite</div>
+              </div>
             </div>
 
             <div className="flex flex-col gap-2">
-              {canPickProduct(role) && (
-                <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg bg-accent text-[13px] font-bold text-white hover:bg-accent-hover">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                    <path d="M12 5v14M5 12h14" />
+              {canPickProduct(role) && isReleased && (
+                <div className="relative">
+                  <button
+                    onClick={() => setPickerOpen((v) => !v)}
+                    className="inline-flex h-[38px] w-full items-center justify-center gap-1.5 rounded-lg bg-accent text-[13px] font-bold text-white hover:bg-accent-hover"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Add to Project
+                  </button>
+                  {pickerOpen && (
+                    <div className="absolute top-11 left-0 z-20 w-full overflow-hidden rounded-lg border border-line bg-surface shadow-md">
+                      {pickableProjects.length === 0 && (
+                        <p className="p-3 text-[12px] text-text-faint">Không có project nào đang mở để thêm.</p>
+                      )}
+                      {pickableProjects.map((p) => (
+                        <button
+                          key={p.code}
+                          onClick={() => {
+                            addProductToProject(p.code, product.code, "REUSE");
+                            setPickerOpen(false);
+                            setAddedNotice(p.name);
+                            setTimeout(() => setAddedNotice(null), 2500);
+                          }}
+                          className="flex w-full flex-col px-3.5 py-2.5 text-left hover:bg-bg"
+                        >
+                          <span className="text-[12.5px] font-bold">{p.name}</span>
+                          <span className="text-[11px] text-text-faint">{p.code}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {addedNotice && (
+                <p className="text-[12px] font-semibold text-green">Đã thêm vào {addedNotice}.</p>
+              )}
+              {canManageProduct(role) && product.status === "DRAFT" && (
+                <button
+                  onClick={() => submitForReview(product.code)}
+                  className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 3v12M7 8l5-5 5 5" />
+                    <path d="M5 21h14" />
                   </svg>
-                  Add to Project
+                  Nộp duyệt
                 </button>
               )}
-              {canManageProduct(role) && (
-                <>
-                  <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 3v12M7 8l5-5 5 5" />
-                      <path d="M5 21h14" />
-                    </svg>
-                    Upload Version
-                  </button>
-                  <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M9 12l2 2 4-4" />
-                      <circle cx="12" cy="12" r="9" />
-                    </svg>
-                    Release to Library
-                  </button>
-                </>
+              {canManageProduct(role) && isReleased && (
+                <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 3v12M7 8l5-5 5 5" />
+                    <path d="M5 21h14" />
+                  </svg>
+                  Upload Version
+                </button>
               )}
             </div>
           </div>
@@ -174,7 +227,7 @@ export default function ProductDetailPage() {
                 tab === t.key ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
             >
-              {t.label}
+              {t.key === "projects" ? `${t.label} (${usages.length})` : t.label}
             </button>
           ))}
         </div>
@@ -205,25 +258,34 @@ export default function ProductDetailPage() {
 
         {tab === "projects" && (
           <div className="flex flex-col pt-4">
-            {PRODUCT_USED_IN.map((pr) => {
-              const usage = usageBadge(pr.usage);
-              const s = projectProductStatusBadge(pr.status);
+            {usages.map((u) => {
+              const proj = projects.find((p) => p.code === u.projectCode);
+              if (!proj) return null;
+              const usage = usageBadge(u.usage);
+              const s = projectProductStatusBadge(u.status);
               return (
-                <div key={pr.name} className="flex items-center gap-4 border-b border-line py-3.5 last:border-b-0">
+                <Link
+                  key={u.projectCode}
+                  href={`/projects/${proj.code}`}
+                  className="flex items-center gap-4 border-b border-line py-3.5 last:border-b-0 hover:bg-bg"
+                >
                   <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-blue-soft text-blue">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M3 6a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V6z" />
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <div className="text-[13.5px] font-bold">{pr.name}</div>
-                    <div className="mt-0.5 text-xs text-text-faint">{pr.customer}</div>
+                    <div className="text-[13.5px] font-bold">{proj.name}</div>
+                    <div className="mt-0.5 text-xs text-text-faint">{proj.customer ?? proj.type}</div>
                   </div>
                   <span className={usage.className}>{usage.label}</span>
                   <span className={s.className}>{s.label}</span>
-                </div>
+                </Link>
               );
             })}
+            {usages.length === 0 && (
+              <div className="py-10 text-center text-sm text-text-faint">Chưa được dùng trong project nào.</div>
+            )}
           </div>
         )}
 

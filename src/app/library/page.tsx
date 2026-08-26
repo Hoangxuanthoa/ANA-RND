@@ -13,9 +13,10 @@ import { canCreateProduct, canViewLibrary } from "@/lib/permissions";
 const REUSE_OPTIONS: { key: ReusePermission | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
   { key: "REUSABLE", label: "Reusable" },
-  { key: "REFERENCE_ONLY", label: "Reference Only" },
   { key: "EXCLUSIVE", label: "Exclusive" },
 ];
+
+const PAGE_SIZE = 15;
 
 function FilterOption({
   active,
@@ -54,6 +55,7 @@ export default function LibraryPage() {
   const [category, setCategory] = useState<string>("ALL");
   const [material, setMaterial] = useState<string>("ALL");
   const [reuse, setReuse] = useState<ReusePermission | "ALL">("ALL");
+  const [page, setPage] = useState(1);
   const [quickView, setQuickView] = useState<Product | null>(null);
 
   const filtered = useMemo(() => {
@@ -66,6 +68,11 @@ export default function LibraryPage() {
       return true;
     });
   }, [products, query, category, material, reuse]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
 
   if (!canViewLibrary(role)) {
     return (
@@ -115,30 +122,33 @@ export default function LibraryPage() {
             </svg>
             <input
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setPage(1);
+              }}
               placeholder="Tìm sản phẩm…"
               className="h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
             />
           </div>
 
           <FilterGroup title="Category">
-            <FilterOption active={category === "ALL"} onClick={() => setCategory("ALL")}>All</FilterOption>
+            <FilterOption active={category === "ALL"} onClick={() => { setCategory("ALL"); setPage(1); }}>All</FilterOption>
             {CATEGORIES.map((c) => (
-              <FilterOption key={c} active={category === c} onClick={() => setCategory(c)}>{c}</FilterOption>
+              <FilterOption key={c} active={category === c} onClick={() => { setCategory(c); setPage(1); }}>{c}</FilterOption>
             ))}
           </FilterGroup>
 
           <FilterGroup title="Material">
-            <FilterOption active={material === "ALL"} onClick={() => setMaterial("ALL")}>All</FilterOption>
+            <FilterOption active={material === "ALL"} onClick={() => { setMaterial("ALL"); setPage(1); }}>All</FilterOption>
             {MATERIALS.map((m) => (
-              <FilterOption key={m} active={material === m} onClick={() => setMaterial(m)}>{m}</FilterOption>
+              <FilterOption key={m} active={material === m} onClick={() => { setMaterial(m); setPage(1); }}>{m}</FilterOption>
             ))}
           </FilterGroup>
 
           <div className="flex flex-col gap-1">
             <h3 className="mb-1 text-[11px] font-bold tracking-wide text-text-faint uppercase">Reuse</h3>
             {REUSE_OPTIONS.map((r) => (
-              <FilterOption key={r.key} active={reuse === r.key} onClick={() => setReuse(r.key)}>{r.label}</FilterOption>
+              <FilterOption key={r.key} active={reuse === r.key} onClick={() => { setReuse(r.key); setPage(1); }}>{r.label}</FilterOption>
             ))}
           </div>
         </aside>
@@ -161,7 +171,7 @@ export default function LibraryPage() {
           </div>
 
           <div className="grid grid-cols-5 gap-4">
-            {filtered.map((p) => {
+            {pageItems.map((p) => {
               const status = productStatusBadge(p.status);
               const reuseBadge = reusePermissionBadge(p.reuse);
               return (
@@ -200,6 +210,30 @@ export default function LibraryPage() {
           {filtered.length === 0 && (
             <div className="py-16 text-center text-sm text-text-faint">
               Không tìm thấy sản phẩm phù hợp bộ lọc.
+            </div>
+          )}
+
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-between pt-2">
+              <span className="text-[12.5px] text-text-faint">
+                Trang {currentPage}/{totalPages}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+                >
+                  ← Back
+                </button>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+                >
+                  Next →
+                </button>
+              </div>
             </div>
           )}
         </div>

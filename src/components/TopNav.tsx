@@ -9,7 +9,7 @@ import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/m
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { canViewLibrary, canReviewProducts } from "@/lib/permissions";
 
-const ROLES: Role[] = ["ADMIN", "RND", "SALES", "CUSTOMER"];
+const ROLES: Role[] = ["ADMIN", "RND", "SALES", "MARKETING", "CUSTOMER"];
 
 function NavLink({
   href,
