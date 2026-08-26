@@ -19,7 +19,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div
-        className="flex w-full max-w-[640px] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-md"
+        className="flex w-full max-w-[880px] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-line p-5">
@@ -41,29 +41,39 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
           </button>
         </div>
 
-        <div className="flex gap-5 p-5">
-          <div className={`flex h-40 w-40 flex-shrink-0 items-center justify-center rounded-xl ${TINT_BG[product.tint]}`}>
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.4">
+        <div className="flex gap-6 p-5">
+          {/* Image — sized generously now; a click-to-zoom/lightbox can hang off this same box later. */}
+          <div
+            className={`group relative flex h-[360px] w-[360px] flex-shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-xl ${TINT_BG[product.tint]}`}
+          >
+            <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.2">
               <path d="M21 8l-9-5-9 5 9 5 9-5z" />
               <path d="M3 8v8l9 5 9-5V8" />
               <path d="M12 13v8" />
             </svg>
+            <div className="absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+                <path d="M11 8v6M8 11h6" />
+              </svg>
+            </div>
           </div>
 
-          <div className="flex flex-1 flex-col gap-3">
+          <div className="flex flex-1 flex-col gap-3.5">
             <div>
               {[
                 ["Category", product.category],
                 ["Material", product.material],
                 ["Designer", product.designer],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between border-b border-line py-1.5 text-[12.5px]">
+                <div key={label} className="flex justify-between border-b border-line py-2 text-[13px]">
                   <span className="text-text-muted">{label}</span>
                   <span className="font-semibold">{value}</span>
                 </div>
               ))}
             </div>
-            <p className="text-[12.5px] leading-relaxed text-text-muted">{product.description}</p>
+            <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
           </div>
         </div>
 
