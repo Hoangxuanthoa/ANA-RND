@@ -26,16 +26,20 @@ model User {
   createdAt  DateTime @default(now())
 
   // Relations
-  designedProducts     Product[]        @relation("Designer")
-  salesProjects        Project[]        @relation("Sales")
-  rndOwnerProjects      Project[]        @relation("RndOwner")
-  uploadedAssets       ProductAsset[]
-  uploadedVersions     ProductVersion[]
-  feedback             Feedback[]
-  activity             Activity[]
-  addedProjectProducts ProjectProduct[]
-  notifications        Notification[]
-  createdCatalogs      Catalog[]
+  designedProducts       Product[]         @relation("Designer")
+  salesProjects          Project[]         @relation("Sales")
+  rndOwnerProjects       Project[]         @relation("RndOwner")
+  createdProjects        Project[]         @relation("ProjectCreator")
+  uploadedAssets         ProductAsset[]
+  uploadedVersions       ProductVersion[]
+  feedback               Feedback[]
+  activity               Activity[]
+  addedProjectProducts   ProjectProduct[]  @relation("AddedBy")
+  assignedProjectProducts ProjectProduct[] @relation("Assignee")
+  notifications          Notification[]
+  createdCollections     Collection[]
+  favorites              ProductFavorite[]
+  uploadedAttachments    ProjectAttachment[]
 
   @@map("users")
 }
@@ -44,6 +48,7 @@ enum Role {
   ADMIN
   RND
   SALES
+  MARKETING
   CUSTOMER
 }
 
@@ -62,7 +67,7 @@ model Customer {
   users          User[]
   projects       Project[]
   originProducts Product[] @relation("OriginCustomer")
-  catalogs       Catalog[]
+  collections    Collection[]
 
   @@map("customers")
 }
@@ -119,7 +124,8 @@ model Product {
   projectProducts ProjectProduct[]
   feedback        Feedback[]
   activity        Activity[]
-  catalogItems    CatalogItem[]
+  collectionItems CollectionItem[]
+  favorites       ProductFavorite[]
 
   @@map("products")
 }
@@ -137,13 +143,27 @@ enum ProductStatus {
 
 enum ReusePermission {
   REUSABLE
-  REFERENCE_ONLY
   EXCLUSIVE
 }
 
 enum SourceType {
   RND
   EXTERNAL
+}
+
+// Anyone can favorite a product ("like") — one row per user per product.
+// The Reused stat is computed separately from ProjectProduct (usageType =
+// REUSE) and CollectionItem, not stored here.
+model ProductFavorite {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String   @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@map("product_favorites")
 }
 
 // PRODUCT_ASSETS
@@ -185,27 +205,34 @@ model ProductVersion {
   uploadedBy    User     @relation(fields: [uploadedById], references: [id])
   createdAt     DateTime @default(now())
 
-  feedback     Feedback[]
-  catalogItems CatalogItem[]
+  feedback        Feedback[]
+  collectionItems CollectionItem[]
 
   @@unique([productId, versionNumber])
   @@map("product_versions")
 }
 
 // PROJECTS
+// Not just customer engagements — an internal or Marketing-driven
+// initiative (e.g. a seasonal collection) is a Project too, just without
+// a customer. `type` distinguishes them; `createdById` (not `salesId`,
+// which is now optional) is what edit/delete ownership is checked against.
 model Project {
   id          String        @id @default(uuid()) @db.Uuid
   projectCode String        @unique
   projectName String
-  customerId  String        @db.Uuid
-  customer    Customer      @relation(fields: [customerId], references: [id])
-  salesId     String        @db.Uuid
-  sales       User          @relation("Sales", fields: [salesId], references: [id])
+  type        ProjectType   @default(CUSTOMER)
+  customerId  String?       @db.Uuid
+  customer    Customer?     @relation(fields: [customerId], references: [id])
+  salesId     String?       @db.Uuid
+  sales       User?         @relation("Sales", fields: [salesId], references: [id])
   rndOwnerId  String?       @db.Uuid
   rndOwner    User?         @relation("RndOwner", fields: [rndOwnerId], references: [id])
+  createdById String        @db.Uuid
+  createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
   brief       String?
   deadline    DateTime?     @db.Date
-  status      ProjectStatus @default(DRAFT)
+  status      ProjectStatus @default(CREATED)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -213,18 +240,40 @@ model Project {
   projectProducts ProjectProduct[]
   feedback        Feedback[]
   activity        Activity[]
-  catalogs        Catalog[]
+  collections     Collection[]
+  attachments     ProjectAttachment[]
 
   @@map("projects")
 }
 
+enum ProjectType {
+  CUSTOMER
+  INTERNAL
+  MARKETING
+}
+
+// Simplified on purpose: per-product customer approval already lives on
+// ProjectProduct.customerApproval, so the project itself doesn't need its
+// own Customer Review / Approved stages — just whether work has started.
 enum ProjectStatus {
-  DRAFT
+  CREATED
   DEVELOPING
-  CUSTOMER_REVIEW
-  APPROVED
   COMPLETED
   CLOSED
+}
+
+// File/image attachments on a project's brief.
+model ProjectAttachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @db.Uuid
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileUrl      String
+  uploadedById String   @db.Uuid
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@map("project_attachments")
 }
 
 // PROJECT_PRODUCTS — resolves the Product <-> Project many-to-many relation
@@ -240,7 +289,12 @@ model ProjectProduct {
   status            ProjectProductStatus @default(DEVELOPING)
   customerApproval  CustomerApproval     @default(PENDING)
   addedById         String               @db.Uuid
-  addedBy           User                 @relation(fields: [addedById], references: [id])
+  addedBy           User                 @relation("AddedBy", fields: [addedById], references: [id])
+  // Which R&D person is actually doing this specific piece of work —
+  // distinct from Project.rndOwnerId, which is project-wide. Feeds the
+  // personal "My Tasks" queue.
+  assigneeId        String?              @db.Uuid
+  assignee          User?                @relation("Assignee", fields: [assigneeId], references: [id])
   createdAt         DateTime             @default(now())
 
   @@unique([projectId, productId])
@@ -323,47 +377,48 @@ enum NotificationType {
   PRODUCT_REJECTED
 }
 
-// CATALOGS — a curated set of Products to hand to a customer who won't
+// COLLECTIONS — a curated set of Products to hand to a customer who won't
 // log into the app. Built two ways: picked freely from the Library
 // (projectId null), or exported from a specific project's finished
-// designs (projectId set, for traceability).
-model Catalog {
-  id          String        @id @default(uuid()) @db.Uuid
+// designs (projectId set, for traceability). Stays editable even after
+// being marked SENT — no locking.
+model Collection {
+  id          String           @id @default(uuid()) @db.Uuid
   name        String
-  projectId   String?       @db.Uuid
-  project     Project?      @relation(fields: [projectId], references: [id])
-  customerId  String?       @db.Uuid
-  customer    Customer?     @relation(fields: [customerId], references: [id])
-  createdById String        @db.Uuid
-  createdBy   User          @relation(fields: [createdById], references: [id])
-  status      CatalogStatus @default(DRAFT)
-  // Set once a public "view online" link is generated for this catalog.
-  publicSlug  String?       @unique
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  projectId   String?          @db.Uuid
+  project     Project?         @relation(fields: [projectId], references: [id])
+  customerId  String?          @db.Uuid
+  customer    Customer?        @relation(fields: [customerId], references: [id])
+  createdById String           @db.Uuid
+  createdBy   User             @relation(fields: [createdById], references: [id])
+  status      CollectionStatus @default(DRAFT)
+  // Set once a public "view online" link is generated for this collection.
+  publicSlug  String?          @unique
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
-  items CatalogItem[]
+  items CollectionItem[]
 
-  @@map("catalogs")
+  @@map("collections")
 }
 
-enum CatalogStatus {
+enum CollectionStatus {
   DRAFT
   SENT
 }
 
-model CatalogItem {
-  id        String          @id @default(uuid()) @db.Uuid
-  catalogId String          @db.Uuid
-  catalog   Catalog         @relation(fields: [catalogId], references: [id], onDelete: Cascade)
-  productId String          @db.Uuid
-  product   Product         @relation(fields: [productId], references: [id])
-  versionId String?         @db.Uuid
-  version   ProductVersion? @relation(fields: [versionId], references: [id])
-  note      String?
-  sortOrder Int?
-  createdAt DateTime        @default(now())
+model CollectionItem {
+  id           String          @id @default(uuid()) @db.Uuid
+  collectionId String          @db.Uuid
+  collection   Collection      @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  productId    String          @db.Uuid
+  product      Product         @relation(fields: [productId], references: [id])
+  versionId    String?         @db.Uuid
+  version      ProductVersion? @relation(fields: [versionId], references: [id])
+  note         String?
+  sortOrder    Int?
+  createdAt    DateTime        @default(now())
 
-  @@unique([catalogId, productId])
-  @@map("catalog_items")
+  @@unique([collectionId, productId])
+  @@map("collection_items")
 }
