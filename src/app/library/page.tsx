@@ -6,6 +6,7 @@ import { TopNav } from "@/components/TopNav";
 import { ProductQuickView } from "@/components/ProductQuickView";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
+import { useProjects } from "@/components/ProjectsProvider";
 import { CATEGORIES, MATERIALS, CURRENT_USER_NAME, type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
@@ -14,6 +15,14 @@ const REUSE_OPTIONS: { key: ReusePermission | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
   { key: "REUSABLE", label: "Reusable" },
   { key: "EXCLUSIVE", label: "Exclusive" },
+];
+
+type SortKey = "default" | "reused" | "favorite" | "name";
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "default", label: "Mặc định" },
+  { key: "reused", label: "Reused nhiều nhất" },
+  { key: "favorite", label: "Yêu thích nhiều nhất" },
+  { key: "name", label: "Tên A-Z" },
 ];
 
 const PAGE_SIZE = 15;
@@ -52,12 +61,21 @@ export default function LibraryPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
   const { products, favoritedCodes, toggleFavorite } = useProducts();
+  const { projectProducts } = useProjects();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("ALL");
   const [material, setMaterial] = useState<string>("ALL");
   const [reuse, setReuse] = useState<ReusePermission | "ALL">("ALL");
+  const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
   const [quickView, setQuickView] = useState<Product | null>(null);
+
+  function reusedCountOf(code: string) {
+    return projectProducts.filter((pp) => pp.productCode === code && pp.usage === "REUSE").length;
+  }
+  function favoriteCountOf(p: Product) {
+    return p.favorites + (favoritedCodes.has(p.code) ? 1 : 0);
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -71,9 +89,19 @@ export default function LibraryPage() {
     });
   }, [products, role, userName, query, category, material, reuse]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const sorted = useMemo(() => {
+    if (sortBy === "default") return filtered;
+    const arr = [...filtered];
+    if (sortBy === "reused") arr.sort((a, b) => reusedCountOf(b.code) - reusedCountOf(a.code));
+    else if (sortBy === "favorite") arr.sort((a, b) => favoriteCountOf(b) - favoriteCountOf(a));
+    else if (sortBy === "name") arr.sort((a, b) => a.name.localeCompare(b.name));
+    return arr;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, sortBy, projectProducts, favoritedCodes]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const pageItems = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
 
   if (!canViewLibrary(role)) {
@@ -162,14 +190,33 @@ export default function LibraryPage() {
               <h1 className="mb-1 text-[22px] font-extrabold">Design Library</h1>
               <p className="text-[13.5px] text-text-muted">{filtered.length} sản phẩm</p>
             </div>
-            {canCreateProduct(role) && (
-              <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Sản phẩm mới
-              </button>
-            )}
+            <div className="flex items-center gap-2.5">
+              <label className="flex items-center gap-2 text-[12.5px] font-semibold text-text-muted">
+                Sắp xếp:
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value as SortKey);
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[13px] font-semibold text-text focus:border-accent focus:outline-none"
+                >
+                  {SORT_OPTIONS.map((s) => (
+                    <option key={s.key} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {canCreateProduct(role) && (
+                <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
+                  Sản phẩm mới
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-5 gap-4">
