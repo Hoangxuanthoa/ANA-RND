@@ -8,7 +8,8 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canManageProduct, canPickProduct, getPickableProjects } from "@/lib/permissions";
+import { canManageProduct, canPickProduct, canManageCollections, getPickableProjects } from "@/lib/permissions";
+import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 
 interface ProductQuickViewProps {
   product: Product;
@@ -156,6 +157,13 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                   </div>
                 )}
               </div>
+            )}
+            {canManageCollections(role) && isReleased && (
+              <AddToCollectionButton
+                productCode={product.code}
+                align="right"
+                className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg"
+              />
             )}
             {canManageProduct(role) && isReleased && (
               <button className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg">

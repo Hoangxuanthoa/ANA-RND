@@ -622,6 +622,39 @@ export function getReusedCount(productCode: string) {
   return PROJECT_PRODUCTS.filter((pp) => pp.productCode === productCode && pp.usage === "REUSE").length;
 }
 
+// A curated set of released designs assembled to send to a customer or
+// partner (export to PDF / online link). DRAFT is freely editable; once
+// Sent it's locked as a snapshot of what was actually shared.
+export type CollectionStatus = "DRAFT" | "SENT";
+
+export interface Collection {
+  id: string;
+  name: string;
+  createdByName: string;
+  createdAt: string;
+  status: CollectionStatus;
+  productCodes: string[];
+}
+
+export const COLLECTIONS: Collection[] = [
+  {
+    id: "col-1",
+    name: "JYSK Storage — Q1 Proposal",
+    createdByName: "Hà",
+    createdAt: "10/08/2026",
+    status: "DRAFT",
+    productCodes: ["RND-00125", "RND-00305", "RND-00410"],
+  },
+  {
+    id: "col-2",
+    name: "Bộ sưu tập Xuân 2027",
+    createdByName: "Linh",
+    createdAt: "01/08/2026",
+    status: "SENT",
+    productCodes: ["RND-00420", "RND-00425", "RND-00435"],
+  },
+];
+
 export interface ActivityItem {
   actor: string;
   action: string;

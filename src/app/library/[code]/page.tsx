@@ -16,7 +16,8 @@ import {
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
-import { canManageProduct, canPickProduct, getPickableProjects } from "@/lib/permissions";
+import { canManageProduct, canPickProduct, canManageCollections, getPickableProjects } from "@/lib/permissions";
+import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 
 const TABS = [
   { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
@@ -195,6 +196,7 @@ export default function ProductDetailPage() {
               {addedNotice && (
                 <p className="text-[12px] font-semibold text-green">Đã thêm vào {addedNotice}.</p>
               )}
+              {canManageCollections(role) && isReleased && <AddToCollectionButton productCode={product.code} />}
               {canManageProduct(role) && product.status === "DRAFT" && (
                 <button
                   onClick={() => submitForReview(product.code)}

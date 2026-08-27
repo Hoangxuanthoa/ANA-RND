@@ -1,4 +1,4 @@
-import type { Role, Project, ProjectType, Product } from "@/lib/mock-data";
+import type { Role, Project, ProjectType, Product, Collection } from "@/lib/mock-data";
 
 export const canViewLibrary = (role: Role) => role !== "CUSTOMER";
 export const canCreateProduct = (role: Role) => role === "RND" || role === "ADMIN";
@@ -13,6 +13,19 @@ export const canViewMyTasks = (role: Role) => role === "RND";
 
 export const canManageSettings = (role: Role) => role === "ADMIN";
 export const canManageCollections = (role: Role) => role === "SALES" || role === "MARKETING" || role === "ADMIN";
+
+// Which DRAFT collections show up when adding a product to one — same
+// ownership scoping as getPickableProjects: Admin sees every draft,
+// everyone else only the ones they created.
+export function getPickableCollections<T extends Collection>(role: Role, userName: string, collections: T[]): T[] {
+  const drafts = collections.filter((c) => c.status === "DRAFT");
+  if (role === "ADMIN") return drafts;
+  return drafts.filter((c) => c.createdByName === userName);
+}
+
+export function canEditCollection(role: Role, userName: string, collection: Collection) {
+  return collection.status === "DRAFT" && (role === "ADMIN" || collection.createdByName === userName);
+}
 
 // Library visibility: Sales/Marketing only ever see Released products —
 // they shouldn't be offering a customer something not yet approved.
