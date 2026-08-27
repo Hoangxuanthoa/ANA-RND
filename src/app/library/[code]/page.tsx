@@ -60,6 +60,11 @@ export default function ProductDetailPage() {
   const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
   const pickableProjects = getPickableProjects(role, userName, projects);
+  // Only set once a design has actually been Released from a (closed)
+  // project — not shown for standalone uploads or work still in progress.
+  const relatedProject = product.sourceProjectName
+    ? projects.find((p) => p.name === product.sourceProjectName)
+    : undefined;
   const editable = canEditProduct(role, userName, product);
   const hardDelete = canHardDeleteProduct(product, usages.length);
 
@@ -175,15 +180,27 @@ export default function ProductDetailPage() {
                 ["Material", product.material],
                 ["Designer", product.designer],
                 ["Origin customer", product.originCustomer],
+                ...(relatedProject ? [["Related Project", relatedProject.name]] : []),
                 ...(product.size ? [["Size", product.size]] : []),
                 ...(product.color ? [["Màu sắc", product.color]] : []),
                 ...(formatDimensions(product) ? [["Kích thước", formatDimensions(product)!]] : []),
-              ].map(([label, value]) => (
-                <div key={label} className="flex justify-between border-b border-line py-2.5 text-[13px]">
-                  <span className="text-text-muted">{label}</span>
-                  <span className="font-semibold">{value}</span>
-                </div>
-              ))}
+              ].map(([label, value]) =>
+                label === "Related Project" && relatedProject ? (
+                  <Link
+                    key={label}
+                    href={`/projects/${relatedProject.code}`}
+                    className="flex justify-between border-b border-line py-2.5 text-[13px] hover:bg-bg"
+                  >
+                    <span className="text-text-muted">{label}</span>
+                    <span className="font-semibold text-accent hover:text-accent-hover">{value} →</span>
+                  </Link>
+                ) : (
+                  <div key={label} className="flex justify-between border-b border-line py-2.5 text-[13px]">
+                    <span className="text-text-muted">{label}</span>
+                    <span className="font-semibold">{value}</span>
+                  </div>
+                ),
+              )}
             </div>
 
             {product.description && (
