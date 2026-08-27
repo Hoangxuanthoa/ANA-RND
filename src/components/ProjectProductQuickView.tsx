@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { ROLE_INITIALS, type ProjectProductItem, type Product } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
+import { useProjects } from "@/components/ProjectsProvider";
 import {
   usageBadge,
   projectProductStatusBadge,
@@ -20,6 +22,8 @@ interface ProjectProductQuickViewProps {
 
 export function ProjectProductQuickView({ item, product, isClosed, onClose }: ProjectProductQuickViewProps) {
   const { role } = useRole();
+  const { addProjectProductFeedback } = useProjects();
+  const [commentText, setCommentText] = useState("");
   const customer = isCustomerRole(role);
   const usage = usageBadge(item.usage);
   const status = projectProductStatusBadge(item.status);
@@ -121,10 +125,19 @@ export function ProjectProductQuickView({ item, product, isClosed, onClose }: Pr
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Viết bình luận cho sản phẩm này…"
                   className="min-h-[56px] w-full rounded-[10px] border border-line p-2.5 text-[12.5px]"
                 />
-                <button className="inline-flex h-8 items-center justify-center self-end rounded-lg bg-accent px-3.5 text-[12px] font-bold text-white hover:bg-accent-hover">
+                <button
+                  disabled={!commentText.trim()}
+                  onClick={() => {
+                    addProjectProductFeedback(item.projectCode, item.productCode, commentText.trim());
+                    setCommentText("");
+                  }}
+                  className="inline-flex h-8 items-center justify-center self-end rounded-lg bg-accent px-3.5 text-[12px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
+                >
                   Gửi
                 </button>
               </div>

@@ -10,7 +10,7 @@ import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
-import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_FEEDBACK, PROJECT_ACTIVITY } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
   projectStatusBadge,
   projectTypeBadge,
@@ -40,7 +40,7 @@ export default function ProjectDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const { role } = useRole();
-  const { projects, projectProducts, closeProject, markCompleted, deleteProject, updateProject } = useProjects();
+  const { projects, projectProducts, projectFeedback, closeProject, markCompleted, deleteProject, updateProject, addProjectFeedback } = useProjects();
   const { products, releaseToLibrary, setReusePermission } = useProducts();
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
@@ -48,8 +48,11 @@ export default function ProjectDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   if (!project) return notFound();
+
+  const feedback = projectFeedback.filter((f) => f.projectCode === project.code);
 
   const status = projectStatusBadge(project.status);
   const typeBadge = projectTypeBadge(project.type);
@@ -150,7 +153,7 @@ export default function ProjectDetailPage() {
                 tab === t.key ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
             >
-              {t.label} {t.key === "products" ? `(${items.length})` : t.key === "feedback" ? `(${PROJECT_FEEDBACK.length})` : ""}
+              {t.label} {t.key === "products" ? `(${items.length})` : t.key === "feedback" ? `(${feedback.length})` : ""}
             </button>
           ))}
         </div>
@@ -261,7 +264,7 @@ export default function ProjectDetailPage() {
 
         {tab === "feedback" && (
           <div className="flex max-w-[720px] flex-col gap-4">
-            {PROJECT_FEEDBACK.map((f, i) => (
+            {feedback.map((f, i) => (
               <div key={i} className="flex gap-3">
                 <div className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TINT_BG[f.tint]} ${TINT_FG[f.tint]}`}>
                   {f.initials}
@@ -275,16 +278,28 @@ export default function ProjectDetailPage() {
                 </div>
               </div>
             ))}
+            {feedback.length === 0 && (
+              <p className="text-[12.5px] text-text-faint">Chưa có bình luận nào.</p>
+            )}
             <div className="flex items-start gap-2.5">
               <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
                 {ROLE_INITIALS[role]}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Viết bình luận…"
                   className="min-h-[64px] w-full rounded-[10px] border border-line p-2.5 text-[13px]"
                 />
-                <button className="inline-flex h-[38px] items-center justify-center self-end rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+                <button
+                  disabled={!commentText.trim()}
+                  onClick={() => {
+                    addProjectFeedback(project.code, commentText.trim());
+                    setCommentText("");
+                  }}
+                  className="inline-flex h-[38px] items-center justify-center self-end rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
+                >
                   Gửi
                 </button>
               </div>

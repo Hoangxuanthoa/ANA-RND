@@ -28,6 +28,45 @@ export const CURRENT_USER_NAME: Record<Role, string> = {
   CUSTOMER: "JYSK",
 };
 
+// Company roster — feeds the R&D-owner / assignee pickers on New Project
+// and Admin Settings' User management. At least 5 Sales, 1 Marketing, 2
+// R&D, matching the actual team size.
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: Exclude<Role, "CUSTOMER">;
+}
+
+export const STAFF: StaffMember[] = [
+  { id: "usr-1", name: "Minh", role: "ADMIN" },
+  { id: "usr-2", name: "Hà", role: "SALES" },
+  { id: "usr-3", name: "Hùng", role: "SALES" },
+  { id: "usr-4", name: "Trang", role: "SALES" },
+  { id: "usr-5", name: "Quân", role: "SALES" },
+  { id: "usr-6", name: "Ngọc", role: "SALES" },
+  { id: "usr-7", name: "Linh", role: "MARKETING" },
+  { id: "usr-8", name: "An", role: "RND" },
+  { id: "usr-9", name: "Lan", role: "RND" },
+];
+
+export const CUSTOMERS = ["JYSK", "ADE", "SCG", "Habitat"];
+
+// How a person's comment should be attributed, derived from whichever
+// role they're currently browsing as — keeps every feedback thread
+// (product, project, project-product) formatted the same way.
+export function feedbackIdentity(role: Role): { author: string; initials: string; tint: "accent" | "blue" | "green" | "amber" } {
+  const name = CURRENT_USER_NAME[role];
+  const tint: Record<Role, "accent" | "blue" | "green" | "amber"> = {
+    ADMIN: "accent",
+    RND: "blue",
+    SALES: "amber",
+    MARKETING: "accent",
+    CUSTOMER: "green",
+  };
+  const author = role === "CUSTOMER" ? `${name} Buyer` : `${name} (${ROLE_LABEL[role]})`;
+  return { author, initials: ROLE_INITIALS[role], tint: tint[role] };
+}
+
 export type ProductStatus =
   | "DRAFT"
   | "DEVELOPING"
@@ -590,18 +629,65 @@ export const PROJECT_ACTIVITY: ActivityItem[] = [
 
 // General discussion about the project as a whole — not about one
 // specific product (those threads live on each item in PROJECT_PRODUCTS).
-export const PROJECT_FEEDBACK: FeedbackItem[] = [
-  { author: "Hà (Sales)", content: "Khách xin dời deadline sang 20/09 vì bên họ đổi lịch nhập hàng.", time: "1 tuần trước", initials: "HA", tint: "amber" },
+// Keyed by projectCode so each project's thread is independent (a single
+// shared array previously made every project show the same comments).
+export interface ProjectFeedbackItem extends FeedbackItem {
+  projectCode: string;
+}
+
+export const PROJECT_FEEDBACK: ProjectFeedbackItem[] = [
+  {
+    projectCode: "PRJ-2025-014",
+    author: "Hà (Sales)",
+    content: "Khách xin dời deadline sang 20/09 vì bên họ đổi lịch nhập hàng.",
+    time: "1 tuần trước",
+    initials: "HA",
+    tint: "amber",
+  },
 ];
+
+export function getProjectFeedback(projectCode: string) {
+  return PROJECT_FEEDBACK.filter((f) => f.projectCode === projectCode);
+}
 
 // Feedback shown on a product's own Library page — general discussion
 // about the design across its whole reuse history, distinct from the
-// project-scoped threads on each PROJECT_PRODUCTS item.
-export const PRODUCT_FEEDBACK: FeedbackItem[] = [
-  { author: "JYSK Buyer", content: "Kích thước hiện tại hơi lớn so với kệ trưng bày, có thể thu nhỏ 10% không?", time: "3 ngày trước", initials: "JY", tint: "green" },
-  { author: "An Nguyễn (R&D)", content: "Đã cập nhật ở V03 — thu nhỏ 10%, giữ nguyên kiểu đan.", time: "2 ngày trước", initials: "AN", tint: "blue" },
-  { author: "Hà (Sales)", content: "Khách đã xem V03, đang chờ phản hồi chính thức.", time: "Hôm qua", initials: "HA", tint: "amber" },
+// project-scoped threads on each PROJECT_PRODUCTS item. Keyed by
+// productCode for the same reason as ProjectFeedbackItem above.
+export interface ProductFeedbackItem extends FeedbackItem {
+  productCode: string;
+}
+
+export const PRODUCT_FEEDBACK: ProductFeedbackItem[] = [
+  {
+    productCode: "RND-00125",
+    author: "JYSK Buyer",
+    content: "Kích thước hiện tại hơi lớn so với kệ trưng bày, có thể thu nhỏ 10% không?",
+    time: "3 ngày trước",
+    initials: "JY",
+    tint: "green",
+  },
+  {
+    productCode: "RND-00125",
+    author: "An Nguyễn (R&D)",
+    content: "Đã cập nhật ở V03 — thu nhỏ 10%, giữ nguyên kiểu đan.",
+    time: "2 ngày trước",
+    initials: "AN",
+    tint: "blue",
+  },
+  {
+    productCode: "RND-00125",
+    author: "Hà (Sales)",
+    content: "Khách đã xem V03, đang chờ phản hồi chính thức.",
+    time: "Hôm qua",
+    initials: "HA",
+    tint: "amber",
+  },
 ];
+
+export function getProductFeedback(productCode: string) {
+  return PRODUCT_FEEDBACK.filter((f) => f.productCode === productCode);
+}
 
 // NOTIFICATIONS — a personal inbox (who gets pinged), separate from the
 // shared Activity log (what happened). `recipientName` matches a

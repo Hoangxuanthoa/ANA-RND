@@ -4,15 +4,20 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import {
   PRODUCTS as INITIAL_PRODUCTS,
   INITIAL_NOTIFICATIONS,
+  PRODUCT_FEEDBACK as INITIAL_PRODUCT_FEEDBACK,
+  feedbackIdentity,
   type Product,
   type NotificationItem,
+  type ProductFeedbackItem,
   type ReusePermission,
 } from "@/lib/mock-data";
+import { useRole } from "@/components/RoleProvider";
 
 interface ProductsContextValue {
   products: Product[];
   notifications: NotificationItem[];
   favoritedCodes: Set<string>;
+  productFeedback: ProductFeedbackItem[];
   approveProduct: (code: string) => void;
   rejectProduct: (code: string, reason: string) => void;
   markNotificationRead: (id: string) => void;
@@ -24,14 +29,17 @@ interface ProductsContextValue {
   releaseToLibrary: (code: string, projectName: string) => void;
   setReusePermission: (code: string, reuse: ReusePermission) => void;
   toggleFavorite: (code: string) => void;
+  addProductFeedback: (productCode: string, content: string) => void;
 }
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
 
 export function ProductsProvider({ children }: { children: ReactNode }) {
+  const { role } = useRole();
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
+  const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
 
   function approveProduct(code: string) {
     setProducts((prev) =>
@@ -98,12 +106,18 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  function addProductFeedback(productCode: string, content: string) {
+    const { author, initials, tint } = feedbackIdentity(role);
+    setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
+  }
+
   return (
     <ProductsContext.Provider
       value={{
         products,
         notifications,
         favoritedCodes,
+        productFeedback,
         approveProduct,
         rejectProduct,
         markNotificationRead,
@@ -111,6 +125,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         releaseToLibrary,
         setReusePermission,
         toggleFavorite,
+        addProductFeedback,
       }}
     >
       {children}

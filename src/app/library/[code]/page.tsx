@@ -7,7 +7,7 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
-import { PRODUCT_ASSETS, PRODUCT_VERSIONS, PRODUCT_FEEDBACK, ROLE_INITIALS, CURRENT_USER_NAME } from "@/lib/mock-data";
+import { PRODUCT_ASSETS, PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -21,12 +21,12 @@ import { canManageProduct, canPickProduct, getPickableProjects } from "@/lib/per
 const TABS = [
   { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
   { key: "projects", label: "Used in Projects" },
-  { key: "feedback", label: `Feedback (${PRODUCT_FEEDBACK.length})` },
+  { key: "feedback", label: "Feedback" },
 ] as const;
 
 export default function ProductDetailPage() {
   const params = useParams<{ code: string }>();
-  const { products, favoritedCodes, toggleFavorite, submitForReview } = useProducts();
+  const { products, favoritedCodes, toggleFavorite, submitForReview, productFeedback, addProductFeedback } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const product = products.find((p) => p.code === params.code);
   const { role } = useRole();
@@ -35,8 +35,11 @@ export default function ProductDetailPage() {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("versions");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
 
   if (!product) return notFound();
+
+  const feedback = productFeedback.filter((f) => f.productCode === product.code);
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
@@ -227,7 +230,7 @@ export default function ProductDetailPage() {
                 tab === t.key ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
             >
-              {t.key === "projects" ? `${t.label} (${usages.length})` : t.label}
+              {t.key === "projects" ? `${t.label} (${usages.length})` : t.key === "feedback" ? `${t.label} (${feedback.length})` : t.label}
             </button>
           ))}
         </div>
@@ -291,7 +294,7 @@ export default function ProductDetailPage() {
 
         {tab === "feedback" && (
           <div className="flex max-w-[720px] flex-col gap-4 pt-4">
-            {PRODUCT_FEEDBACK.map((f, i) => (
+            {feedback.map((f, i) => (
               <div key={i} className="flex gap-3">
                 <div className={`flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TINT_BG[f.tint]} ${TINT_FG[f.tint]}`}>
                   {f.initials}
@@ -305,16 +308,28 @@ export default function ProductDetailPage() {
                 </div>
               </div>
             ))}
+            {feedback.length === 0 && (
+              <p className="text-[12.5px] text-text-faint">Chưa có bình luận nào.</p>
+            )}
             <div className="flex items-start gap-2.5 pt-1.5">
               <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
                 {ROLE_INITIALS[role]}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Viết bình luận…"
                   className="min-h-[64px] w-full rounded-[10px] border border-line p-2.5 text-[13px]"
                 />
-                <button className="inline-flex h-[38px] items-center justify-center self-end rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+                <button
+                  disabled={!commentText.trim()}
+                  onClick={() => {
+                    addProductFeedback(product.code, commentText.trim());
+                    setCommentText("");
+                  }}
+                  className="inline-flex h-[38px] items-center justify-center self-end rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
+                >
                   Gửi
                 </button>
               </div>
