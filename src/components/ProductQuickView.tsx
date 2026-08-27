@@ -39,21 +39,29 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
       >
         <div className="flex items-start justify-between border-b border-line p-5">
           <div>
-            <div className="mb-2 flex items-center gap-2">
+            <div className="mb-2 flex gap-2">
               <span className={status.className}>{status.label}</span>
               <span className={reuse.className}>{reuse.label}</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <div>
+                <h2 className="text-lg font-extrabold">{product.name}</h2>
+                <div className="mt-0.5 text-[13px] font-semibold text-text-faint">{product.code}</div>
+              </div>
               <button
                 onClick={() => toggleFavorite(product.code)}
-                className={`ml-1 flex items-center gap-1 text-[12px] font-bold ${isFavorited ? "text-red" : "text-text-faint hover:text-red"}`}
+                className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${
+                  isFavorited
+                    ? "border-red bg-red-soft text-red"
+                    : "border-line bg-surface text-text-muted hover:border-red hover:text-red"
+                }`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
                   <path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 000-7.8z" />
                 </svg>
                 {favoriteCount}
               </button>
             </div>
-            <h2 className="text-lg font-extrabold">{product.name}</h2>
-            <div className="mt-0.5 text-[13px] font-semibold text-text-faint">{product.code}</div>
           </div>
           <button
             onClick={onClose}
@@ -101,14 +109,10 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
           </div>
         </div>
 
-        <div className="flex gap-2.5 px-5">
-          <div className="flex-1 rounded-[10px] bg-bg p-2.5 text-center">
+        <div className="px-5">
+          <div className="w-fit rounded-[10px] bg-bg px-4 py-2.5 text-center">
             <div className="text-base font-extrabold">{reusedCount}</div>
             <div className="text-[10px] font-semibold text-text-faint">Reused</div>
-          </div>
-          <div className="flex-1 rounded-[10px] bg-bg p-2.5 text-center">
-            <div className="text-base font-extrabold">{favoriteCount}</div>
-            <div className="text-[10px] font-semibold text-text-faint">Favorite</div>
           </div>
         </div>
 

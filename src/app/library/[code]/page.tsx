@@ -94,14 +94,22 @@ export default function ProductDetailPage() {
           {/* Info panel */}
           <div className="flex w-[360px] flex-shrink-0 flex-col gap-4.5">
             <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex gap-2">
-                  <span className={status.className}>{status.label}</span>
-                  <span className={reuse.className}>{reuse.label}</span>
+              <div className="mb-2 flex gap-2">
+                <span className={status.className}>{status.label}</span>
+                <span className={reuse.className}>{reuse.label}</span>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h1 className="mb-1 text-[21px] font-extrabold">{product.name}</h1>
+                  <div className="text-[13px] font-semibold text-text-faint">{product.code}</div>
                 </div>
                 <button
                   onClick={() => toggleFavorite(product.code)}
-                  className={`flex items-center gap-1 text-[12.5px] font-bold ${isFavorited ? "text-red" : "text-text-faint hover:text-red"}`}
+                  className={`flex flex-shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-bold transition ${
+                    isFavorited
+                      ? "border-red bg-red-soft text-red"
+                      : "border-line bg-surface text-text-muted hover:border-red hover:text-red"
+                  }`}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8">
                     <path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 000-7.8z" />
@@ -109,8 +117,6 @@ export default function ProductDetailPage() {
                   {favoriteCount}
                 </button>
               </div>
-              <h1 className="mb-1 text-[21px] font-extrabold">{product.name}</h1>
-              <div className="text-[13px] font-semibold text-text-faint">{product.code}</div>
             </div>
 
             <div>
@@ -142,15 +148,9 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            <div className="flex gap-2.5">
-              <div className="flex-1 rounded-[10px] bg-bg p-3 text-center">
-                <div className="text-lg font-extrabold">{reusedCount}</div>
-                <div className="text-[10.5px] font-semibold text-text-faint">Reused</div>
-              </div>
-              <div className="flex-1 rounded-[10px] bg-bg p-3 text-center">
-                <div className="text-lg font-extrabold">{favoriteCount}</div>
-                <div className="text-[10.5px] font-semibold text-text-faint">Favorite</div>
-              </div>
+            <div className="rounded-[10px] bg-bg p-3 text-center">
+              <div className="text-lg font-extrabold">{reusedCount}</div>
+              <div className="text-[10.5px] font-semibold text-text-faint">Reused</div>
             </div>
 
             <div className="flex flex-col gap-2">

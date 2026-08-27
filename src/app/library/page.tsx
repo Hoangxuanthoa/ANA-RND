@@ -51,7 +51,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 export default function LibraryPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { products } = useProducts();
+  const { products, favoritedCodes, toggleFavorite } = useProducts();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("ALL");
   const [material, setMaterial] = useState<string>("ALL");
@@ -176,11 +176,15 @@ export default function LibraryPage() {
             {pageItems.map((p) => {
               const status = productStatusBadge(p.status);
               const reuseBadge = reusePermissionBadge(p.reuse);
+              const isFavorited = favoritedCodes.has(p.code);
               return (
-                <button
+                <div
                   key={p.code}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setQuickView(p)}
-                  className="overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                  onKeyDown={(e) => e.key === "Enter" && setQuickView(p)}
+                  className="cursor-pointer overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className={`relative flex h-32 items-center justify-center ${TINT_BG[p.tint]}`}>
                     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
@@ -191,6 +195,19 @@ export default function LibraryPage() {
                     <span className={`absolute top-2 left-2 ${reuseBadge.className} bg-white/90 backdrop-blur-sm`}>
                       {reuseBadge.label}
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(p.code);
+                      }}
+                      className={`absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full transition ${
+                        isFavorited ? "bg-white text-red" : "bg-white/90 text-text-faint hover:text-red"
+                      }`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill={isFavorited ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                        <path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.6l-1-1a5.5 5.5 0 00-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 000-7.8z" />
+                      </svg>
+                    </button>
                   </div>
                   <div className="flex flex-col gap-1.5 p-3">
                     <div className="flex items-start justify-between gap-1.5">
@@ -204,7 +221,7 @@ export default function LibraryPage() {
                       {p.category} · {p.material}
                     </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
