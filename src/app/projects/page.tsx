@@ -7,7 +7,8 @@ import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
-import { CURRENT_USER_NAME, type Project, type ProjectStatus } from "@/lib/mock-data";
+import { NewProjectModal } from "@/components/NewProjectModal";
+import { CURRENT_USER_NAME, nextProjectCode, type Project, type ProjectStatus } from "@/lib/mock-data";
 import { projectStatusBadge, projectTypeBadge } from "@/lib/badges";
 import { canCreateProject, canEditProject, canHardDeleteProject, canMarkCompleted } from "@/lib/permissions";
 
@@ -36,12 +37,13 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 
 export default function ProjectsPage() {
   const { role } = useRole();
-  const { projects, projectProducts, closeProject, markCompleted, deleteProject, updateProject } = useProjects();
+  const { projects, projectProducts, closeProject, markCompleted, deleteProject, updateProject, createProject } = useProjects();
   const userName = CURRENT_USER_NAME[role];
   const isCustomer = role === "CUSTOMER";
   const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
   const [removeTarget, setRemoveTarget] = useState<Project | null>(null);
   const [editTarget, setEditTarget] = useState<Project | null>(null);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const base = isCustomer ? projects.filter((p) => p.isMine) : projects;
@@ -64,7 +66,10 @@ export default function ProjectsPage() {
             </p>
           </div>
           {canCreateProject(role) && (
-            <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+            <button
+              onClick={() => setNewProjectOpen(true)}
+              className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                 <path d="M12 5v14M5 12h14" />
               </svg>
@@ -209,6 +214,31 @@ export default function ProjectsPage() {
             setEditTarget(null);
           }}
         />
+      )}
+
+      {newProjectOpen && (
+      <NewProjectModal
+        open
+        role={role}
+        onCancel={() => setNewProjectOpen(false)}
+        onCreate={(input) => {
+          createProject({
+            code: nextProjectCode(input.type, projects),
+            name: input.name,
+            type: input.type,
+            customer: input.customer,
+            sales: input.sales,
+            rndOwner: input.rndOwner,
+            createdByName: userName,
+            status: "CREATED",
+            deadline: input.deadline,
+            brief: input.brief,
+            isMine: input.customer === CURRENT_USER_NAME.CUSTOMER,
+            attachments: [],
+          });
+          setNewProjectOpen(false);
+        }}
+      />
       )}
     </div>
   );

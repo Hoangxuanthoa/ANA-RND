@@ -588,6 +588,26 @@ export const PROJECT_PRODUCTS: ProjectProductItem[] = [
   },
 ];
 
+// Generates the next code for a new project, scoped by type — matches
+// the existing PRJ-YYYY-NNN / PRJ-INT-NNN / PRJ-MKT-NNN conventions above.
+export function nextProjectCode(type: ProjectType, projects: Project[]): string {
+  if (type === "INTERNAL" || type === "MARKETING") {
+    const prefix = type === "INTERNAL" ? "PRJ-INT-" : "PRJ-MKT-";
+    const nums = projects
+      .filter((p) => p.code.startsWith(prefix))
+      .map((p) => parseInt(p.code.slice(prefix.length), 10))
+      .filter((n) => !isNaN(n));
+    const next = (nums.length ? Math.max(...nums) : 0) + 1;
+    return `${prefix}${String(next).padStart(3, "0")}`;
+  }
+  const nums = projects
+    .filter((p) => p.type === "CUSTOMER")
+    .map((p) => parseInt(p.code.split("-").pop() ?? "", 10))
+    .filter((n) => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `PRJ-${new Date().getFullYear()}-${String(next).padStart(3, "0")}`;
+}
+
 export function getProjectProducts(projectCode: string) {
   return PROJECT_PRODUCTS.filter((pp) => pp.projectCode === projectCode);
 }
