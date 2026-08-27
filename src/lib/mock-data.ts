@@ -91,6 +91,15 @@ export type ProjectProductStatus =
   | "COMPLETED";
 export type CustomerApproval = "PENDING" | "CHANGE_REQUESTED" | "APPROVED";
 
+// A product can come in several sizes (e.g. S/M/L), each with its own
+// dimensions — not one fixed size per design.
+export interface ProductSizeVariant {
+  size: string;
+  length?: number;
+  width?: number;
+  height?: number;
+}
+
 export interface Product {
   code: string;
   name: string;
@@ -108,10 +117,7 @@ export interface Product {
   // Legacy seed products have none and fall back to the tint placeholder.
   mainImage?: string;
   images?: string[];
-  size?: string;
-  length?: number;
-  width?: number;
-  height?: number;
+  sizeVariants?: ProductSizeVariant[];
   color?: string;
   // Set when this product was submitted via "Release to Library" from a
   // closed project, rather than uploaded straight to the library.
@@ -358,10 +364,10 @@ export const MATERIALS = ["Rattan", "Bamboo", "Water Hyacinth", "Seagrass", "Jut
 
 // "120 × 45 × 80 cm" from whichever of length/width/height are set — null
 // when none are, so callers can skip the row instead of showing "— cm".
-export function formatDimensions(p: Product): string | null {
-  const parts = [p.length, p.width, p.height].filter((n): n is number => typeof n === "number");
+export function formatSizeVariantDimensions(v: ProductSizeVariant): string | null {
+  const parts = [v.length, v.width, v.height].filter((n): n is number => typeof n === "number");
   if (parts.length === 0) return null;
-  return `${[p.length, p.width, p.height].map((n) => n ?? "—").join(" × ")} cm`;
+  return `${[v.length, v.width, v.height].map((n) => n ?? "—").join(" × ")} cm`;
 }
 
 // Generates the next product code as RND + month(2) + year(2) + a 3-digit

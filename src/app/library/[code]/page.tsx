@@ -9,7 +9,7 @@ import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME, formatDimensions } from "@/lib/mock-data";
+import { PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME, formatSizeVariantDimensions } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -181,9 +181,7 @@ export default function ProductDetailPage() {
                 ["Designer", product.designer],
                 ["Origin customer", product.originCustomer],
                 ...(relatedProject ? [["Related Project", relatedProject.name]] : []),
-                ...(product.size ? [["Size", product.size]] : []),
                 ...(product.color ? [["Màu sắc", product.color]] : []),
-                ...(formatDimensions(product) ? [["Kích thước", formatDimensions(product)!]] : []),
               ].map(([label, value]) =>
                 label === "Related Project" && relatedProject ? (
                   <Link
@@ -201,6 +199,12 @@ export default function ProductDetailPage() {
                   </div>
                 ),
               )}
+              {(product.sizeVariants ?? []).map((v, i) => (
+                <div key={`size-${i}`} className="flex justify-between border-b border-line py-2.5 text-[13px]">
+                  <span className="text-text-muted">Size {v.size}</span>
+                  <span className="font-semibold">{formatSizeVariantDimensions(v) ?? "—"}</span>
+                </div>
+              ))}
             </div>
 
             {product.description && (

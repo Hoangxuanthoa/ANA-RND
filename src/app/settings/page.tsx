@@ -323,7 +323,7 @@ export default function SettingsPage() {
         {tab === "size" && (
           <TagListEditor
             items={sizes}
-            usedBy={(name) => products.some((p) => p.size === name)}
+            usedBy={(name) => products.some((p) => p.sizeVariants?.some((v) => v.size === name))}
             onAdd={addSize}
             onRename={renameSize}
             onRemove={removeSize}

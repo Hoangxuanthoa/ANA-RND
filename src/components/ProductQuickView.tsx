@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/mock-data";
-import { CURRENT_USER_NAME, formatDimensions } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, formatSizeVariantDimensions } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
@@ -139,13 +139,17 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                 ["Category", product.category],
                 ["Material", product.material],
                 ["Designer", product.designer],
-                ...(product.size ? [["Size", product.size]] : []),
                 ...(product.color ? [["Màu sắc", product.color]] : []),
-                ...(formatDimensions(product) ? [["Kích thước", formatDimensions(product)!]] : []),
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between border-b border-line py-2 text-[13px]">
                   <span className="text-text-muted">{label}</span>
                   <span className="font-semibold">{value}</span>
+                </div>
+              ))}
+              {(product.sizeVariants ?? []).map((v, i) => (
+                <div key={`size-${i}`} className="flex justify-between border-b border-line py-2 text-[13px]">
+                  <span className="text-text-muted">Size {v.size}</span>
+                  <span className="font-semibold">{formatSizeVariantDimensions(v) ?? "—"}</span>
                 </div>
               ))}
             </div>

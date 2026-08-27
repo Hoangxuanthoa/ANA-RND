@@ -4,6 +4,13 @@ import { useMemo, useState } from "react";
 import { useProducts } from "@/components/ProductsProvider";
 import { nextProductCode, type Product } from "@/lib/mock-data";
 
+interface SizeVariantInput {
+  size: string;
+  length: string;
+  width: string;
+  height: string;
+}
+
 interface NewProductModalProps {
   open: boolean;
   title?: string;
@@ -70,15 +77,33 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [category, setCategory] = useState(product?.category ?? categories[0] ?? "");
   const [material, setMaterial] = useState(product?.material ?? materials[0] ?? "");
-  const [size, setSize] = useState(product?.size ?? sizes[0] ?? "");
   const [color, setColor] = useState(product?.color ?? colors[0] ?? "");
-  const [length, setLength] = useState(product?.length != null ? String(product.length) : "");
-  const [width, setWidth] = useState(product?.width != null ? String(product.width) : "");
-  const [height, setHeight] = useState(product?.height != null ? String(product.height) : "");
+  const [sizeVariants, setSizeVariants] = useState<SizeVariantInput[]>(
+    product?.sizeVariants && product.sizeVariants.length > 0
+      ? product.sizeVariants.map((v) => ({
+          size: v.size,
+          length: v.length != null ? String(v.length) : "",
+          width: v.width != null ? String(v.width) : "",
+          height: v.height != null ? String(v.height) : "",
+        }))
+      : [{ size: sizes[0] ?? "", length: "", width: "", height: "" }],
+  );
 
   const previewCode = useMemo(() => nextProductCode(products), [products]);
 
   if (!open) return null;
+
+  function updateVariant(index: number, patch: Partial<SizeVariantInput>) {
+    setSizeVariants((prev) => prev.map((v, i) => (i === index ? { ...v, ...patch } : v)));
+  }
+
+  function addVariant() {
+    setSizeVariants((prev) => [...prev, { size: sizes[0] ?? "", length: "", width: "", height: "" }]);
+  }
+
+  function removeVariant(index: number) {
+    setSizeVariants((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,11 +112,13 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
       name: name.trim(),
       category,
       material,
-      size,
       color,
-      length: length ? Number(length) : undefined,
-      width: width ? Number(width) : undefined,
-      height: height ? Number(height) : undefined,
+      sizeVariants: sizeVariants.map((v) => ({
+        size: v.size,
+        length: v.length ? Number(v.length) : undefined,
+        width: v.width ? Number(v.width) : undefined,
+        height: v.height ? Number(v.height) : undefined,
+      })),
       mainImage,
       images,
     };
@@ -108,7 +135,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onCancel}>
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-[520px] flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-md"
+        className="flex w-full max-w-[580px] flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-[15px] font-bold">{title ?? (isEditing ? "Sửa sản phẩm" : "Thiết kế sản phẩm mới")}</h3>
@@ -194,65 +221,83 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
           </label>
         </div>
 
-        <div className="flex gap-3">
-          <label className="flex flex-1 flex-col gap-1.5">
-            <span className="text-[12.5px] font-semibold">Size</span>
-            <select
-              value={size}
-              onChange={(e) => setSize(e.target.value)}
-              className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
-            >
-              {sizes.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-1 flex-col gap-1.5">
-            <span className="text-[12.5px] font-semibold">Màu sắc</span>
-            <select
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
-            >
-              {colors.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] font-semibold">Màu sắc</span>
+          <select
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
+            className="h-10 w-1/2 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
+          >
+            {colors.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
 
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[12.5px] font-semibold">Kích thước (cm)</span>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min="0"
-              value={length}
-              onChange={(e) => setLength(e.target.value)}
-              placeholder="Dài"
-              className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
-            />
-            <input
-              type="number"
-              min="0"
-              value={width}
-              onChange={(e) => setWidth(e.target.value)}
-              placeholder="Rộng"
-              className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
-            />
-            <input
-              type="number"
-              min="0"
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
-              placeholder="Cao"
-              className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
-            />
-          </div>
+        <div className="flex flex-col gap-2">
+          <span className="text-[12.5px] font-semibold">Kích thước</span>
+          {sizeVariants.map((v, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <select
+                value={v.size}
+                onChange={(e) => updateVariant(i, { size: e.target.value })}
+                className="h-10 w-[88px] flex-shrink-0 rounded-lg border border-line px-2 text-[13px] focus:border-accent focus:outline-none"
+              >
+                {sizes.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min="0"
+                value={v.length}
+                onChange={(e) => updateVariant(i, { length: e.target.value })}
+                placeholder="Dài"
+                className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+              />
+              <input
+                type="number"
+                min="0"
+                value={v.width}
+                onChange={(e) => updateVariant(i, { width: e.target.value })}
+                placeholder="Rộng"
+                className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+              />
+              <input
+                type="number"
+                min="0"
+                value={v.height}
+                onChange={(e) => updateVariant(i, { height: e.target.value })}
+                placeholder="Cao"
+                className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+              />
+              <button
+                type="button"
+                onClick={() => removeVariant(i)}
+                disabled={sizeVariants.length <= 1}
+                title="Bỏ size này"
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-faint"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addVariant}
+            className="flex h-9 w-fit items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[12.5px] font-bold hover:bg-bg"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Thêm size
+          </button>
         </div>
 
         <div className="mt-1 flex justify-end gap-2.5">

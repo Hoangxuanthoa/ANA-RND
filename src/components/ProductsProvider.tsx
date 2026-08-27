@@ -13,6 +13,7 @@ import {
   nextProductCode,
   CURRENT_USER_NAME,
   type Product,
+  type ProductSizeVariant,
   type NotificationItem,
   type ProductFeedbackItem,
   type ReusePermission,
@@ -45,10 +46,7 @@ interface ProductsContextValue {
       name: string;
       category: string;
       material: string;
-      size: string;
-      length?: number;
-      width?: number;
-      height?: number;
+      sizeVariants: ProductSizeVariant[];
       color: string;
       mainImage?: string;
       images?: string[];
@@ -75,13 +73,14 @@ interface ProductsContextValue {
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
 
-// Shared CRUD for the 4 lookup lists (Category/Material/Size/Color) that
-// hang off a Product by plain string field — add/rename/remove, with
-// rename cascading to every product using the old value and remove
-// blocked while any product still does.
+// Shared CRUD for the lookup lists (Category/Material/Color) that hang
+// off a Product by plain string field — add/rename/remove, with rename
+// cascading to every product using the old value and remove blocked
+// while any product still does. Size is handled separately below since a
+// product can have several size variants, not one flat field.
 function useManagedField(
   initial: string[],
-  field: "category" | "material" | "size" | "color",
+  field: "category" | "material" | "color",
   products: Product[],
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>,
 ) {
@@ -116,8 +115,32 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
   const categoryField = useManagedField(INITIAL_CATEGORIES, "category", products, setProducts);
   const materialField = useManagedField(INITIAL_MATERIALS, "material", products, setProducts);
-  const sizeField = useManagedField(INITIAL_SIZES, "size", products, setProducts);
   const colorField = useManagedField(INITIAL_COLORS, "color", products, setProducts);
+  const [sizes, setSizes] = useState<string[]>(INITIAL_SIZES);
+
+  function addSize(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || sizes.includes(trimmed)) return;
+    setSizes((prev) => [...prev, trimmed]);
+  }
+
+  function renameSize(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || sizes.includes(trimmed)) return;
+    setSizes((prev) => prev.map((v) => (v === oldName ? trimmed : v)));
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.sizeVariants
+          ? { ...p, sizeVariants: p.sizeVariants.map((v) => (v.size === oldName ? { ...v, size: trimmed } : v)) }
+          : p,
+      ),
+    );
+  }
+
+  function removeSize(name: string) {
+    if (products.some((p) => p.sizeVariants?.some((v) => v.size === name))) return;
+    setSizes((prev) => prev.filter((v) => v !== name));
+  }
 
   function approveProduct(code: string) {
     setProducts((prev) =>
@@ -197,10 +220,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       name: string;
       category: string;
       material: string;
-      size: string;
-      length?: number;
-      width?: number;
-      height?: number;
+      sizeVariants: ProductSizeVariant[];
       color: string;
       mainImage?: string;
       images?: string[];
@@ -226,10 +246,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       reuse: "REUSABLE",
       favorites: 0,
       tint: "blue",
-      size: input.size,
-      length: input.length,
-      width: input.width,
-      height: input.height,
+      sizeVariants: input.sizeVariants,
       color: input.color,
       mainImage: input.mainImage,
       images: input.images,
@@ -262,7 +279,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         productFeedback,
         categories: categoryField.items,
         materials: materialField.items,
-        sizes: sizeField.items,
+        sizes,
         colors: colorField.items,
         approveProduct,
         rejectProduct,
@@ -282,9 +299,9 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         addMaterial: materialField.add,
         renameMaterial: materialField.rename,
         removeMaterial: materialField.remove,
-        addSize: sizeField.add,
-        renameSize: sizeField.rename,
-        removeSize: sizeField.remove,
+        addSize,
+        renameSize,
+        removeSize,
         addColor: colorField.add,
         renameColor: colorField.rename,
         removeColor: colorField.remove,
