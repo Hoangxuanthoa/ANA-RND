@@ -11,8 +11,7 @@ import { CATEGORIES, MATERIALS, CURRENT_USER_NAME, type Product, type ReusePermi
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
 
-const REUSE_OPTIONS: { key: ReusePermission | "ALL"; label: string }[] = [
-  { key: "ALL", label: "All" },
+const REUSE_OPTIONS: { key: ReusePermission; label: string }[] = [
   { key: "REUSABLE", label: "Reusable" },
   { key: "EXCLUSIVE", label: "Exclusive" },
 ];
@@ -74,7 +73,7 @@ export default function LibraryPage() {
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const [materials, setMaterials] = useState<string[]>([]);
-  const [reuse, setReuse] = useState<ReusePermission | "ALL">("ALL");
+  const [reuses, setReuses] = useState<ReusePermission[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
   const [quickView, setQuickView] = useState<Product | null>(null);
@@ -92,11 +91,11 @@ export default function LibraryPage() {
       if (!canSeeProductInLibrary(role, userName, p)) return false;
       if (categories.length > 0 && !categories.includes(p.category)) return false;
       if (materials.length > 0 && !materials.includes(p.material)) return false;
-      if (reuse !== "ALL" && p.reuse !== reuse) return false;
+      if (reuses.length > 0 && !reuses.includes(p.reuse)) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [products, role, userName, query, categories, materials, reuse]);
+  }, [products, role, userName, query, categories, materials, reuses]);
 
   const sorted = useMemo(() => {
     if (sortBy === "default") return filtered;
@@ -197,7 +196,13 @@ export default function LibraryPage() {
           <div className="flex flex-col gap-1">
             <h3 className="mb-1 text-[11px] font-bold tracking-wide text-text-faint uppercase">Reuse</h3>
             {REUSE_OPTIONS.map((r) => (
-              <FilterOption key={r.key} active={reuse === r.key} onClick={() => { setReuse(r.key); setPage(1); }}>{r.label}</FilterOption>
+              <FilterOption
+                key={r.key}
+                active={reuses.includes(r.key)}
+                onClick={() => { setReuses(toggleValue(reuses, r.key) as ReusePermission[]); setPage(1); }}
+              >
+                {r.label}
+              </FilterOption>
             ))}
           </div>
         </aside>
