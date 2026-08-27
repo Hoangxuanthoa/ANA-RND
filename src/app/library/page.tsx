@@ -6,9 +6,9 @@ import { TopNav } from "@/components/TopNav";
 import { ProductQuickView } from "@/components/ProductQuickView";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
-import { CATEGORIES, MATERIALS, type Product, type ReusePermission } from "@/lib/mock-data";
+import { CATEGORIES, MATERIALS, CURRENT_USER_NAME, type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canCreateProduct, canViewLibrary } from "@/lib/permissions";
+import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
 
 const REUSE_OPTIONS: { key: ReusePermission | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -50,6 +50,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 
 export default function LibraryPage() {
   const { role } = useRole();
+  const userName = CURRENT_USER_NAME[role];
   const { products } = useProducts();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("ALL");
@@ -61,13 +62,14 @@ export default function LibraryPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
+      if (!canSeeProductInLibrary(role, userName, p)) return false;
       if (category !== "ALL" && p.category !== category) return false;
       if (material !== "ALL" && p.material !== material) return false;
       if (reuse !== "ALL" && p.reuse !== reuse) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [products, query, category, material, reuse]);
+  }, [products, role, userName, query, category, material, reuse]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);

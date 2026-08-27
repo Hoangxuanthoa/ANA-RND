@@ -4,9 +4,9 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
-import { DASHBOARD_ACTIVITY, ROLE_LABEL } from "@/lib/mock-data";
+import { DASHBOARD_ACTIVITY, ROLE_LABEL, CURRENT_USER_NAME } from "@/lib/mock-data";
 import { productStatusBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canCreateProduct, canViewLibrary } from "@/lib/permissions";
+import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
 
 function StatCard({
   icon,
@@ -71,10 +71,11 @@ const IconBell = (
 
 export default function DashboardPage() {
   const { role } = useRole();
+  const userName = CURRENT_USER_NAME[role];
   const { products } = useProducts();
   const isCustomer = role === "CUSTOMER";
   const isAdmin = role === "ADMIN";
-  const recentProducts = products.slice(0, 3);
+  const recentProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p)).slice(0, 3);
   const pendingReviewCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
 
   return (

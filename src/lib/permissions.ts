@@ -1,4 +1,4 @@
-import type { Role, Project, ProjectType } from "@/lib/mock-data";
+import type { Role, Project, ProjectType, Product } from "@/lib/mock-data";
 
 export const canViewLibrary = (role: Role) => role !== "CUSTOMER";
 export const canCreateProduct = (role: Role) => role === "RND" || role === "ADMIN";
@@ -6,6 +6,22 @@ export const canManageProduct = (role: Role) => role === "RND" || role === "ADMI
 export const canPickProduct = (role: Role) => role !== "CUSTOMER";
 export const isCustomer = (role: Role) => role === "CUSTOMER";
 export const canReviewProducts = (role: Role) => role === "ADMIN";
+
+// Library visibility: Sales/Marketing only ever see Released products —
+// they shouldn't be offering a customer something not yet approved.
+// Admin sees everything. R&D sees everything RELEASED/PENDING_REVIEW
+// (that queue is team-visible), plus their OWN unsubmitted DRAFT/
+// DEVELOPING work — not a colleague's work-in-progress.
+export function canSeeProductInLibrary(role: Role, userName: string, product: Product) {
+  if (role === "ADMIN") return true;
+  if (role === "RND") {
+    if (product.status === "DRAFT" || product.status === "DEVELOPING") {
+      return product.designer.startsWith(userName);
+    }
+    return true;
+  }
+  return product.status === "RELEASED";
+}
 
 // Only Sales (or Admin) marks a design Exclusive to one customer — and
 // only while it's still inside that customer's project, before release.
