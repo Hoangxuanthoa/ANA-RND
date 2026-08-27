@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { ProductQuickView } from "@/components/ProductQuickView";
+import { NewProductModal } from "@/components/NewProductModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
@@ -66,6 +68,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 }
 
 export default function LibraryPage() {
+  const router = useRouter();
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
   const { products, favoritedCodes, toggleFavorite, categories: CATEGORIES, materials: MATERIALS } = useProducts();
@@ -77,6 +80,7 @@ export default function LibraryPage() {
   const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
   const [quickView, setQuickView] = useState<Product | null>(null);
+  const [newProductOpen, setNewProductOpen] = useState(false);
 
   function reusedCountOf(code: string) {
     return projectProducts.filter((pp) => pp.productCode === code && pp.usage === "REUSE").length;
@@ -233,7 +237,10 @@ export default function LibraryPage() {
                 </select>
               </label>
               {canCreateProduct(role) && (
-                <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+                <button
+                  onClick={() => setNewProductOpen(true)}
+                  className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
+                >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                     <path d="M12 5v14M5 12h14" />
                   </svg>
@@ -330,6 +337,17 @@ export default function LibraryPage() {
       </div>
 
       {quickView && <ProductQuickView product={quickView} onClose={() => setQuickView(null)} />}
+
+      {newProductOpen && (
+        <NewProductModal
+          open
+          onCancel={() => setNewProductOpen(false)}
+          onCreate={(code) => {
+            setNewProductOpen(false);
+            router.push(`/library/${code}`);
+          }}
+        />
+      )}
     </div>
   );
 }

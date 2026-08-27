@@ -346,6 +346,15 @@ export const PRODUCTS: Product[] = [
 export const CATEGORIES = ["Storage", "Lighting", "Decor", "Kitchen & Bath", "Planter"];
 export const MATERIALS = ["Rattan", "Bamboo", "Water Hyacinth", "Seagrass", "Jute"];
 
+// Generates the next RND-NNNNN code for a newly created product.
+export function nextProductCode(products: Product[]): string {
+  const nums = products
+    .map((p) => parseInt(p.code.split("-").pop() ?? "", 10))
+    .filter((n) => !isNaN(n));
+  const next = (nums.length ? Math.max(...nums) : 0) + 1;
+  return `RND-${String(next).padStart(5, "0")}`;
+}
+
 export interface AssetItem {
   label: string;
   tint: "accent" | "blue" | "green" | "slate";

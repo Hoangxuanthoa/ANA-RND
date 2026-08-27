@@ -8,6 +8,8 @@ import {
   CATEGORIES as INITIAL_CATEGORIES,
   MATERIALS as INITIAL_MATERIALS,
   feedbackIdentity,
+  nextProductCode,
+  CURRENT_USER_NAME,
   type Product,
   type NotificationItem,
   type ProductFeedbackItem,
@@ -34,6 +36,7 @@ interface ProductsContextValue {
   setReusePermission: (code: string, reuse: ReusePermission) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
+  createProduct: (input: { name: string; category: string; material: string; description: string; originCustomer: string }) => string;
   addCategory: (name: string) => void;
   renameCategory: (oldName: string, newName: string) => void;
   removeCategory: (name: string) => void;
@@ -123,6 +126,25 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
   }
 
+  function createProduct(input: { name: string; category: string; material: string; description: string; originCustomer: string }) {
+    const code = nextProductCode(products);
+    const newProduct: Product = {
+      code,
+      name: input.name,
+      category: input.category,
+      material: input.material,
+      designer: CURRENT_USER_NAME[role],
+      originCustomer: input.originCustomer.trim() || "—",
+      description: input.description,
+      status: "DRAFT",
+      reuse: "REUSABLE",
+      favorites: 0,
+      tint: "blue",
+    };
+    setProducts((prev) => [newProduct, ...prev]);
+    return code;
+  }
+
   function addCategory(name: string) {
     const trimmed = name.trim();
     if (!trimmed || categories.includes(trimmed)) return;
@@ -176,6 +198,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         setReusePermission,
         toggleFavorite,
         addProductFeedback,
+        createProduct,
         addCategory,
         renameCategory,
         removeCategory,

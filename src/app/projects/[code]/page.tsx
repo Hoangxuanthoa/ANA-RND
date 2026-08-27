@@ -9,6 +9,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
+import { NewProductModal } from "@/components/NewProductModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
 import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/lib/badges";
 import {
   canPickProduct,
+  canCreateProduct,
   canEditProject,
   canHardDeleteProject,
   canMarkCompleted,
@@ -40,7 +42,7 @@ export default function ProjectDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const { role } = useRole();
-  const { projects, projectProducts, projectFeedback, closeProject, markCompleted, deleteProject, updateProject, addProjectFeedback } = useProjects();
+  const { projects, projectProducts, projectFeedback, closeProject, markCompleted, deleteProject, updateProject, addProjectFeedback, addProductToProject } = useProjects();
   const { products, releaseToLibrary, setReusePermission } = useProducts();
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
@@ -49,6 +51,8 @@ export default function ProjectDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [newDesignOpen, setNewDesignOpen] = useState(false);
 
   if (!project) return notFound();
 
@@ -62,6 +66,8 @@ export default function ProjectDetailPage() {
   const items = projectProducts.filter((pp) => pp.projectCode === project.code);
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
+  const usedCodes = new Set(items.map((i) => i.productCode));
+  const pickableLibraryProducts = products.filter((p) => p.status === "RELEASED" && !usedCodes.has(p.code));
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -165,14 +171,55 @@ export default function ProjectDetailPage() {
                 Dự án đã đóng — chỉ còn thao tác Release to Library cho R&D phụ trách.
               </div>
             )}
-            {canPickProduct(role) && !isClosed && (
-              <div className="flex justify-end">
-                <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                  Pick Product
-                </button>
+            {!isClosed && (canPickProduct(role) || canCreateProduct(role)) && (
+              <div className="flex justify-end gap-2">
+                {canCreateProduct(role) && (
+                  <button
+                    onClick={() => setNewDesignOpen(true)}
+                    className="inline-flex h-[38px] items-center gap-1.5 rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 3v12M7 8l5-5 5 5" />
+                      <path d="M5 21h14" />
+                    </svg>
+                    Thiết kế mới
+                  </button>
+                )}
+                {canPickProduct(role) && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setPickerOpen((v) => !v)}
+                      className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                      Pick Product
+                    </button>
+                    {pickerOpen && (
+                      <div className="absolute top-11 right-0 z-20 max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-surface shadow-md">
+                        {pickableLibraryProducts.length === 0 && (
+                          <p className="p-3 text-[12px] text-text-faint">Không có sản phẩm Released nào để chọn.</p>
+                        )}
+                        {pickableLibraryProducts.map((p) => (
+                          <button
+                            key={p.code}
+                            onClick={() => {
+                              addProductToProject(project.code, p.code, "REUSE");
+                              setPickerOpen(false);
+                            }}
+                            className="flex w-full flex-col px-3.5 py-2.5 text-left hover:bg-bg"
+                          >
+                            <span className="text-[12.5px] font-bold">{p.name}</span>
+                            <span className="text-[11px] text-text-faint">
+                              {p.code} · {p.category} · {p.material}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -363,6 +410,18 @@ export default function ProjectDetailPage() {
           product={quickViewProduct}
           isClosed={isClosed}
           onClose={() => setQuickViewCode(null)}
+        />
+      )}
+
+      {newDesignOpen && (
+        <NewProductModal
+          open
+          title="Thiết kế sản phẩm mới cho dự án"
+          onCancel={() => setNewDesignOpen(false)}
+          onCreate={(code) => {
+            addProductToProject(project.code, code, "NEW", role === "RND" ? userName : undefined);
+            setNewDesignOpen(false);
+          }}
         />
       )}
     </div>

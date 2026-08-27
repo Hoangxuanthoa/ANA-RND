@@ -25,7 +25,7 @@ interface ProjectsContextValue {
   // Picking a product into a project (from the Library) or R&D adding a
   // freshly-designed one — either way this is what auto-bumps a project
   // out of "Created" the moment it gets its first product.
-  addProductToProject: (projectCode: string, productCode: string, usage: UsageType) => void;
+  addProductToProject: (projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) => void;
   addProjectFeedback: (projectCode: string, content: string) => void;
   addProjectProductFeedback: (projectCode: string, productCode: string, content: string) => void;
 }
@@ -75,7 +75,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function addProductToProject(projectCode: string, productCode: string, usage: UsageType) {
+  function addProductToProject(projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) {
     setProjectProducts((prev) => {
       if (prev.some((pp) => pp.projectCode === projectCode && pp.productCode === productCode)) {
         return prev;
@@ -89,6 +89,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           status: "DEVELOPING",
           approval: "PENDING",
           note: "",
+          assigneeName,
           feedback: [],
         },
       ];

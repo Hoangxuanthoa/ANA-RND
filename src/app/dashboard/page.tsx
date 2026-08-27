@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
+import { NewProductModal } from "@/components/NewProductModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { DASHBOARD_ACTIVITY, ROLE_LABEL, CURRENT_USER_NAME } from "@/lib/mock-data";
@@ -70,6 +73,7 @@ const IconBell = (
 );
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
   const { products } = useProducts();
@@ -77,6 +81,7 @@ export default function DashboardPage() {
   const isAdmin = role === "ADMIN";
   const recentProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p)).slice(0, 3);
   const pendingReviewCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
+  const [newProductOpen, setNewProductOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -121,7 +126,10 @@ export default function DashboardPage() {
               <h2 className="text-[16px] font-extrabold">Sản phẩm mới thêm</h2>
               <div className="flex items-center gap-2.5">
                 {canCreateProduct(role) && (
-                  <button className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover">
+                  <button
+                    onClick={() => setNewProductOpen(true)}
+                    className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
+                  >
                     {IconPlus} Sản phẩm mới
                   </button>
                 )}
@@ -186,6 +194,17 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {newProductOpen && (
+        <NewProductModal
+          open
+          onCancel={() => setNewProductOpen(false)}
+          onCreate={(code) => {
+            setNewProductOpen(false);
+            router.push(`/library/${code}`);
+          }}
+        />
+      )}
     </div>
   );
 }
