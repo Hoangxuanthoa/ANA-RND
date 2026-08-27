@@ -86,6 +86,16 @@ export function canEditProject(role: Role, userName: string, project: Project) {
   return isProjectOwner(role, userName, project);
 }
 
+// "My Project" tab filter on the Projects list — deliberately different
+// from isProjectOwner (no Admin-always-true bypass, since here "mine"
+// should mean literally created-by-me for Admin too). R&D's notion of
+// "mine" is different from everyone else's: they don't create projects,
+// they're assigned to them as rndOwner.
+export function isMyProject(role: Role, userName: string, project: Project) {
+  if (role === "RND") return project.rndOwner === userName;
+  return project.createdByName === userName;
+}
+
 export function canMarkCompleted(role: Role, userName: string, project: Project) {
   return isProjectOwner(role, userName, project);
 }

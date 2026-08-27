@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
@@ -10,7 +10,9 @@ import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProjectModal } from "@/components/NewProjectModal";
 import { CURRENT_USER_NAME, nextProjectCode, todayDDMMYYYY, type Project, type ProjectStatus } from "@/lib/mock-data";
 import { projectStatusBadge, projectTypeBadge } from "@/lib/badges";
-import { canCreateProject, canEditProject, canHardDeleteProject, canMarkCompleted } from "@/lib/permissions";
+import { canCreateProject, canEditProject, canHardDeleteProject, canMarkCompleted, isMyProject } from "@/lib/permissions";
+
+type Scope = "mine" | "all";
 
 const STATUS_OPTIONS: { key: ProjectStatus | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -44,11 +46,25 @@ export default function ProjectsPage() {
   const [removeTarget, setRemoveTarget] = useState<Project | null>(null);
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  // Admin oversees everything so defaults to the full list; everyone else
+  // (Sales/Marketing created it, R&D is assigned to it) mostly cares about
+  // their own, so they default to "mine" — re-defaulting whenever the
+  // role switches, since that's effectively "logging in as" someone else.
+  const [scope, setScope] = useState<Scope>(role === "ADMIN" ? "all" : "mine");
+
+  useEffect(() => {
+    setScope(role === "ADMIN" ? "all" : "mine");
+  }, [role]);
 
   const filtered = useMemo(() => {
-    const base = isCustomer ? projects.filter((p) => p.isMine) : projects;
+    let base: Project[];
+    if (isCustomer) {
+      base = projects.filter((p) => p.isMine);
+    } else {
+      base = scope === "mine" ? projects.filter((p) => isMyProject(role, userName, p)) : projects;
+    }
     return status === "ALL" ? base : base.filter((p) => p.status === status);
-  }, [projects, status, isCustomer]);
+  }, [projects, status, isCustomer, scope, role, userName]);
 
   // minmax(0, Nfr) — not bare Nfr — on every track: the header row and
   // each data row are separate grid containers, so without the 0 floor a
@@ -76,7 +92,7 @@ export default function ProjectsPage() {
           <div>
             <h1 className="mb-1 text-[22px] font-extrabold">Projects</h1>
             <p className="text-[13.5px] text-text-muted">
-              {filtered.length} {isCustomer ? "dự án của bạn" : "dự án"}
+              {filtered.length} {isCustomer || scope === "mine" ? "dự án của bạn" : "dự án"}
             </p>
           </div>
           {canCreateProject(role) && (
@@ -91,6 +107,27 @@ export default function ProjectsPage() {
             </button>
           )}
         </div>
+
+        {!isCustomer && (
+          <div className="flex gap-6 border-b border-line">
+            <button
+              onClick={() => setScope("mine")}
+              className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
+              }`}
+            >
+              My Project
+            </button>
+            <button
+              onClick={() => setScope("all")}
+              className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
+              }`}
+            >
+              All Project
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((s) => (
