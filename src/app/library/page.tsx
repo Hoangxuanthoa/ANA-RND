@@ -39,13 +39,22 @@ function FilterOption({
   return (
     <button
       onClick={onClick}
-      className={`flex h-8 items-center rounded-md px-2.5 text-left text-[13px] font-semibold ${
+      className={`flex h-8 items-center justify-between rounded-md px-2.5 text-left text-[13px] font-semibold ${
         active ? "bg-accent-soft text-accent-soft-text" : "text-text-muted hover:bg-bg hover:text-text"
       }`}
     >
-      {children}
+      <span>{children}</span>
+      {active && (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      )}
     </button>
   );
+}
+
+function toggleValue(arr: string[], value: string): string[] {
+  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
 function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
@@ -63,8 +72,8 @@ export default function LibraryPage() {
   const { products, favoritedCodes, toggleFavorite } = useProducts();
   const { projectProducts } = useProjects();
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string>("ALL");
-  const [material, setMaterial] = useState<string>("ALL");
+  const [categories, setCategories] = useState<string[]>([]);
+  const [materials, setMaterials] = useState<string[]>([]);
   const [reuse, setReuse] = useState<ReusePermission | "ALL">("ALL");
   const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
@@ -81,13 +90,13 @@ export default function LibraryPage() {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
       if (!canSeeProductInLibrary(role, userName, p)) return false;
-      if (category !== "ALL" && p.category !== category) return false;
-      if (material !== "ALL" && p.material !== material) return false;
+      if (categories.length > 0 && !categories.includes(p.category)) return false;
+      if (materials.length > 0 && !materials.includes(p.material)) return false;
       if (reuse !== "ALL" && p.reuse !== reuse) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [products, role, userName, query, category, material, reuse]);
+  }, [products, role, userName, query, categories, materials, reuse]);
 
   const sorted = useMemo(() => {
     if (sortBy === "default") return filtered;
@@ -162,16 +171,26 @@ export default function LibraryPage() {
           </div>
 
           <FilterGroup title="Category">
-            <FilterOption active={category === "ALL"} onClick={() => { setCategory("ALL"); setPage(1); }}>All</FilterOption>
             {CATEGORIES.map((c) => (
-              <FilterOption key={c} active={category === c} onClick={() => { setCategory(c); setPage(1); }}>{c}</FilterOption>
+              <FilterOption
+                key={c}
+                active={categories.includes(c)}
+                onClick={() => { setCategories(toggleValue(categories, c)); setPage(1); }}
+              >
+                {c}
+              </FilterOption>
             ))}
           </FilterGroup>
 
           <FilterGroup title="Material">
-            <FilterOption active={material === "ALL"} onClick={() => { setMaterial("ALL"); setPage(1); }}>All</FilterOption>
             {MATERIALS.map((m) => (
-              <FilterOption key={m} active={material === m} onClick={() => { setMaterial(m); setPage(1); }}>{m}</FilterOption>
+              <FilterOption
+                key={m}
+                active={materials.includes(m)}
+                onClick={() => { setMaterials(toggleValue(materials, m)); setPage(1); }}
+              >
+                {m}
+              </FilterOption>
             ))}
           </FilterGroup>
 
