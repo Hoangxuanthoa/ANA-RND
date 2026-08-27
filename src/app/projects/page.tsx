@@ -55,9 +55,18 @@ export default function ProjectsPage() {
   // track's width is driven by that row's own content (a status pill
   // forces its column wider than the plain header text in the same
   // position), and header/data columns drift out of alignment.
+  //
+  // The trailing actions column can't be a bare "auto" either, for the
+  // same reason at the row level: the header's action cell is an empty
+  // placeholder (~0 content width) while a data row's has up to 3 icons
+  // (~96px). auto sizes to content first, before fr tracks split what's
+  // left — so the header row would have more leftover space than data
+  // rows, and every fr column before it would end up wider in the header,
+  // drifting more and more as you move right. A fixed width sidesteps
+  // that entirely since it doesn't depend on content either way.
   const gridCols = isCustomer
     ? "grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.6fr)]"
-    : "grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.5fr)_auto]";
+    : "grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.5fr)_100px]";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
