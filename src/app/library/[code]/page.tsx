@@ -20,6 +20,7 @@ import {
 } from "@/lib/badges";
 import { canManageProduct, canPickProduct, canManageCollections, canEditProduct, canHardDeleteProduct, getPickableProjects } from "@/lib/permissions";
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 const TABS = [
   { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
@@ -391,21 +392,7 @@ export default function ProductDetailPage() {
       </div>
 
       {zoomOpen && activeImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-8"
-          onClick={() => setZoomOpen(false)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={activeImage} alt={product.name} className="max-h-full max-w-full rounded-lg object-contain" />
-          <button
-            onClick={() => setZoomOpen(false)}
-            className="absolute top-6 right-6 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        <ImageLightbox src={activeImage} alt={product.name} onClose={() => setZoomOpen(false)} />
       )}
 
       {editOpen && (

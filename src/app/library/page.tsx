@@ -352,6 +352,7 @@ export default function LibraryPage() {
       {newProductOpen && (
         <NewProductModal
           open
+          autoSubmit
           onCancel={() => setNewProductOpen(false)}
           onCreate={(code) => {
             setNewProductOpen(false);

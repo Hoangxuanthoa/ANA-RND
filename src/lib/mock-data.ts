@@ -792,6 +792,9 @@ export interface NotificationItem {
   title: string;
   message: string;
   link: string;
+  // Which product this is about, when there is one — lets the bell
+  // dropdown open a quick view directly instead of only navigating.
+  productCode?: string;
   recipientName: string;
   isRead: boolean;
   time: string;

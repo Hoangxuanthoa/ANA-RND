@@ -8,8 +8,10 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canManageProduct, canPickProduct, canManageCollections, getPickableProjects } from "@/lib/permissions";
+import { canManageProduct, canPickProduct, canManageCollections, canReviewProducts, getPickableProjects } from "@/lib/permissions";
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
+import { ImageLightbox } from "@/components/ImageLightbox";
+import { RejectProductModal } from "@/components/RejectProductModal";
 
 interface ProductQuickViewProps {
   product: Product;
@@ -19,11 +21,12 @@ interface ProductQuickViewProps {
 export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { favoritedCodes, toggleFavorite } = useProducts();
+  const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
@@ -32,6 +35,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const reusedCount = projectProducts.filter((pp) => pp.productCode === product.code && pp.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
   const pickableProjects = getPickableProjects(role, userName, projects);
+  const canReview = canReviewProducts(role) && product.status === "PENDING_REVIEW";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
@@ -74,6 +78,31 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
             </svg>
           </button>
         </div>
+
+        {canReview && (
+          <div className="flex items-center justify-between gap-3 border-b border-line bg-amber-soft px-5 py-3">
+            <span className="text-[12.5px] font-bold text-amber">
+              {product.sourceProjectName ? `Release từ dự án: ${product.sourceProjectName}` : "Nộp trực tiếp từ Design Library"}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setRejectOpen(true)}
+                className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-red-soft hover:text-red"
+              >
+                Từ chối
+              </button>
+              <button
+                onClick={() => {
+                  approveProduct(product.code);
+                  onClose();
+                }}
+                className="h-8 rounded-md bg-green px-3 text-[12px] font-bold text-white hover:opacity-90"
+              >
+                Approve
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-6 p-5">
           {/* Image — click to zoom when a real photo is set. */}
@@ -191,27 +220,20 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
       </div>
 
       {zoomOpen && product.mainImage && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-8"
-          onClick={(e) => {
-            e.stopPropagation();
-            setZoomOpen(false);
+        <ImageLightbox src={product.mainImage} alt={product.name} onClose={() => setZoomOpen(false)} />
+      )}
+
+      {rejectOpen && (
+        <RejectProductModal
+          open
+          product={product}
+          onCancel={() => setRejectOpen(false)}
+          onConfirm={(reason) => {
+            rejectProduct(product.code, reason);
+            setRejectOpen(false);
+            onClose();
           }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={product.mainImage} alt={product.name} className="max-h-full max-w-full rounded-lg object-contain" />
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setZoomOpen(false);
-            }}
-            className="absolute top-6 right-6 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        />
       )}
     </div>
   );

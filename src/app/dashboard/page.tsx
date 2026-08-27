@@ -203,6 +203,7 @@ export default function DashboardPage() {
       {newProductOpen && (
         <NewProductModal
           open
+          autoSubmit
           onCancel={() => setNewProductOpen(false)}
           onCreate={(code) => {
             setNewProductOpen(false);

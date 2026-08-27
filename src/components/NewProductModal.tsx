@@ -13,6 +13,9 @@ interface NewProductModalProps {
   // Present when editing an existing product instead of creating a new
   // one — prefills every field and calls updateProduct on submit.
   product?: Product;
+  // Standalone Library/Dashboard creation submits straight for review
+  // instead of leaving a manual "Nộp duyệt" step. Ignored when editing.
+  autoSubmit?: boolean;
   onCancel: () => void;
   onCreate: (code: string) => void;
 }
@@ -59,7 +62,7 @@ function PickImageTile({ label, onPick }: { label: string; onPick: (file: File) 
   );
 }
 
-export function NewProductModal({ open, title, projectCustomer, product, onCancel, onCreate }: NewProductModalProps) {
+export function NewProductModal({ open, title, projectCustomer, product, autoSubmit, onCancel, onCreate }: NewProductModalProps) {
   const { products, categories, materials, sizes, colors, createProduct, updateProduct } = useProducts();
   const isEditing = !!product;
   const [name, setName] = useState(product?.name ?? "");
@@ -96,7 +99,7 @@ export function NewProductModal({ open, title, projectCustomer, product, onCance
       updateProduct(product.code, fields);
       onCreate(product.code);
     } else {
-      const code = createProduct({ ...fields, originCustomer: projectCustomer });
+      const code = createProduct({ ...fields, originCustomer: projectCustomer }, { autoSubmit });
       onCreate(code);
     }
   }

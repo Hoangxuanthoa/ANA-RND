@@ -5,6 +5,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
+import { ProductQuickView } from "@/components/ProductQuickView";
 import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections } from "@/lib/permissions";
@@ -46,11 +47,13 @@ export function TopNav() {
   const { products, notifications, markNotificationRead } = useProducts();
   const router = useRouter();
   const [bellOpen, setBellOpen] = useState(false);
+  const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
 
   const pendingCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
   const userName = CURRENT_USER_NAME[role];
   const myNotifications = notifications.filter((n) => n.recipientName.startsWith(userName));
   const unreadCount = myNotifications.filter((n) => !n.isRead).length;
+  const quickViewProduct = quickViewCode ? products.find((p) => p.code === quickViewCode) ?? null : null;
 
   return (
     <div className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-line bg-surface px-7">
@@ -121,7 +124,11 @@ export function TopNav() {
                     onClick={() => {
                       markNotificationRead(n.id);
                       setBellOpen(false);
-                      router.push(n.link);
+                      if (n.productCode) {
+                        setQuickViewCode(n.productCode);
+                      } else {
+                        router.push(n.link);
+                      }
                     }}
                     className={`flex w-full flex-col gap-1 border-b border-line p-3.5 text-left last:border-b-0 hover:bg-bg ${
                       n.isRead ? "" : "bg-amber-soft/40"
@@ -146,6 +153,10 @@ export function TopNav() {
           {ROLE_INITIALS[role]}
         </div>
       </div>
+
+      {quickViewProduct && (
+        <ProductQuickView product={quickViewProduct} onClose={() => setQuickViewCode(null)} />
+      )}
     </div>
   );
 }

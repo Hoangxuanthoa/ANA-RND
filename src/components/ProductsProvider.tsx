@@ -40,19 +40,22 @@ interface ProductsContextValue {
   setReusePermission: (code: string, reuse: ReusePermission) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
-  createProduct: (input: {
-    name: string;
-    category: string;
-    material: string;
-    size: string;
-    length?: number;
-    width?: number;
-    height?: number;
-    color: string;
-    mainImage?: string;
-    images?: string[];
-    originCustomer?: string;
-  }) => string;
+  createProduct: (
+    input: {
+      name: string;
+      category: string;
+      material: string;
+      size: string;
+      length?: number;
+      width?: number;
+      height?: number;
+      color: string;
+      mainImage?: string;
+      images?: string[];
+      originCustomer?: string;
+    },
+    options?: { autoSubmit?: boolean },
+  ) => string;
   updateProduct: (code: string, patch: Partial<Product>) => void;
   archiveProduct: (code: string) => void;
   deleteProduct: (code: string) => void;
@@ -135,6 +138,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           title: `${product.name} bị từ chối`,
           message: reason,
           link: `/library/${code}`,
+          productCode: code,
           recipientName: product.designer,
           isRead: false,
           time: "Vừa xong",
@@ -148,16 +152,20 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   }
 
-  function notifyAdminPendingReview(code: string, message: string) {
-    const product = products.find((p) => p.code === code);
-    if (!product) return;
+  // Takes the product object directly rather than looking it up by code —
+  // when this fires right after createProduct in the same event handler,
+  // the `products` state closure here is still the pre-create snapshot
+  // (React batches the setProducts from createProduct), so a lookup by
+  // code would silently miss the just-created product.
+  function notifyAdminPendingReview(product: Product, message: string) {
     setNotifications((prev) => [
       {
-        id: `${code}-submit-${Date.now()}`,
+        id: `${product.code}-submit-${Date.now()}`,
         type: "PRODUCT_SUBMITTED",
         title: `${product.name} chờ duyệt`,
         message,
         link: "/review",
+        productCode: product.code,
         recipientName: CURRENT_USER_NAME.ADMIN,
         isRead: false,
         time: "Vừa xong",
@@ -167,6 +175,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   }
 
   function submitForReview(code: string) {
+    const product = products.find((p) => p.code === code);
     setProducts((prev) =>
       prev.map((p) =>
         p.code === code
@@ -174,10 +183,11 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
-    notifyAdminPendingReview(code, "Vừa được nộp duyệt trực tiếp từ Design Library.");
+    if (product) notifyAdminPendingReview(product, "Vừa được nộp duyệt trực tiếp từ Design Library.");
   }
 
   function releaseToLibrary(code: string, projectName: string) {
+    const product = products.find((p) => p.code === code);
     setProducts((prev) =>
       prev.map((p) =>
         p.code === code
@@ -185,7 +195,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
-    notifyAdminPendingReview(code, `Vừa được release từ dự án ${projectName}.`);
+    if (product) notifyAdminPendingReview(product, `Vừa được release từ dự án ${projectName}.`);
   }
 
   function setReusePermission(code: string, reuse: ReusePermission) {
@@ -206,20 +216,28 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
   }
 
-  function createProduct(input: {
-    name: string;
-    category: string;
-    material: string;
-    size: string;
-    length?: number;
-    width?: number;
-    height?: number;
-    color: string;
-    mainImage?: string;
-    images?: string[];
-    originCustomer?: string;
-  }) {
+  function createProduct(
+    input: {
+      name: string;
+      category: string;
+      material: string;
+      size: string;
+      length?: number;
+      width?: number;
+      height?: number;
+      color: string;
+      mainImage?: string;
+      images?: string[];
+      originCustomer?: string;
+    },
+    // Standalone Library/Dashboard uploads go straight to Admin review —
+    // no separate "Nộp duyệt" click needed. Designs created inside a
+    // project stay DRAFT/DEVELOPING until the project closes and it's
+    // explicitly released, so this defaults to off.
+    options?: { autoSubmit?: boolean },
+  ) {
     const code = nextProductCode(products);
+    const autoSubmit = options?.autoSubmit ?? false;
     const newProduct: Product = {
       code,
       name: input.name,
@@ -227,7 +245,8 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       material: input.material,
       designer: CURRENT_USER_NAME[role],
       originCustomer: input.originCustomer?.trim() || "—",
-      status: "DRAFT",
+      status: autoSubmit ? "PENDING_REVIEW" : "DRAFT",
+      submittedAt: autoSubmit ? "Vừa xong" : undefined,
       reuse: "REUSABLE",
       favorites: 0,
       tint: "blue",
@@ -240,6 +259,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       images: input.images,
     };
     setProducts((prev) => [newProduct, ...prev]);
+    if (autoSubmit) notifyAdminPendingReview(newProduct, "Vừa được nộp duyệt trực tiếp từ Design Library.");
     return code;
   }
 
