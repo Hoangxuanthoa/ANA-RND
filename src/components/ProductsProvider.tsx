@@ -5,6 +5,8 @@ import {
   PRODUCTS as INITIAL_PRODUCTS,
   INITIAL_NOTIFICATIONS,
   PRODUCT_FEEDBACK as INITIAL_PRODUCT_FEEDBACK,
+  CATEGORIES as INITIAL_CATEGORIES,
+  MATERIALS as INITIAL_MATERIALS,
   feedbackIdentity,
   type Product,
   type NotificationItem,
@@ -18,6 +20,8 @@ interface ProductsContextValue {
   notifications: NotificationItem[];
   favoritedCodes: Set<string>;
   productFeedback: ProductFeedbackItem[];
+  categories: string[];
+  materials: string[];
   approveProduct: (code: string) => void;
   rejectProduct: (code: string, reason: string) => void;
   markNotificationRead: (id: string) => void;
@@ -30,6 +34,12 @@ interface ProductsContextValue {
   setReusePermission: (code: string, reuse: ReusePermission) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
+  addCategory: (name: string) => void;
+  renameCategory: (oldName: string, newName: string) => void;
+  removeCategory: (name: string) => void;
+  addMaterial: (name: string) => void;
+  renameMaterial: (oldName: string, newName: string) => void;
+  removeMaterial: (name: string) => void;
 }
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
@@ -40,6 +50,8 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
+  const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
+  const [materials, setMaterials] = useState<string[]>(INITIAL_MATERIALS);
 
   function approveProduct(code: string) {
     setProducts((prev) =>
@@ -111,6 +123,42 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
   }
 
+  function addCategory(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || categories.includes(trimmed)) return;
+    setCategories((prev) => [...prev, trimmed]);
+  }
+
+  function renameCategory(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || categories.includes(trimmed)) return;
+    setCategories((prev) => prev.map((c) => (c === oldName ? trimmed : c)));
+    setProducts((prev) => prev.map((p) => (p.category === oldName ? { ...p, category: trimmed } : p)));
+  }
+
+  function removeCategory(name: string) {
+    if (products.some((p) => p.category === name)) return;
+    setCategories((prev) => prev.filter((c) => c !== name));
+  }
+
+  function addMaterial(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || materials.includes(trimmed)) return;
+    setMaterials((prev) => [...prev, trimmed]);
+  }
+
+  function renameMaterial(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || materials.includes(trimmed)) return;
+    setMaterials((prev) => prev.map((m) => (m === oldName ? trimmed : m)));
+    setProducts((prev) => prev.map((p) => (p.material === oldName ? { ...p, material: trimmed } : p)));
+  }
+
+  function removeMaterial(name: string) {
+    if (products.some((p) => p.material === name)) return;
+    setMaterials((prev) => prev.filter((m) => m !== name));
+  }
+
   return (
     <ProductsContext.Provider
       value={{
@@ -118,6 +166,8 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         notifications,
         favoritedCodes,
         productFeedback,
+        categories,
+        materials,
         approveProduct,
         rejectProduct,
         markNotificationRead,
@@ -126,6 +176,12 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         setReusePermission,
         toggleFavorite,
         addProductFeedback,
+        addCategory,
+        renameCategory,
+        removeCategory,
+        addMaterial,
+        renameMaterial,
+        removeMaterial,
       }}
     >
       {children}

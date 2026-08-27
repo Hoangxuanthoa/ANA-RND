@@ -3,6 +3,7 @@ import { Manrope } from "next/font/google";
 import { RoleProvider } from "@/components/RoleProvider";
 import { ProjectsProvider } from "@/components/ProjectsProvider";
 import { ProductsProvider } from "@/components/ProductsProvider";
+import { SettingsProvider } from "@/components/SettingsProvider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -25,9 +26,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${manrope.variable} font-sans antialiased`}>
         <RoleProvider>
-          <ProjectsProvider>
-            <ProductsProvider>{children}</ProductsProvider>
-          </ProjectsProvider>
+          <SettingsProvider>
+            <ProjectsProvider>
+              <ProductsProvider>{children}</ProductsProvider>
+            </ProjectsProvider>
+          </SettingsProvider>
         </RoleProvider>
       </body>
     </html>

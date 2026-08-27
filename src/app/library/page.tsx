@@ -7,7 +7,7 @@ import { ProductQuickView } from "@/components/ProductQuickView";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
-import { CATEGORIES, MATERIALS, CURRENT_USER_NAME, type Product, type ReusePermission } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
 
@@ -68,7 +68,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 export default function LibraryPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { products, favoritedCodes, toggleFavorite } = useProducts();
+  const { products, favoritedCodes, toggleFavorite, categories: CATEGORIES, materials: MATERIALS } = useProducts();
   const { projectProducts } = useProjects();
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<string[]>([]);

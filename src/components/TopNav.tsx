@@ -7,7 +7,7 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
-import { canViewLibrary, canReviewProducts, canViewMyTasks } from "@/lib/permissions";
+import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings } from "@/lib/permissions";
 
 const ROLES: Role[] = ["ADMIN", "RND", "SALES", "MARKETING", "CUSTOMER"];
 
@@ -73,6 +73,7 @@ export function TopNav() {
               Duyệt sản phẩm
             </NavLink>
           )}
+          {canManageSettings(role) && <NavLink href="/settings">Cài đặt</NavLink>}
         </nav>
       </div>
 
