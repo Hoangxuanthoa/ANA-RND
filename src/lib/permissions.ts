@@ -7,6 +7,13 @@ export const canPickProduct = (role: Role) => role !== "CUSTOMER";
 export const isCustomer = (role: Role) => role === "CUSTOMER";
 export const canReviewProducts = (role: Role) => role === "ADMIN";
 
+// "Việc của tôi" — a personal queue of ProjectProduct items assigned to
+// this specific R&D person, distinct from the project's overall rndOwner.
+export const canViewMyTasks = (role: Role) => role === "RND";
+
+export const canManageSettings = (role: Role) => role === "ADMIN";
+export const canManageCollections = (role: Role) => role === "SALES" || role === "MARKETING" || role === "ADMIN";
+
 // Library visibility: Sales/Marketing only ever see Released products —
 // they shouldn't be offering a customer something not yet approved.
 // Admin sees everything. R&D sees everything RELEASED/PENDING_REVIEW

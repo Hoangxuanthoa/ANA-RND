@@ -7,7 +7,7 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
-import { canViewLibrary, canReviewProducts } from "@/lib/permissions";
+import { canViewLibrary, canReviewProducts, canViewMyTasks } from "@/lib/permissions";
 
 const ROLES: Role[] = ["ADMIN", "RND", "SALES", "MARKETING", "CUSTOMER"];
 
@@ -67,6 +67,7 @@ export function TopNav() {
           <NavLink href="/dashboard">Dashboard</NavLink>
           {canViewLibrary(role) && <NavLink href="/library">Design Library</NavLink>}
           <NavLink href="/projects">Projects</NavLink>
+          {canViewMyTasks(role) && <NavLink href="/my-tasks">Việc của tôi</NavLink>}
           {canReviewProducts(role) && (
             <NavLink href="/review" badge={pendingCount}>
               Duyệt sản phẩm
