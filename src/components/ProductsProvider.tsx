@@ -53,6 +53,9 @@ interface ProductsContextValue {
     images?: string[];
     originCustomer?: string;
   }) => string;
+  updateProduct: (code: string, patch: Partial<Product>) => void;
+  archiveProduct: (code: string) => void;
+  deleteProduct: (code: string) => void;
   addCategory: (name: string) => void;
   renameCategory: (oldName: string, newName: string) => void;
   removeCategory: (name: string) => void;
@@ -145,6 +148,24 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   }
 
+  function notifyAdminPendingReview(code: string, message: string) {
+    const product = products.find((p) => p.code === code);
+    if (!product) return;
+    setNotifications((prev) => [
+      {
+        id: `${code}-submit-${Date.now()}`,
+        type: "PRODUCT_SUBMITTED",
+        title: `${product.name} chờ duyệt`,
+        message,
+        link: "/review",
+        recipientName: CURRENT_USER_NAME.ADMIN,
+        isRead: false,
+        time: "Vừa xong",
+      },
+      ...prev,
+    ]);
+  }
+
   function submitForReview(code: string) {
     setProducts((prev) =>
       prev.map((p) =>
@@ -153,6 +174,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
+    notifyAdminPendingReview(code, "Vừa được nộp duyệt trực tiếp từ Design Library.");
   }
 
   function releaseToLibrary(code: string, projectName: string) {
@@ -163,6 +185,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
+    notifyAdminPendingReview(code, `Vừa được release từ dự án ${projectName}.`);
   }
 
   function setReusePermission(code: string, reuse: ReusePermission) {
@@ -220,6 +243,21 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     return code;
   }
 
+  function updateProduct(code: string, patch: Partial<Product>) {
+    setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, ...patch } : p)));
+  }
+
+  // Hard delete only when nothing references the product yet (see
+  // canHardDeleteProduct); otherwise archive so existing project/reuse
+  // history stays valid instead of pointing at a missing product.
+  function archiveProduct(code: string) {
+    setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, status: "ARCHIVED" } : p)));
+  }
+
+  function deleteProduct(code: string) {
+    setProducts((prev) => prev.filter((p) => p.code !== code));
+  }
+
   return (
     <ProductsContext.Provider
       value={{
@@ -240,6 +278,9 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         toggleFavorite,
         addProductFeedback,
         createProduct,
+        updateProduct,
+        archiveProduct,
+        deleteProduct,
         addCategory: categoryField.add,
         renameCategory: categoryField.rename,
         removeCategory: categoryField.remove,

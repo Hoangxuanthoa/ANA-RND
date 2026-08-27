@@ -784,7 +784,7 @@ export function getProductFeedback(productCode: string) {
 // NOTIFICATIONS — a personal inbox (who gets pinged), separate from the
 // shared Activity log (what happened). `recipientName` matches a
 // `designer` string above, e.g. "An Nguyễn".startsWith("An").
-export type NotificationType = "PRODUCT_REJECTED";
+export type NotificationType = "PRODUCT_REJECTED" | "PRODUCT_SUBMITTED";
 
 export interface NotificationItem {
   id: string;

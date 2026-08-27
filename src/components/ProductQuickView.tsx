@@ -23,6 +23,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const { projects, projectProducts, addProductToProject } = useProjects();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
@@ -75,11 +76,12 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
         </div>
 
         <div className="flex gap-6 p-5">
-          {/* Image — sized generously now; a click-to-zoom/lightbox can hang off this same box later. */}
+          {/* Image — click to zoom when a real photo is set. */}
           <div
-            className={`group relative flex h-[360px] w-[360px] flex-shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-xl ${
-              product.mainImage ? "" : TINT_BG[product.tint]
-            }`}
+            onClick={() => product.mainImage && setZoomOpen(true)}
+            className={`group relative flex h-[360px] w-[360px] flex-shrink-0 items-center justify-center overflow-hidden rounded-xl ${
+              product.mainImage ? "cursor-zoom-in" : ""
+            } ${product.mainImage ? "" : TINT_BG[product.tint]}`}
           >
             {product.mainImage ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -91,13 +93,15 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                 <path d="M12 13v8" />
               </svg>
             )}
-            <div className="absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="7" />
-                <path d="M21 21l-4.3-4.3" />
-                <path d="M11 8v6M8 11h6" />
-              </svg>
-            </div>
+            {product.mainImage && (
+              <div className="absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M21 21l-4.3-4.3" />
+                  <path d="M11 8v6M8 11h6" />
+                </svg>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-1 flex-col gap-3.5">
@@ -185,6 +189,30 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
           </div>
         </div>
       </div>
+
+      {zoomOpen && product.mainImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoomOpen(false);
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={product.mainImage} alt={product.name} className="max-h-full max-w-full rounded-lg object-contain" />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomOpen(false);
+            }}
+            className="absolute top-6 right-6 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

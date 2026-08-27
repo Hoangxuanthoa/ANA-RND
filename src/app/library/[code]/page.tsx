@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, notFound } from "next/navigation";
+import { useParams, useRouter, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
+import { NewProductModal } from "@/components/NewProductModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME, formatDimensions } from "@/lib/mock-data";
 import {
   productStatusBadge,
@@ -16,7 +18,7 @@ import {
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
-import { canManageProduct, canPickProduct, canManageCollections, getPickableProjects } from "@/lib/permissions";
+import { canManageProduct, canPickProduct, canManageCollections, canEditProduct, canHardDeleteProduct, getPickableProjects } from "@/lib/permissions";
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 
 const TABS = [
@@ -27,7 +29,9 @@ const TABS = [
 
 export default function ProductDetailPage() {
   const params = useParams<{ code: string }>();
-  const { products, favoritedCodes, toggleFavorite, submitForReview, productFeedback, addProductFeedback } = useProducts();
+  const router = useRouter();
+  const { products, favoritedCodes, toggleFavorite, submitForReview, productFeedback, addProductFeedback, archiveProduct, deleteProduct } =
+    useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const product = products.find((p) => p.code === params.code);
   const { role } = useRole();
@@ -37,6 +41,9 @@ export default function ProductDetailPage() {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [zoomOpen, setZoomOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (!product) return notFound();
 
@@ -52,6 +59,8 @@ export default function ProductDetailPage() {
   const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
   const pickableProjects = getPickableProjects(role, userName, projects);
+  const editable = canEditProduct(role, userName, product);
+  const hardDelete = canHardDeleteProduct(product, usages.length);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -68,9 +77,10 @@ export default function ProductDetailPage() {
           {/* Asset viewer */}
           <div className="flex flex-1 flex-col gap-3">
             <div
+              onClick={() => activeImage && setZoomOpen(true)}
               className={`flex h-[440px] items-center justify-center overflow-hidden rounded-xl border border-line ${
-                images.length === 0 ? TINT_BG[product.tint] : ""
-              }`}
+                activeImage ? "cursor-zoom-in" : ""
+              } ${images.length === 0 ? TINT_BG[product.tint] : ""}`}
             >
               {activeImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -107,9 +117,35 @@ export default function ProductDetailPage() {
           {/* Info panel */}
           <div className="flex w-[360px] flex-shrink-0 flex-col gap-4.5">
             <div>
-              <div className="mb-2 flex gap-2">
-                <span className={status.className}>{status.label}</span>
-                <span className={reuse.className}>{reuse.label}</span>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div className="flex gap-2">
+                  <span className={status.className}>{status.label}</span>
+                  <span className={reuse.className}>{reuse.label}</span>
+                </div>
+                {editable && (
+                  <div className="flex gap-1.5">
+                    <button
+                      onClick={() => setEditOpen(true)}
+                      title="Sửa"
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => setDeleteOpen(true)}
+                      title={hardDelete ? "Xóa" : "Lưu trữ"}
+                      className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -353,6 +389,56 @@ export default function ProductDetailPage() {
           </div>
         )}
       </div>
+
+      {zoomOpen && activeImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-8"
+          onClick={() => setZoomOpen(false)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={activeImage} alt={product.name} className="max-h-full max-w-full rounded-lg object-contain" />
+          <button
+            onClick={() => setZoomOpen(false)}
+            className="absolute top-6 right-6 flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {editOpen && (
+        <NewProductModal
+          open
+          title="Sửa sản phẩm"
+          product={product}
+          onCancel={() => setEditOpen(false)}
+          onCreate={() => setEditOpen(false)}
+        />
+      )}
+
+      <ConfirmDialog
+        open={deleteOpen}
+        danger
+        title={hardDelete ? "Xóa sản phẩm?" : "Lưu trữ sản phẩm?"}
+        description={
+          hardDelete
+            ? `"${product.name}" chưa được dùng ở đâu — xóa sẽ mất hoàn toàn, không khôi phục được.`
+            : `"${product.name}" đã có lịch sử sử dụng — sẽ chuyển sang trạng thái Archived và giữ nguyên dữ liệu liên quan, không xóa hẳn.`
+        }
+        confirmLabel={hardDelete ? "Xóa" : "Lưu trữ"}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={() => {
+          if (hardDelete) {
+            deleteProduct(product.code);
+            router.push("/library");
+          } else {
+            archiveProduct(product.code);
+          }
+          setDeleteOpen(false);
+        }}
+      />
     </div>
   );
 }

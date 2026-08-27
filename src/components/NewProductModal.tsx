@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useProducts } from "@/components/ProductsProvider";
-import { nextProductCode } from "@/lib/mock-data";
+import { nextProductCode, type Product } from "@/lib/mock-data";
 
 interface NewProductModalProps {
   open: boolean;
@@ -10,6 +10,9 @@ interface NewProductModalProps {
   // When creating from inside a customer project, the customer is already
   // known — show it read-only instead of asking again.
   projectCustomer?: string;
+  // Present when editing an existing product instead of creating a new
+  // one — prefills every field and calls updateProduct on submit.
+  product?: Product;
   onCancel: () => void;
   onCreate: (code: string) => void;
 }
@@ -56,18 +59,19 @@ function PickImageTile({ label, onPick }: { label: string; onPick: (file: File) 
   );
 }
 
-export function NewProductModal({ open, title, projectCustomer, onCancel, onCreate }: NewProductModalProps) {
-  const { products, categories, materials, sizes, colors, createProduct } = useProducts();
-  const [name, setName] = useState("");
-  const [mainImage, setMainImage] = useState<string | undefined>(undefined);
-  const [images, setImages] = useState<string[]>([]);
-  const [category, setCategory] = useState(categories[0] ?? "");
-  const [material, setMaterial] = useState(materials[0] ?? "");
-  const [size, setSize] = useState(sizes[0] ?? "");
-  const [color, setColor] = useState(colors[0] ?? "");
-  const [length, setLength] = useState("");
-  const [width, setWidth] = useState("");
-  const [height, setHeight] = useState("");
+export function NewProductModal({ open, title, projectCustomer, product, onCancel, onCreate }: NewProductModalProps) {
+  const { products, categories, materials, sizes, colors, createProduct, updateProduct } = useProducts();
+  const isEditing = !!product;
+  const [name, setName] = useState(product?.name ?? "");
+  const [mainImage, setMainImage] = useState<string | undefined>(product?.mainImage);
+  const [images, setImages] = useState<string[]>(product?.images ?? []);
+  const [category, setCategory] = useState(product?.category ?? categories[0] ?? "");
+  const [material, setMaterial] = useState(product?.material ?? materials[0] ?? "");
+  const [size, setSize] = useState(product?.size ?? sizes[0] ?? "");
+  const [color, setColor] = useState(product?.color ?? colors[0] ?? "");
+  const [length, setLength] = useState(product?.length != null ? String(product.length) : "");
+  const [width, setWidth] = useState(product?.width != null ? String(product.width) : "");
+  const [height, setHeight] = useState(product?.height != null ? String(product.height) : "");
 
   const previewCode = useMemo(() => nextProductCode(products), [products]);
 
@@ -76,7 +80,7 @@ export function NewProductModal({ open, title, projectCustomer, onCancel, onCrea
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !category || !material) return;
-    const code = createProduct({
+    const fields = {
       name: name.trim(),
       category,
       material,
@@ -87,9 +91,14 @@ export function NewProductModal({ open, title, projectCustomer, onCancel, onCrea
       height: height ? Number(height) : undefined,
       mainImage,
       images,
-      originCustomer: projectCustomer,
-    });
-    onCreate(code);
+    };
+    if (product) {
+      updateProduct(product.code, fields);
+      onCreate(product.code);
+    } else {
+      const code = createProduct({ ...fields, originCustomer: projectCustomer });
+      onCreate(code);
+    }
   }
 
   return (
@@ -99,7 +108,7 @@ export function NewProductModal({ open, title, projectCustomer, onCancel, onCrea
         className="flex w-full max-w-[520px] flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-[15px] font-bold">{title ?? "Thiết kế sản phẩm mới"}</h3>
+        <h3 className="text-[15px] font-bold">{title ?? (isEditing ? "Sửa sản phẩm" : "Thiết kế sản phẩm mới")}</h3>
 
         <div className="flex gap-3">
           <label className="flex flex-1 flex-col gap-1.5">
@@ -115,14 +124,14 @@ export function NewProductModal({ open, title, projectCustomer, onCancel, onCrea
           <label className="flex w-[150px] flex-shrink-0 flex-col gap-1.5">
             <span className="text-[12.5px] font-semibold">Mã sản phẩm</span>
             <input
-              value={previewCode}
+              value={isEditing ? product!.code : previewCode}
               disabled
               className="h-10 rounded-lg border border-line bg-bg px-3 text-[13px] text-text-faint"
             />
           </label>
         </div>
 
-        {projectCustomer && (
+        {projectCustomer && !isEditing && (
           <div className="rounded-lg bg-bg px-3.5 py-2.5 text-[12.5px]">
             <span className="text-text-muted">Khách hàng: </span>
             <span className="font-bold">{projectCustomer}</span>
@@ -256,7 +265,7 @@ export function NewProductModal({ open, title, projectCustomer, onCancel, onCrea
             disabled={!name.trim()}
             className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            Tạo sản phẩm
+            {isEditing ? "Lưu thay đổi" : "Tạo sản phẩm"}
           </button>
         </div>
       </form>

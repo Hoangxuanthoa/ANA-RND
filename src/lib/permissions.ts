@@ -49,6 +49,21 @@ export function canSeeProductInLibrary(role: Role, userName: string, product: Pr
 // only while it's still inside that customer's project, before release.
 export const canSetExclusive = (role: Role) => role === "SALES" || role === "ADMIN";
 
+// Edit/Delete a product: Admin can touch any of them; R&D only their own
+// uploads, not a colleague's.
+export function canEditProduct(role: Role, userName: string, product: Product) {
+  if (role === "ADMIN") return true;
+  return role === "RND" && product.designer.startsWith(userName);
+}
+
+// A DRAFT that's never been picked into any project can be permanently
+// deleted — same "no activity yet" rule as canHardDeleteProject. Anything
+// with history (released, used in a project) only gets archived so the
+// reuse/usage records it's tied to stay valid.
+export function canHardDeleteProduct(product: Product, usageCount: number) {
+  return product.status === "DRAFT" && usageCount === 0;
+}
+
 // Which Project types a role is allowed to create. R&D creates none —
 // they receive and work projects, never originate them.
 export function creatableProjectTypes(role: Role): ProjectType[] {
