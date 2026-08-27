@@ -257,7 +257,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
                 value={v.length}
                 onChange={(e) => updateVariant(i, { length: e.target.value })}
                 placeholder="Dài"
-                className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+                className="h-10 min-w-0 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
               />
               <input
                 type="number"
@@ -265,7 +265,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
                 value={v.width}
                 onChange={(e) => updateVariant(i, { width: e.target.value })}
                 placeholder="Rộng"
-                className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+                className="h-10 min-w-0 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
               />
               <input
                 type="number"
@@ -273,7 +273,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
                 value={v.height}
                 onChange={(e) => updateVariant(i, { height: e.target.value })}
                 placeholder="Cao"
-                className="h-10 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+                className="h-10 min-w-0 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
               />
               <button
                 type="button"
