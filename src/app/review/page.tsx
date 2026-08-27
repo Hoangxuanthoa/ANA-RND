@@ -5,6 +5,7 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { RejectProductModal } from "@/components/RejectProductModal";
+import { ProductQuickView } from "@/components/ProductQuickView";
 import type { Product } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canReviewProducts } from "@/lib/permissions";
@@ -13,6 +14,7 @@ export default function ReviewQueuePage() {
   const { role } = useRole();
   const { products, approveProduct, rejectProduct } = useProducts();
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
+  const [quickViewTarget, setQuickViewTarget] = useState<Product | null>(null);
 
   const pending = products.filter((p) => p.status === "PENDING_REVIEW");
 
@@ -48,7 +50,10 @@ export default function ReviewQueuePage() {
         <div className="flex flex-col gap-3.5">
           {pending.map((p) => (
             <div key={p.code} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
-              <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+              <button
+                onClick={() => setQuickViewTarget(p)}
+                className={`flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${p.mainImage ? "" : TINT_BG[p.tint]}`}
+              >
                 {p.mainImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
@@ -59,14 +64,14 @@ export default function ReviewQueuePage() {
                     <path d="M12 13v8" />
                   </svg>
                 )}
-              </div>
+              </button>
 
               <div className="flex flex-1 flex-col gap-2">
                 <div className="flex justify-between gap-2.5">
-                  <div>
-                    <div className="text-sm font-bold">{p.name}</div>
+                  <button onClick={() => setQuickViewTarget(p)} className="text-left">
+                    <div className="text-sm font-bold hover:text-accent">{p.name}</div>
                     <div className="mt-0.5 text-xs font-semibold text-text-faint">{p.code}</div>
-                  </div>
+                  </button>
                   {p.sourceProjectName ? (
                     <span className="inline-flex h-fit items-center rounded-full bg-blue-soft px-2.5 py-1 text-[11px] font-bold whitespace-nowrap text-blue">
                       Từ project: {p.sourceProjectName}
@@ -121,6 +126,10 @@ export default function ReviewQueuePage() {
             setRejectTarget(null);
           }}
         />
+      )}
+
+      {quickViewTarget && (
+        <ProductQuickView product={quickViewTarget} onClose={() => setQuickViewTarget(null)} />
       )}
     </div>
   );

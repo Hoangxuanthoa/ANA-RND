@@ -138,7 +138,6 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           title: `${product.name} bị từ chối`,
           message: reason,
           link: `/library/${code}`,
-          productCode: code,
           recipientName: product.designer,
           isRead: false,
           time: "Vừa xong",
@@ -152,30 +151,10 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   }
 
-  // Takes the product object directly rather than looking it up by code —
-  // when this fires right after createProduct in the same event handler,
-  // the `products` state closure here is still the pre-create snapshot
-  // (React batches the setProducts from createProduct), so a lookup by
-  // code would silently miss the just-created product.
-  function notifyAdminPendingReview(product: Product, message: string) {
-    setNotifications((prev) => [
-      {
-        id: `${product.code}-submit-${Date.now()}`,
-        type: "PRODUCT_SUBMITTED",
-        title: `${product.name} chờ duyệt`,
-        message,
-        link: "/review",
-        productCode: product.code,
-        recipientName: CURRENT_USER_NAME.ADMIN,
-        isRead: false,
-        time: "Vừa xong",
-      },
-      ...prev,
-    ]);
-  }
-
+  // No bell notification here on purpose — the "Duyệt sản phẩm" nav badge
+  // (pendingCount) is already the signal Admin watches for this; a second
+  // notification would just duplicate it.
   function submitForReview(code: string) {
-    const product = products.find((p) => p.code === code);
     setProducts((prev) =>
       prev.map((p) =>
         p.code === code
@@ -183,11 +162,9 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
-    if (product) notifyAdminPendingReview(product, "Vừa được nộp duyệt trực tiếp từ Design Library.");
   }
 
   function releaseToLibrary(code: string, projectName: string) {
-    const product = products.find((p) => p.code === code);
     setProducts((prev) =>
       prev.map((p) =>
         p.code === code
@@ -195,7 +172,6 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
-    if (product) notifyAdminPendingReview(product, `Vừa được release từ dự án ${projectName}.`);
   }
 
   function setReusePermission(code: string, reuse: ReusePermission) {
@@ -259,7 +235,6 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       images: input.images,
     };
     setProducts((prev) => [newProduct, ...prev]);
-    if (autoSubmit) notifyAdminPendingReview(newProduct, "Vừa được nộp duyệt trực tiếp từ Design Library.");
     return code;
   }
 
