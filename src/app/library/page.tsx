@@ -311,26 +311,32 @@ export default function LibraryPage() {
           )}
 
           {filtered.length > 0 && (
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-[12.5px] text-text-faint">
-                Trang {currentPage}/{totalPages}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  disabled={currentPage <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
-                >
-                  ← Back
-                </button>
-                <button
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
-                >
-                  Next →
-                </button>
-              </div>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+              >
+                ← Back
+              </button>
+              <select
+                value={currentPage}
+                onChange={(e) => setPage(Number(e.target.value))}
+                className="h-9 rounded-lg border border-line bg-surface px-3 text-[13px] font-bold focus:border-accent focus:outline-none"
+              >
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    Trang {n}/{totalPages}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+              >
+                Next →
+              </button>
             </div>
           )}
         </div>
