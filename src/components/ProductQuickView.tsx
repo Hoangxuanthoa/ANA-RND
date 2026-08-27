@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/mock-data";
-import { CURRENT_USER_NAME } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, formatDimensions } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
@@ -77,13 +77,20 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
         <div className="flex gap-6 p-5">
           {/* Image — sized generously now; a click-to-zoom/lightbox can hang off this same box later. */}
           <div
-            className={`group relative flex h-[360px] w-[360px] flex-shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-xl ${TINT_BG[product.tint]}`}
+            className={`group relative flex h-[360px] w-[360px] flex-shrink-0 cursor-zoom-in items-center justify-center overflow-hidden rounded-xl ${
+              product.mainImage ? "" : TINT_BG[product.tint]
+            }`}
           >
-            <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.2">
-              <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-              <path d="M3 8v8l9 5 9-5V8" />
-              <path d="M12 13v8" />
-            </svg>
+            {product.mainImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.mainImage} alt={product.name} className="h-full w-full object-cover" />
+            ) : (
+              <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.2">
+                <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                <path d="M3 8v8l9 5 9-5V8" />
+                <path d="M12 13v8" />
+              </svg>
+            )}
             <div className="absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white opacity-0 transition group-hover:opacity-100">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="7" />
@@ -99,6 +106,9 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                 ["Category", product.category],
                 ["Material", product.material],
                 ["Designer", product.designer],
+                ...(product.size ? [["Size", product.size]] : []),
+                ...(product.color ? [["Màu sắc", product.color]] : []),
+                ...(formatDimensions(product) ? [["Kích thước", formatDimensions(product)!]] : []),
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between border-b border-line py-2 text-[13px]">
                   <span className="text-text-muted">{label}</span>
@@ -106,7 +116,9 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                 </div>
               ))}
             </div>
-            <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
+            {product.description && (
+              <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
+            )}
           </div>
         </div>
 

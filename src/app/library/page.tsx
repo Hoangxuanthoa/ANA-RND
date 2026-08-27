@@ -264,12 +264,17 @@ export default function LibraryPage() {
                   onKeyDown={(e) => e.key === "Enter" && setQuickView(p)}
                   className="cursor-pointer overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className={`relative flex h-32 items-center justify-center ${TINT_BG[p.tint]}`}>
-                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
-                      <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                      <path d="M3 8v8l9 5 9-5V8" />
-                      <path d="M12 13v8" />
-                    </svg>
+                  <div className={`relative flex h-32 items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                    {p.mainImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
+                        <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                        <path d="M3 8v8l9 5 9-5V8" />
+                        <path d="M12 13v8" />
+                      </svg>
+                    )}
                     <span className={`absolute top-2 left-2 ${reuseBadge.className} bg-white/90 backdrop-blur-sm`}>
                       {reuseBadge.label}
                     </span>

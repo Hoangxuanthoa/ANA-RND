@@ -147,12 +147,17 @@ export default function DashboardPage() {
                     href={`/library/${p.code}`}
                     className="overflow-hidden rounded-xl border border-line bg-surface transition hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    <div className={`flex h-[150px] items-center justify-center ${TINT_BG[p.tint]}`}>
-                      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
-                        <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                        <path d="M3 8v8l9 5 9-5V8" />
-                        <path d="M12 13v8" />
-                      </svg>
+                    <div className={`flex h-[150px] items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                      {p.mainImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
+                          <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                          <path d="M3 8v8l9 5 9-5V8" />
+                          <path d="M12 13v8" />
+                        </svg>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2 p-3.5">
                       <div className="flex items-start justify-between gap-2">

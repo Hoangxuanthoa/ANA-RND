@@ -239,13 +239,20 @@ export default function ProjectDetailPage() {
                 <div key={i.productCode} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
                   <button
                     onClick={() => setQuickViewCode(i.productCode)}
-                    className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[10px] ${TINT_BG[product.tint]}`}
+                    className={`flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${
+                      product.mainImage ? "" : TINT_BG[product.tint]
+                    }`}
                   >
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
-                      <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                      <path d="M3 8v8l9 5 9-5V8" />
-                      <path d="M12 13v8" />
-                    </svg>
+                    {product.mainImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={product.mainImage} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
+                        <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                        <path d="M3 8v8l9 5 9-5V8" />
+                        <path d="M12 13v8" />
+                      </svg>
+                    )}
                   </button>
                   <div className="flex flex-1 flex-col gap-2">
                     <div className="flex justify-between gap-2.5">
@@ -417,6 +424,7 @@ export default function ProjectDetailPage() {
         <NewProductModal
           open
           title="Thiết kế sản phẩm mới cho dự án"
+          projectCustomer={project.customer}
           onCancel={() => setNewDesignOpen(false)}
           onCreate={(code) => {
             addProductToProject(project.code, code, "NEW", role === "RND" ? userName : undefined);

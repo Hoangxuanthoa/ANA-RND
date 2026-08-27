@@ -41,12 +41,17 @@ export function ProjectProductQuickView({ item, product, isClosed, onClose }: Pr
       >
         <div className="flex items-start justify-between border-b border-line p-5">
           <div className="flex gap-4">
-            <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-[10px] ${TINT_BG[product.tint]}`}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
-                <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                <path d="M3 8v8l9 5 9-5V8" />
-                <path d="M12 13v8" />
-              </svg>
+            <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${product.mainImage ? "" : TINT_BG[product.tint]}`}>
+              {product.mainImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={product.mainImage} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
+                  <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                  <path d="M3 8v8l9 5 9-5V8" />
+                  <path d="M12 13v8" />
+                </svg>
+              )}
             </div>
             <div>
               <h2 className="text-[15px] font-extrabold">{product.name}</h2>

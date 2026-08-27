@@ -161,12 +161,17 @@ export default function CollectionDetailPage() {
         <div className="grid grid-cols-3 gap-4">
           {items.map((p) => (
             <div key={p.code} className="overflow-hidden rounded-xl border border-line bg-surface">
-              <div className={`relative flex h-32 items-center justify-center ${TINT_BG[p.tint]}`}>
-                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
-                  <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                  <path d="M3 8v8l9 5 9-5V8" />
-                  <path d="M12 13v8" />
-                </svg>
+              <div className={`relative flex h-32 items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                {p.mainImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
+                    <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                    <path d="M3 8v8l9 5 9-5V8" />
+                    <path d="M12 13v8" />
+                  </svg>
+                )}
                 {editable && (
                   <button
                     onClick={() => removeProductFromCollection(collection.id, p.code)}

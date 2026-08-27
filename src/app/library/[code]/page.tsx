@@ -7,7 +7,7 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
-import { PRODUCT_ASSETS, PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME } from "@/lib/mock-data";
+import { PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME, formatDimensions } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -44,7 +44,8 @@ export default function ProductDetailPage() {
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
-  const activeAsset = PRODUCT_ASSETS[assetIndex];
+  const images = [product.mainImage, ...(product.images ?? [])].filter((src): src is string => !!src);
+  const activeImage = images[Math.min(assetIndex, images.length - 1)];
   const isFavorited = favoritedCodes.has(product.code);
   const favoriteCount = product.favorites + (isFavorited ? 1 : 0);
   const usages = projectProducts.filter((pp) => pp.productCode === product.code);
@@ -67,32 +68,40 @@ export default function ProductDetailPage() {
           {/* Asset viewer */}
           <div className="flex flex-1 flex-col gap-3">
             <div
-              className={`flex h-[440px] items-center justify-center rounded-xl border border-line ${TINT_BG[activeAsset.tint]}`}
+              className={`flex h-[440px] items-center justify-center overflow-hidden rounded-xl border border-line ${
+                images.length === 0 ? TINT_BG[product.tint] : ""
+              }`}
             >
-              <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className={TINT_FG[activeAsset.tint]} stroke="currentColor" strokeWidth="1.2">
-                <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                <path d="M3 8v8l9 5 9-5V8" />
-                <path d="M12 13v8" />
-              </svg>
+              {activeImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={activeImage} alt={product.name} className="h-full w-full object-cover" />
+              ) : (
+                <svg width="72" height="72" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.2">
+                  <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                  <path d="M3 8v8l9 5 9-5V8" />
+                  <path d="M12 13v8" />
+                </svg>
+              )}
             </div>
-            <div className="flex gap-2.5 overflow-x-auto pb-1">
-              {PRODUCT_ASSETS.map((a, i) => (
-                <button
-                  key={a.label}
-                  onClick={() => setAssetIndex(i)}
-                  className={`flex h-[76px] w-[76px] flex-shrink-0 items-center justify-center rounded-lg border-2 ${TINT_BG[a.tint]} ${
-                    i === assetIndex ? "border-accent" : "border-transparent hover:border-text-faint"
-                  }`}
-                >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[a.tint]} stroke="currentColor" strokeWidth="1.6">
-                    <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                    <path d="M3 8v8l9 5 9-5V8" />
-                    <path d="M12 13v8" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-            <div className="text-xs text-text-faint">{activeAsset.label}</div>
+            {images.length > 1 && (
+              <div className="flex gap-2.5 overflow-x-auto pb-1">
+                {images.map((src, i) => (
+                  <button
+                    key={src}
+                    onClick={() => setAssetIndex(i)}
+                    className={`h-[76px] w-[76px] flex-shrink-0 overflow-hidden rounded-lg border-2 ${
+                      i === assetIndex ? "border-accent" : "border-transparent hover:border-text-faint"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+            {images.length === 0 && (
+              <div className="text-xs text-text-faint">Chưa có ảnh cho thiết kế này.</div>
+            )}
           </div>
 
           {/* Info panel */}
@@ -129,6 +138,9 @@ export default function ProductDetailPage() {
                 ["Material", product.material],
                 ["Designer", product.designer],
                 ["Origin customer", product.originCustomer],
+                ...(product.size ? [["Size", product.size]] : []),
+                ...(product.color ? [["Màu sắc", product.color]] : []),
+                ...(formatDimensions(product) ? [["Kích thước", formatDimensions(product)!]] : []),
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between border-b border-line py-2.5 text-[13px]">
                   <span className="text-text-muted">{label}</span>
@@ -137,7 +149,9 @@ export default function ProductDetailPage() {
               ))}
             </div>
 
-            <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
+            {product.description && (
+              <p className="text-[13px] leading-relaxed text-text-muted">{product.description}</p>
+            )}
 
             {product.status === "DRAFT" && product.lastRejectionReason && (
               <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-3">

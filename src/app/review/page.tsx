@@ -48,12 +48,17 @@ export default function ReviewQueuePage() {
         <div className="flex flex-col gap-3.5">
           {pending.map((p) => (
             <div key={p.code} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
-              <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-[10px] ${TINT_BG[p.tint]}`}>
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.5">
-                  <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                  <path d="M3 8v8l9 5 9-5V8" />
-                  <path d="M12 13v8" />
-                </svg>
+              <div className={`flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                {p.mainImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.5">
+                    <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                    <path d="M3 8v8l9 5 9-5V8" />
+                    <path d="M12 13v8" />
+                  </svg>
+                )}
               </div>
 
               <div className="flex flex-1 flex-col gap-2">

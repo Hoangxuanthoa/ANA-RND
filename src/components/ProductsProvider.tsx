@@ -7,6 +7,8 @@ import {
   PRODUCT_FEEDBACK as INITIAL_PRODUCT_FEEDBACK,
   CATEGORIES as INITIAL_CATEGORIES,
   MATERIALS as INITIAL_MATERIALS,
+  SIZES as INITIAL_SIZES,
+  COLORS as INITIAL_COLORS,
   feedbackIdentity,
   nextProductCode,
   CURRENT_USER_NAME,
@@ -24,6 +26,8 @@ interface ProductsContextValue {
   productFeedback: ProductFeedbackItem[];
   categories: string[];
   materials: string[];
+  sizes: string[];
+  colors: string[];
   approveProduct: (code: string) => void;
   rejectProduct: (code: string, reason: string) => void;
   markNotificationRead: (id: string) => void;
@@ -36,16 +40,67 @@ interface ProductsContextValue {
   setReusePermission: (code: string, reuse: ReusePermission) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
-  createProduct: (input: { name: string; category: string; material: string; description: string; originCustomer: string }) => string;
+  createProduct: (input: {
+    name: string;
+    category: string;
+    material: string;
+    size: string;
+    length?: number;
+    width?: number;
+    height?: number;
+    color: string;
+    mainImage?: string;
+    images?: string[];
+    originCustomer?: string;
+  }) => string;
   addCategory: (name: string) => void;
   renameCategory: (oldName: string, newName: string) => void;
   removeCategory: (name: string) => void;
   addMaterial: (name: string) => void;
   renameMaterial: (oldName: string, newName: string) => void;
   removeMaterial: (name: string) => void;
+  addSize: (name: string) => void;
+  renameSize: (oldName: string, newName: string) => void;
+  removeSize: (name: string) => void;
+  addColor: (name: string) => void;
+  renameColor: (oldName: string, newName: string) => void;
+  removeColor: (name: string) => void;
 }
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
+
+// Shared CRUD for the 4 lookup lists (Category/Material/Size/Color) that
+// hang off a Product by plain string field — add/rename/remove, with
+// rename cascading to every product using the old value and remove
+// blocked while any product still does.
+function useManagedField(
+  initial: string[],
+  field: "category" | "material" | "size" | "color",
+  products: Product[],
+  setProducts: React.Dispatch<React.SetStateAction<Product[]>>,
+) {
+  const [items, setItems] = useState<string[]>(initial);
+
+  function add(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || items.includes(trimmed)) return;
+    setItems((prev) => [...prev, trimmed]);
+  }
+
+  function rename(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || items.includes(trimmed)) return;
+    setItems((prev) => prev.map((v) => (v === oldName ? trimmed : v)));
+    setProducts((prev) => prev.map((p) => (p[field] === oldName ? { ...p, [field]: trimmed } : p)));
+  }
+
+  function remove(name: string) {
+    if (products.some((p) => p[field] === name)) return;
+    setItems((prev) => prev.filter((v) => v !== name));
+  }
+
+  return { items, add, rename, remove };
+}
 
 export function ProductsProvider({ children }: { children: ReactNode }) {
   const { role } = useRole();
@@ -53,8 +108,10 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
-  const [categories, setCategories] = useState<string[]>(INITIAL_CATEGORIES);
-  const [materials, setMaterials] = useState<string[]>(INITIAL_MATERIALS);
+  const categoryField = useManagedField(INITIAL_CATEGORIES, "category", products, setProducts);
+  const materialField = useManagedField(INITIAL_MATERIALS, "material", products, setProducts);
+  const sizeField = useManagedField(INITIAL_SIZES, "size", products, setProducts);
+  const colorField = useManagedField(INITIAL_COLORS, "color", products, setProducts);
 
   function approveProduct(code: string) {
     setProducts((prev) =>
@@ -126,7 +183,19 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
   }
 
-  function createProduct(input: { name: string; category: string; material: string; description: string; originCustomer: string }) {
+  function createProduct(input: {
+    name: string;
+    category: string;
+    material: string;
+    size: string;
+    length?: number;
+    width?: number;
+    height?: number;
+    color: string;
+    mainImage?: string;
+    images?: string[];
+    originCustomer?: string;
+  }) {
     const code = nextProductCode(products);
     const newProduct: Product = {
       code,
@@ -134,51 +203,21 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       category: input.category,
       material: input.material,
       designer: CURRENT_USER_NAME[role],
-      originCustomer: input.originCustomer.trim() || "—",
-      description: input.description,
+      originCustomer: input.originCustomer?.trim() || "—",
       status: "DRAFT",
       reuse: "REUSABLE",
       favorites: 0,
       tint: "blue",
+      size: input.size,
+      length: input.length,
+      width: input.width,
+      height: input.height,
+      color: input.color,
+      mainImage: input.mainImage,
+      images: input.images,
     };
     setProducts((prev) => [newProduct, ...prev]);
     return code;
-  }
-
-  function addCategory(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed || categories.includes(trimmed)) return;
-    setCategories((prev) => [...prev, trimmed]);
-  }
-
-  function renameCategory(oldName: string, newName: string) {
-    const trimmed = newName.trim();
-    if (!trimmed || trimmed === oldName || categories.includes(trimmed)) return;
-    setCategories((prev) => prev.map((c) => (c === oldName ? trimmed : c)));
-    setProducts((prev) => prev.map((p) => (p.category === oldName ? { ...p, category: trimmed } : p)));
-  }
-
-  function removeCategory(name: string) {
-    if (products.some((p) => p.category === name)) return;
-    setCategories((prev) => prev.filter((c) => c !== name));
-  }
-
-  function addMaterial(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed || materials.includes(trimmed)) return;
-    setMaterials((prev) => [...prev, trimmed]);
-  }
-
-  function renameMaterial(oldName: string, newName: string) {
-    const trimmed = newName.trim();
-    if (!trimmed || trimmed === oldName || materials.includes(trimmed)) return;
-    setMaterials((prev) => prev.map((m) => (m === oldName ? trimmed : m)));
-    setProducts((prev) => prev.map((p) => (p.material === oldName ? { ...p, material: trimmed } : p)));
-  }
-
-  function removeMaterial(name: string) {
-    if (products.some((p) => p.material === name)) return;
-    setMaterials((prev) => prev.filter((m) => m !== name));
   }
 
   return (
@@ -188,8 +227,10 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         notifications,
         favoritedCodes,
         productFeedback,
-        categories,
-        materials,
+        categories: categoryField.items,
+        materials: materialField.items,
+        sizes: sizeField.items,
+        colors: colorField.items,
         approveProduct,
         rejectProduct,
         markNotificationRead,
@@ -199,12 +240,18 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         toggleFavorite,
         addProductFeedback,
         createProduct,
-        addCategory,
-        renameCategory,
-        removeCategory,
-        addMaterial,
-        renameMaterial,
-        removeMaterial,
+        addCategory: categoryField.add,
+        renameCategory: categoryField.rename,
+        removeCategory: categoryField.remove,
+        addMaterial: materialField.add,
+        renameMaterial: materialField.rename,
+        removeMaterial: materialField.remove,
+        addSize: sizeField.add,
+        renameSize: sizeField.rename,
+        removeSize: sizeField.remove,
+        addColor: colorField.add,
+        renameColor: colorField.rename,
+        removeColor: colorField.remove,
       }}
     >
       {children}

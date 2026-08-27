@@ -12,6 +12,8 @@ import { canManageSettings } from "@/lib/permissions";
 const TABS = [
   { key: "category", label: "Category" },
   { key: "material", label: "Material" },
+  { key: "size", label: "Size" },
+  { key: "color", label: "Màu sắc" },
   { key: "user", label: "User" },
 ] as const;
 
@@ -236,8 +238,25 @@ function UserTab() {
 
 export default function SettingsPage() {
   const { role } = useRole();
-  const { products, categories, materials, addCategory, renameCategory, removeCategory, addMaterial, renameMaterial, removeMaterial } =
-    useProducts();
+  const {
+    products,
+    categories,
+    materials,
+    sizes,
+    colors,
+    addCategory,
+    renameCategory,
+    removeCategory,
+    addMaterial,
+    renameMaterial,
+    removeMaterial,
+    addSize,
+    renameSize,
+    removeSize,
+    addColor,
+    renameColor,
+    removeColor,
+  } = useProducts();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("category");
 
   if (!canManageSettings(role)) {
@@ -264,7 +283,7 @@ export default function SettingsPage() {
       <div className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-5 p-7">
         <div>
           <h1 className="mb-1 text-[22px] font-extrabold">Cài đặt hệ thống</h1>
-          <p className="text-[13.5px] text-text-muted">Quản lý Category, Material và người dùng nội bộ.</p>
+          <p className="text-[13.5px] text-text-muted">Quản lý Category, Material, Size, Màu sắc và người dùng nội bộ.</p>
         </div>
 
         <div className="flex gap-6 border-b border-line">
@@ -298,6 +317,26 @@ export default function SettingsPage() {
             onAdd={addMaterial}
             onRename={renameMaterial}
             onRemove={removeMaterial}
+          />
+        )}
+
+        {tab === "size" && (
+          <TagListEditor
+            items={sizes}
+            usedBy={(name) => products.some((p) => p.size === name)}
+            onAdd={addSize}
+            onRename={renameSize}
+            onRemove={removeSize}
+          />
+        )}
+
+        {tab === "color" && (
+          <TagListEditor
+            items={colors}
+            usedBy={(name) => products.some((p) => p.color === name)}
+            onAdd={addColor}
+            onRename={renameColor}
+            onRemove={removeColor}
           />
         )}
 

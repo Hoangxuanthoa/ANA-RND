@@ -98,11 +98,21 @@ export interface Product {
   material: string;
   designer: string;
   originCustomer: string;
-  description: string;
+  description?: string;
   status: ProductStatus;
   reuse: ReusePermission;
   favorites: number;
   tint: "accent" | "blue" | "green" | "slate";
+  // Real per-product images (object URLs from the browser file picker —
+  // there's no upload backend yet, so these only last for the session).
+  // Legacy seed products have none and fall back to the tint placeholder.
+  mainImage?: string;
+  images?: string[];
+  size?: string;
+  length?: number;
+  width?: number;
+  height?: number;
+  color?: string;
   // Set when this product was submitted via "Release to Library" from a
   // closed project, rather than uploaded straight to the library.
   sourceProjectName?: string;
@@ -346,14 +356,34 @@ export const PRODUCTS: Product[] = [
 export const CATEGORIES = ["Storage", "Lighting", "Decor", "Kitchen & Bath", "Planter"];
 export const MATERIALS = ["Rattan", "Bamboo", "Water Hyacinth", "Seagrass", "Jute"];
 
-// Generates the next RND-NNNNN code for a newly created product.
+// "120 × 45 × 80 cm" from whichever of length/width/height are set — null
+// when none are, so callers can skip the row instead of showing "— cm".
+export function formatDimensions(p: Product): string | null {
+  const parts = [p.length, p.width, p.height].filter((n): n is number => typeof n === "number");
+  if (parts.length === 0) return null;
+  return `${[p.length, p.width, p.height].map((n) => n ?? "—").join(" × ")} cm`;
+}
+
+// Generates the next product code as RND + month(2) + year(2) + a 3-digit
+// sequence that resets every month — e.g. RND0826001, next one RND0826002,
+// then RND0927001 once September rolls around. Scanning existing codes for
+// the current month/year prefix (rather than keeping a separate counter)
+// is what keeps this collision-free without any extra state.
 export function nextProductCode(products: Product[]): string {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yy = String(now.getFullYear() % 100).padStart(2, "0");
+  const prefix = `RND${mm}${yy}`;
   const nums = products
-    .map((p) => parseInt(p.code.split("-").pop() ?? "", 10))
+    .filter((p) => p.code.startsWith(prefix))
+    .map((p) => parseInt(p.code.slice(prefix.length), 10))
     .filter((n) => !isNaN(n));
   const next = (nums.length ? Math.max(...nums) : 0) + 1;
-  return `RND-${String(next).padStart(5, "0")}`;
+  return `${prefix}${String(next).padStart(3, "0")}`;
 }
+
+export const SIZES = ["XS", "SM", "ME", "LG", "XL"];
+export const COLORS = ["Tự nhiên", "Nâu nhạt", "Nâu đậm", "Trắng", "Đen"];
 
 export interface AssetItem {
   label: string;
