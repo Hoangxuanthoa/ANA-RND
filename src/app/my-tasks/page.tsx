@@ -31,7 +31,7 @@ export default function MyTasksPage() {
           </div>
           <h2 className="text-[17px] font-extrabold">Không có quyền truy cập</h2>
           <p className="max-w-[360px] text-center text-sm text-text-muted">
-            &quot;Việc của tôi&quot; là hàng đợi cá nhân dành cho R&amp;D.
+            &quot;My Task&quot; là hàng đợi cá nhân dành cho R&amp;D.
           </p>
         </div>
       </div>
@@ -50,7 +50,7 @@ export default function MyTasksPage() {
       <TopNav />
       <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-5 p-7">
         <div>
-          <h1 className="mb-1 text-[22px] font-extrabold">Việc của tôi</h1>
+          <h1 className="mb-1 text-[22px] font-extrabold">My Task</h1>
           <p className="text-[13.5px] text-text-muted">{myItems.length} sản phẩm đang phụ trách</p>
         </div>
 

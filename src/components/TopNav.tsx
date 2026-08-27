@@ -53,7 +53,7 @@ export function TopNav() {
   const unreadCount = myNotifications.filter((n) => !n.isRead).length;
 
   return (
-    <div className="relative flex h-16 flex-shrink-0 items-center justify-between border-b border-line bg-surface px-7">
+    <div className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-line bg-surface px-7">
       <div className="flex items-center gap-8">
         <div className="flex items-center gap-2">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
@@ -67,7 +67,7 @@ export function TopNav() {
           <NavLink href="/dashboard">Dashboard</NavLink>
           {canViewLibrary(role) && <NavLink href="/library">Design Library</NavLink>}
           <NavLink href="/projects">Projects</NavLink>
-          {canViewMyTasks(role) && <NavLink href="/my-tasks">Việc của tôi</NavLink>}
+          {canViewMyTasks(role) && <NavLink href="/my-tasks">My Task</NavLink>}
           {canManageCollections(role) && <NavLink href="/collections">Collections</NavLink>}
           {canReviewProducts(role) && (
             <NavLink href="/review" badge={pendingCount}>
