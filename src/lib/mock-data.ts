@@ -437,6 +437,7 @@ export interface Project {
   // Who actually created it — the basis for edit/delete ownership, since
   // not every project has a Sales rep (internal/marketing ones may not).
   createdByName: string;
+  createdAt: string;
   status: ProjectStatus;
   deadline: string;
   brief: string;
@@ -453,6 +454,7 @@ export const PROJECTS: Project[] = [
     sales: "Hà",
     rndOwner: "An",
     createdByName: "Hà",
+    createdAt: "15/07/2026",
     status: "DEVELOPING",
     deadline: "20/09/2026",
     brief: "Bộ sưu tập giỏ đựng đồ & kệ lưu trữ mây tre cho dòng Storage Q1 2025 — 4 sản phẩm, ưu tiên tái sử dụng từ Design Library hiện có.",
@@ -467,6 +469,7 @@ export const PROJECTS: Project[] = [
     sales: "Hà",
     rndOwner: "An",
     createdByName: "Hà",
+    createdAt: "01/08/2026",
     status: "DEVELOPING",
     deadline: "05/10/2026",
     brief: "Mở rộng dòng Storage cho ADE, tái sử dụng thiết kế đã release.",
@@ -481,6 +484,7 @@ export const PROJECTS: Project[] = [
     sales: "Minh",
     rndOwner: "An",
     createdByName: "Minh",
+    createdAt: "10/08/2026",
     status: "DEVELOPING",
     deadline: "30/10/2026",
     brief: "Bộ giỏ mới theo brief riêng của SCG, phối hợp 3 chất liệu.",
@@ -495,6 +499,7 @@ export const PROJECTS: Project[] = [
     sales: "Hà",
     rndOwner: "Lan",
     createdByName: "Hà",
+    createdAt: "20/08/2026",
     status: "CREATED",
     deadline: "—",
     brief: "Ý tưởng ban đầu cho dòng đèn Q4, chưa chốt brief.",
@@ -509,6 +514,7 @@ export const PROJECTS: Project[] = [
     sales: "Minh",
     rndOwner: "An",
     createdByName: "Minh",
+    createdAt: "10/03/2026",
     status: "COMPLETED",
     deadline: "15/06/2026",
     brief: "Bộ sản phẩm bếp hoàn thiện, đã release toàn bộ.",
@@ -523,6 +529,7 @@ export const PROJECTS: Project[] = [
     sales: "Hà",
     rndOwner: "Lan",
     createdByName: "Hà",
+    createdAt: "05/11/2025",
     status: "CLOSED",
     deadline: "01/02/2026",
     brief: "Dự án làm mới dòng Decor, đã đóng — RND-00440 vừa được release từ đây.",
@@ -535,6 +542,7 @@ export const PROJECTS: Project[] = [
     type: "INTERNAL",
     rndOwner: "An",
     createdByName: "Minh",
+    createdAt: "01/06/2026",
     status: "DEVELOPING",
     deadline: "—",
     brief: "Nghiên cứu kết hợp mây tre với nhựa tái chế cho dòng sản phẩm ngoài trời.",
@@ -547,6 +555,7 @@ export const PROJECTS: Project[] = [
     type: "MARKETING",
     rndOwner: "Lan",
     createdByName: "Linh",
+    createdAt: "15/08/2026",
     status: "CREATED",
     deadline: "01/03/2027",
     brief: "Chuẩn bị bộ sưu tập mới cho triển lãm Xuân 2027 — sẽ xuất Collection để gửi đối tác.",
@@ -632,6 +641,15 @@ export const PROJECT_PRODUCTS: ProjectProductItem[] = [
     feedback: [],
   },
 ];
+
+// "27/08/2026" — matches the dd/mm/yyyy style already used for deadlines
+// everywhere else, for stamping a new project's creation date.
+export function todayDDMMYYYY(): string {
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${now.getFullYear()}`;
+}
 
 // Generates the next code for a new project, scoped by type — matches
 // the existing PRJ-YYYY-NNN / PRJ-INT-NNN / PRJ-MKT-NNN conventions above.

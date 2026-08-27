@@ -8,7 +8,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProjectModal } from "@/components/NewProjectModal";
-import { CURRENT_USER_NAME, nextProjectCode, type Project, type ProjectStatus } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, nextProjectCode, todayDDMMYYYY, type Project, type ProjectStatus } from "@/lib/mock-data";
 import { projectStatusBadge, projectTypeBadge } from "@/lib/badges";
 import { canCreateProject, canEditProject, canHardDeleteProject, canMarkCompleted } from "@/lib/permissions";
 
@@ -51,8 +51,8 @@ export default function ProjectsPage() {
   }, [projects, status, isCustomer]);
 
   const gridCols = isCustomer
-    ? "grid-cols-[2fr_1.2fr_1fr_1fr_0.6fr]"
-    : "grid-cols-[1.6fr_0.9fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr_0.5fr_auto]";
+    ? "grid-cols-[2fr_1.2fr_1fr_0.9fr_1fr_1fr_0.6fr]"
+    : "grid-cols-[1.6fr_0.9fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_0.5fr_auto]";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -97,6 +97,7 @@ export default function ProjectsPage() {
                 <span>R&amp;D Owner</span>
               </>
             )}
+            <span>Ngày tạo</span>
             <span>Status</span>
             <span>Deadline</span>
             <span className="text-right">Products</span>
@@ -122,54 +123,59 @@ export default function ProjectsPage() {
                     <span className="text-[13px] text-text-muted">{p.rndOwner ?? "—"}</span>
                   </>
                 )}
+                <span className="text-[13px] text-text-muted">{p.createdAt}</span>
                 <span className={badge.className}>{badge.label}</span>
                 <span className="text-[13px] text-text-muted">{p.deadline}</span>
                 <span className="text-right text-[13px] font-bold">{productCount}</span>
                 {!isCustomer && (
                   <span className="flex justify-end gap-1.5">
-                    {editable && (
-                      <>
-                        <button
-                          onClick={() => setEditTarget(p)}
-                          title="Sửa"
-                          className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
-                        >
+                    {editable ? (
+                      <button
+                        onClick={() => setEditTarget(p)}
+                        title="Sửa"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <span className="h-7 w-7" />
+                    )}
+                    {editable && canMarkCompleted(role, userName, p) && p.status === "DEVELOPING" ? (
+                      <button
+                        onClick={() => markCompleted(p.code)}
+                        title="Đánh dấu Hoàn thành"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-green-soft hover:text-green"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 6L9 17l-5-5" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <span className="h-7 w-7" />
+                    )}
+                    {editable && p.status !== "CLOSED" ? (
+                      <button
+                        onClick={() => setRemoveTarget(p)}
+                        title={hardDelete ? "Xóa" : "Đóng"}
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
+                      >
+                        {hardDelete ? (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
                           </svg>
-                        </button>
-                        {canMarkCompleted(role, userName, p) && p.status === "DEVELOPING" && (
-                          <button
-                            onClick={() => markCompleted(p.code)}
-                            title="Đánh dấu Hoàn thành"
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-green-soft hover:text-green"
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M20 6L9 17l-5-5" />
-                            </svg>
-                          </button>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M9 12l2 2 4-4" />
+                          </svg>
                         )}
-                        {p.status !== "CLOSED" && (
-                          <button
-                            onClick={() => setRemoveTarget(p)}
-                            title={hardDelete ? "Xóa" : "Đóng"}
-                            className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
-                          >
-                            {hardDelete ? (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 6h18" />
-                                <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
-                              </svg>
-                            ) : (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <circle cx="12" cy="12" r="9" />
-                                <path d="M9 12l2 2 4-4" />
-                              </svg>
-                            )}
-                          </button>
-                        )}
-                      </>
+                      </button>
+                    ) : (
+                      <span className="h-7 w-7" />
                     )}
                   </span>
                 )}
@@ -230,6 +236,7 @@ export default function ProjectsPage() {
             sales: input.sales,
             rndOwner: input.rndOwner,
             createdByName: userName,
+            createdAt: todayDDMMYYYY(),
             status: "CREATED",
             deadline: input.deadline,
             brief: input.brief,
