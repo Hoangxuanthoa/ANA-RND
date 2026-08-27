@@ -50,9 +50,14 @@ export default function ProjectsPage() {
     return status === "ALL" ? base : base.filter((p) => p.status === status);
   }, [projects, status, isCustomer]);
 
+  // minmax(0, Nfr) — not bare Nfr — on every track: the header row and
+  // each data row are separate grid containers, so without the 0 floor a
+  // track's width is driven by that row's own content (a status pill
+  // forces its column wider than the plain header text in the same
+  // position), and header/data columns drift out of alignment.
   const gridCols = isCustomer
-    ? "grid-cols-[2fr_1.2fr_1fr_0.9fr_1fr_1fr_0.6fr]"
-    : "grid-cols-[1.6fr_0.9fr_1fr_0.9fr_0.9fr_0.9fr_0.9fr_0.9fr_0.5fr_auto]";
+    ? "grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.6fr)]"
+    : "grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.5fr)_auto]";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
