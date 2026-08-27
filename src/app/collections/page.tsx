@@ -28,7 +28,7 @@ export default function CollectionsPage() {
           </div>
           <h2 className="text-[17px] font-extrabold">Không có quyền truy cập</h2>
           <p className="max-w-[360px] text-center text-sm text-text-muted">
-            Collection dành cho Sales, Marketing và Admin để tổng hợp sản phẩm gửi khách hàng / đối tác.
+            Collection dùng để tổng hợp sản phẩm gửi khách hàng / đối tác, không áp dụng cho tài khoản Customer.
           </p>
         </div>
       </div>

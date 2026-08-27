@@ -12,7 +12,9 @@ export const canReviewProducts = (role: Role) => role === "ADMIN";
 export const canViewMyTasks = (role: Role) => role === "RND";
 
 export const canManageSettings = (role: Role) => role === "ADMIN";
-export const canManageCollections = (role: Role) => role === "SALES" || role === "MARKETING" || role === "ADMIN";
+// Collections are for assembling a set of designs to share — R&D included,
+// same as everyone else who isn't the Customer being shared with.
+export const canManageCollections = (role: Role) => role !== "CUSTOMER";
 
 // Which DRAFT collections show up when adding a product to one — same
 // ownership scoping as getPickableProjects: Admin sees every draft,
