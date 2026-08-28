@@ -112,6 +112,7 @@ export interface Product {
   reuse: ReusePermission;
   favorites: number;
   tint: "accent" | "blue" | "green" | "slate";
+  createdAt: string;
   // Real per-product images (object URLs from the browser file picker —
   // there's no upload backend yet, so these only last for the session).
   // Legacy seed products have none and fall back to the tint placeholder.
@@ -140,6 +141,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 12,
     tint: "accent",
+    createdAt: "14/01/2026",
   },
   {
     code: "RND-00142",
@@ -153,6 +155,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 2,
     tint: "blue",
+    createdAt: "20/07/2026",
   },
   {
     code: "RND-00098",
@@ -167,6 +170,7 @@ export const PRODUCTS: Product[] = [
     favorites: 6,
     tint: "blue",
     submittedAt: "hôm nay",
+    createdAt: "28/08/2026",
   },
   {
     code: "RND-00071",
@@ -180,6 +184,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 15,
     tint: "accent",
+    createdAt: "03/02/2026",
   },
   {
     code: "RND-00210",
@@ -193,6 +198,7 @@ export const PRODUCTS: Product[] = [
     reuse: "EXCLUSIVE",
     favorites: 0,
     tint: "slate",
+    createdAt: "12/08/2026",
   },
   {
     code: "RND-00305",
@@ -206,6 +212,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 9,
     tint: "accent",
+    createdAt: "22/03/2026",
   },
   {
     code: "RND-00188",
@@ -219,6 +226,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 1,
     tint: "slate",
+    createdAt: "05/11/2025",
   },
   {
     code: "RND-00256",
@@ -232,6 +240,7 @@ export const PRODUCTS: Product[] = [
     reuse: "EXCLUSIVE",
     favorites: 3,
     tint: "blue",
+    createdAt: "15/07/2026",
   },
   {
     code: "RND-00320",
@@ -245,6 +254,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 4,
     tint: "accent",
+    createdAt: "18/04/2026",
   },
   {
     code: "RND-00410",
@@ -258,6 +268,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 7,
     tint: "accent",
+    createdAt: "09/05/2026",
   },
   {
     code: "RND-00415",
@@ -271,6 +282,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 0,
     tint: "blue",
+    createdAt: "02/08/2026",
   },
   {
     code: "RND-00420",
@@ -284,6 +296,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 11,
     tint: "accent",
+    createdAt: "27/02/2026",
   },
   {
     code: "RND-00425",
@@ -297,6 +310,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 3,
     tint: "accent",
+    createdAt: "11/06/2026",
   },
   {
     code: "RND-00430",
@@ -310,6 +324,7 @@ export const PRODUCTS: Product[] = [
     reuse: "EXCLUSIVE",
     favorites: 0,
     tint: "slate",
+    createdAt: "19/08/2026",
   },
   {
     code: "RND-00435",
@@ -323,6 +338,7 @@ export const PRODUCTS: Product[] = [
     reuse: "REUSABLE",
     favorites: 8,
     tint: "accent",
+    createdAt: "30/03/2026",
   },
   {
     // Still being designed inside an active (not-yet-closed) project —
@@ -339,6 +355,7 @@ export const PRODUCTS: Product[] = [
     reuse: "EXCLUSIVE",
     favorites: 0,
     tint: "blue",
+    createdAt: "24/08/2026",
   },
   {
     // Released from a project that has actually closed (ADE Decor
@@ -356,6 +373,7 @@ export const PRODUCTS: Product[] = [
     tint: "blue",
     sourceProjectName: "ADE Decor Refresh",
     submittedAt: "3 ngày trước",
+    createdAt: "25/08/2026",
   },
 ];
 
@@ -649,6 +667,15 @@ export function todayDDMMYYYY(): string {
   const dd = String(now.getDate()).padStart(2, "0");
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   return `${dd}/${mm}/${now.getFullYear()}`;
+}
+
+// Parses the "dd/mm/yyyy" format used for createdAt/deadline fields —
+// needed for sorting or recency checks (e.g. Dashboard's "recently added"
+// stat). Returns null for the free-text "—" some deadlines use.
+export function parseDDMMYYYY(value: string): Date | null {
+  const [dd, mm, yyyy] = value.split("/").map(Number);
+  if (!dd || !mm || !yyyy) return null;
+  return new Date(yyyy, mm - 1, dd);
 }
 
 // Generates the next code for a new project, scoped by type — matches

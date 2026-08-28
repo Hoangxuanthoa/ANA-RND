@@ -7,9 +7,10 @@ import { TopNav } from "@/components/TopNav";
 import { NewProductModal } from "@/components/NewProductModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
-import { DASHBOARD_ACTIVITY, ROLE_LABEL, CURRENT_USER_NAME } from "@/lib/mock-data";
+import { useProjects } from "@/components/ProjectsProvider";
+import { DASHBOARD_ACTIVITY, ROLE_LABEL, CURRENT_USER_NAME, parseDDMMYYYY } from "@/lib/mock-data";
 import { productStatusBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
+import { canCreateProduct, canViewLibrary, canSeeProductInLibrary, isMyProject } from "@/lib/permissions";
 
 function StatCard({
   icon,
@@ -77,10 +78,45 @@ export default function DashboardPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
   const { products } = useProducts();
+  const { projects, projectProducts } = useProjects();
   const isCustomer = role === "CUSTOMER";
   const isAdmin = role === "ADMIN";
-  const recentProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p)).slice(0, 3);
+  const isRnd = role === "RND";
+  const visibleProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p));
+  const recentProducts = [...visibleProducts]
+    .sort((a, b) => (parseDDMMYYYY(b.createdAt)?.getTime() ?? 0) - (parseDDMMYYYY(a.createdAt)?.getTime() ?? 0))
+    .slice(0, 3);
   const pendingReviewCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
+  const activeProjectsCount = projects.filter((p) => p.status === "DEVELOPING").length;
+  // The "hero" number — proof the library actually gets reused, not just
+  // built: how many times a design has been picked up by REUSE (vs. NEW)
+  // across every project, and how many distinct designs that represents.
+  const reuseInstances = projectProducts.filter((pp) => pp.usage === "REUSE");
+  const reusedDesignCount = new Set(reuseInstances.map((pp) => pp.productCode)).size;
+
+  // "Need Action" — what this role specifically still has to do, not a
+  // generic placeholder:
+  // - Admin: products waiting in the review queue.
+  // - R&D: their own assigned work that isn't done yet (not APPROVED/COMPLETED).
+  // - Sales/Marketing: items on their own projects where the customer asked for changes.
+  const needActionCount = isAdmin
+    ? pendingReviewCount
+    : isRnd
+      ? projectProducts.filter(
+          (pp) => pp.assigneeName === userName && pp.status !== "APPROVED" && pp.status !== "COMPLETED",
+        ).length
+      : projectProducts.filter(
+          (pp) =>
+            pp.approval === "CHANGE_REQUESTED" &&
+            projects.some((p) => p.code === pp.projectCode && isMyProject(role, userName, p)),
+        ).length;
+  const needActionHref = isAdmin ? "/review" : isRnd ? "/my-tasks" : "/projects";
+
+  const customerProjects = projects.filter((p) => p.isMine);
+  const customerNeedResponseCount = projectProducts.filter(
+    (pp) => pp.status === "CUSTOMER_REVIEW" && customerProjects.some((p) => p.code === pp.projectCode),
+  ).length;
+
   const [newProductOpen, setNewProductOpen] = useState(false);
 
   return (
@@ -90,7 +126,7 @@ export default function DashboardPage() {
       <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-7 p-7">
         <div>
           <h1 className="mb-1 text-[22px] font-extrabold">
-            Chào buổi sáng, {isCustomer ? "JYSK Buyer" : "An"}
+            Chào buổi sáng, {isCustomer ? "JYSK Buyer" : userName}
           </h1>
           <p className="text-sm text-text-muted">
             Đang xem với vai trò <strong className="text-text">{ROLE_LABEL[role]}</strong>
@@ -100,21 +136,55 @@ export default function DashboardPage() {
         <div className={`grid gap-4 ${isCustomer ? "grid-cols-2" : "grid-cols-4"}`}>
           {isCustomer ? (
             <>
-              <StatCard icon={IconFolder} value="3" label="Dự án của bạn" bg="bg-accent-soft" fg="text-accent-soft-text" />
-              <StatCard icon={IconBell} value="2" label="Cần phản hồi" bg="bg-amber-soft" fg="text-amber" />
+              <StatCard
+                icon={IconFolder}
+                value={String(customerProjects.length)}
+                label="Dự án của bạn"
+                bg="bg-accent-soft"
+                fg="text-accent-soft-text"
+                href="/projects"
+              />
+              <StatCard
+                icon={IconBell}
+                value={String(customerNeedResponseCount)}
+                label="Cần phản hồi"
+                bg="bg-amber-soft"
+                fg="text-amber"
+                href="/projects"
+              />
             </>
           ) : (
             <>
-              <StatCard icon={IconBox} value="326" label="Products" bg="bg-accent-soft" fg="text-accent-soft-text" />
-              <StatCard icon={IconFolder} value="12" label="Active Projects" bg="bg-blue-soft" fg="text-blue" />
-              <StatCard icon={IconPlus} value="8" label="Recently Added" bg="bg-green-soft" fg="text-green" />
+              <StatCard
+                icon={IconBox}
+                value={String(reuseInstances.length)}
+                label={`Lượt tái sử dụng (${reusedDesignCount} thiết kế)`}
+                bg="bg-accent-soft"
+                fg="text-accent-soft-text"
+              />
+              <StatCard
+                icon={IconBox}
+                value={String(visibleProducts.length)}
+                label="Products"
+                bg="bg-blue-soft"
+                fg="text-blue"
+                href="/library"
+              />
+              <StatCard
+                icon={IconFolder}
+                value={String(activeProjectsCount)}
+                label="Active Projects"
+                bg="bg-green-soft"
+                fg="text-green"
+                href="/projects"
+              />
               <StatCard
                 icon={IconBell}
-                value={isAdmin ? String(pendingReviewCount) : "5"}
-                label={isAdmin ? "Chờ duyệt sản phẩm" : "Need Action"}
+                value={String(needActionCount)}
+                label={isAdmin ? "Chờ duyệt sản phẩm" : "Cần xử lý"}
                 bg="bg-amber-soft"
                 fg="text-amber"
-                href={isAdmin ? "/review" : undefined}
+                href={needActionHref}
               />
             </>
           )}
