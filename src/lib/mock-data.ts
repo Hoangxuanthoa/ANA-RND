@@ -717,6 +717,19 @@ export function getReusedCount(productCode: string) {
 // Sent it's locked as a snapshot of what was actually shared.
 export type CollectionStatus = "DRAFT" | "SENT";
 
+// One pitch = one time someone exported this collection (PDF or online
+// link) to actually show a specific customer. Logged at export time (not
+// a separate optional step) so getting the file requires saying who it's
+// for — see CollectionsProvider.logPitch. Append-only, same as
+// FeedbackItem elsewhere — a pitch log entry is never edited or removed
+// once recorded, so the history stays trustworthy.
+export interface CollectionPitch {
+  customer: string;
+  loggedByName: string;
+  date: string;
+  note?: string;
+}
+
 export interface Collection {
   id: string;
   name: string;
@@ -724,6 +737,7 @@ export interface Collection {
   createdAt: string;
   status: CollectionStatus;
   productCodes: string[];
+  pitches: CollectionPitch[];
 }
 
 export const COLLECTIONS: Collection[] = [
@@ -734,6 +748,7 @@ export const COLLECTIONS: Collection[] = [
     createdAt: "10/08/2026",
     status: "DRAFT",
     productCodes: ["RND-00125", "RND-00305", "RND-00410"],
+    pitches: [],
   },
   {
     id: "col-2",
@@ -742,6 +757,19 @@ export const COLLECTIONS: Collection[] = [
     createdAt: "01/08/2026",
     status: "SENT",
     productCodes: ["RND-00420", "RND-00425", "RND-00435"],
+    pitches: [
+      {
+        customer: "ADE",
+        loggedByName: "Hà",
+        date: "15/08/2026",
+        note: "Khách thích mẫu ottoman, hỏi thêm về giá sỉ.",
+      },
+      {
+        customer: "SCG",
+        loggedByName: "Minh",
+        date: "20/08/2026",
+      },
+    ],
   },
 ];
 

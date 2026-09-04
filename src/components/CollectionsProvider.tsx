@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { COLLECTIONS as INITIAL_COLLECTIONS, type Collection } from "@/lib/mock-data";
+import { COLLECTIONS as INITIAL_COLLECTIONS, todayDDMMYYYY, type Collection } from "@/lib/mock-data";
 
 interface CollectionsContextValue {
   collections: Collection[];
@@ -10,7 +10,10 @@ interface CollectionsContextValue {
   deleteCollection: (id: string) => void;
   addProductToCollection: (id: string, productCode: string) => void;
   removeProductFromCollection: (id: string, productCode: string) => void;
-  sendCollection: (id: string) => void;
+  // Logs one pitch (export-for-a-customer event) and moves the
+  // collection to SENT — see CollectionPitch in mock-data.ts for why
+  // this replaced the old bare "mark as sent" action.
+  logPitch: (id: string, customer: string, loggedByName: string, note?: string) => void;
 }
 
 const CollectionsContext = createContext<CollectionsContextValue | null>(null);
@@ -28,6 +31,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         createdAt: "Vừa xong",
         status: "DRAFT",
         productCodes: [],
+        pitches: [],
       },
       ...prev,
     ]);
@@ -60,8 +64,18 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function sendCollection(id: string) {
-    setCollections((prev) => prev.map((c) => (c.id === id ? { ...c, status: "SENT" } : c)));
+  function logPitch(id: string, customer: string, loggedByName: string, note?: string) {
+    setCollections((prev) =>
+      prev.map((c) =>
+        c.id === id
+          ? {
+              ...c,
+              status: "SENT",
+              pitches: [...c.pitches, { customer, loggedByName, date: todayDDMMYYYY(), note: note?.trim() || undefined }],
+            }
+          : c,
+      ),
+    );
   }
 
   return (
@@ -73,7 +87,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         deleteCollection,
         addProductToCollection,
         removeProductFromCollection,
-        sendCollection,
+        logPitch,
       }}
     >
       {children}

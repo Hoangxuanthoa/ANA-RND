@@ -29,6 +29,13 @@ export function canEditCollection(role: Role, userName: string, collection: Coll
   return collection.status === "DRAFT" && (role === "ADMIN" || collection.createdByName === userName);
 }
 
+// "My Collection" tab filter — same shape as isMyProject, but Collections
+// have no role-specific notion of "mine" like R&D's rndOwner, so it's
+// just who created it.
+export function isMyCollection(userName: string, collection: Collection) {
+  return collection.createdByName === userName;
+}
+
 // Library visibility: Sales/Marketing only ever see Released products —
 // they shouldn't be offering a customer something not yet approved.
 // Admin sees everything. R&D sees everything RELEASED/PENDING_REVIEW

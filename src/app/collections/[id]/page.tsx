@@ -8,22 +8,25 @@ import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { LogPitchModal } from "@/components/LogPitchModal";
 import { CURRENT_USER_NAME } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections, canEditCollection } from "@/lib/permissions";
+
+type PendingExport = "pdf" | "link" | null;
 
 export default function CollectionDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { collections, renameCollection, deleteCollection, removeProductFromCollection, sendCollection } = useCollections();
+  const { collections, renameCollection, deleteCollection, removeProductFromCollection, logPitch } = useCollections();
   const { products } = useProducts();
   const collection = collections.find((c) => c.id === params.id);
 
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
-  const [sendOpen, setSendOpen] = useState(false);
+  const [pendingExport, setPendingExport] = useState<PendingExport>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -120,14 +123,16 @@ export default function CollectionDetailPage() {
           <div className="flex flex-shrink-0 flex-col items-end gap-2">
             <div className="flex gap-2">
               <button
-                onClick={() => flash("Đã tạo file PDF (mô phỏng) — sẵn sàng tải xuống.")}
-                className="h-9 rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
+                onClick={() => setPendingExport("pdf")}
+                disabled={items.length === 0}
+                className="h-9 rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg disabled:opacity-40"
               >
                 Xuất PDF
               </button>
               <button
-                onClick={() => flash(`Đã tạo link: designlibrary.internal/share/${collection.id}`)}
-                className="h-9 rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
+                onClick={() => setPendingExport("link")}
+                disabled={items.length === 0}
+                className="h-9 rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg disabled:opacity-40"
               >
                 Lấy link online
               </button>
@@ -139,13 +144,6 @@ export default function CollectionDetailPage() {
                   className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-red hover:bg-red-soft"
                 >
                   Xóa
-                </button>
-                <button
-                  onClick={() => setSendOpen(true)}
-                  disabled={items.length === 0}
-                  className="h-8 rounded-md bg-accent px-3 text-[12px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
-                >
-                  Gửi
                 </button>
               </div>
             )}
@@ -206,17 +204,44 @@ export default function CollectionDetailPage() {
             và chọn &quot;Add to Collection&quot; trên sản phẩm đã Released.
           </div>
         )}
+
+        <div className="flex flex-col gap-3.5">
+          <h2 className="text-[16px] font-extrabold">Lịch sử chào hàng</h2>
+          {collection.pitches.length === 0 ? (
+            <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-text-faint">
+              Chưa có lượt chào nào — bấm &quot;Xuất PDF&quot; hoặc &quot;Lấy link online&quot; để ghi lại khi chào khách.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-line bg-surface">
+              {[...collection.pitches]
+                .reverse()
+                .map((pitch, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col gap-1 border-b border-line px-4.5 py-3.5 last:border-b-0"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[13px] font-bold">Đã chào {pitch.customer}</span>
+                      <span className="whitespace-nowrap text-xs text-text-faint">{pitch.date}</span>
+                    </div>
+                    <div className="text-[12.5px] text-text-muted">bởi {pitch.loggedByName}</div>
+                    {pitch.note && <div className="mt-1 text-[13px] text-text">{pitch.note}</div>}
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <ConfirmDialog
-        open={sendOpen}
-        title="Gửi collection?"
-        description={`"${collection.name}" sẽ chuyển sang trạng thái Đã gửi và không thể chỉnh sửa thêm — đúng như một bản đã gửi cho khách hàng/đối tác.`}
-        confirmLabel="Gửi"
-        onCancel={() => setSendOpen(false)}
-        onConfirm={() => {
-          sendCollection(collection.id);
-          setSendOpen(false);
+      <LogPitchModal
+        open={pendingExport !== null}
+        actionLabel={pendingExport === "pdf" ? "Xuất PDF" : "Lấy link online"}
+        onCancel={() => setPendingExport(null)}
+        onConfirm={(customer, note) => {
+          logPitch(collection.id, customer, userName, note);
+          if (pendingExport === "pdf") flash("Đã tạo file PDF (mô phỏng) — sẵn sàng tải xuống.");
+          else flash(`Đã tạo link: designlibrary.internal/share/${collection.id}`);
+          setPendingExport(null);
         }}
       />
 

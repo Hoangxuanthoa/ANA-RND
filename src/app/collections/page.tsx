@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
 import { CURRENT_USER_NAME } from "@/lib/mock-data";
-import { canManageCollections } from "@/lib/permissions";
+import { canManageCollections, isMyCollection } from "@/lib/permissions";
+
+type Scope = "mine" | "all";
 
 export default function CollectionsPage() {
   const { role } = useRole();
@@ -14,6 +16,19 @@ export default function CollectionsPage() {
   const { collections, createCollection } = useCollections();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  // Admin oversees everything so defaults to the full list; everyone else
+  // mostly cares about the collections they made, same default logic as
+  // the Projects tab.
+  const [scope, setScope] = useState<Scope>(role === "ADMIN" ? "all" : "mine");
+
+  useEffect(() => {
+    setScope(role === "ADMIN" ? "all" : "mine");
+  }, [role]);
+
+  const filtered = useMemo(
+    () => (scope === "mine" ? collections.filter((c) => isMyCollection(userName, c)) : collections),
+    [collections, scope, userName],
+  );
 
   if (!canManageCollections(role)) {
     return (
@@ -42,7 +57,9 @@ export default function CollectionsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="mb-1 text-[22px] font-extrabold">Collections</h1>
-            <p className="text-[13.5px] text-text-muted">{collections.length} collection</p>
+            <p className="text-[13.5px] text-text-muted">
+              {filtered.length} collection{scope === "mine" ? " của bạn" : ""}
+            </p>
           </div>
           <button
             onClick={() => setCreating(true)}
@@ -92,36 +109,62 @@ export default function CollectionsPage() {
           </div>
         )}
 
+        <div className="flex gap-6 border-b border-line">
+          <button
+            onClick={() => setScope("mine")}
+            className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+              scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
+            }`}
+          >
+            My Collection
+          </button>
+          <button
+            onClick={() => setScope("all")}
+            className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+              scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
+            }`}
+          >
+            All Collection
+          </button>
+        </div>
+
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
-          <div className="grid grid-cols-[2fr_0.8fr_0.8fr_1fr_1fr] items-center gap-2 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase">
+          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-2 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase">
             <span>Collection</span>
             <span>Trạng thái</span>
             <span className="text-right">Sản phẩm</span>
             <span>Tạo bởi</span>
             <span>Ngày tạo</span>
+            <span>Đã chào</span>
           </div>
-          {collections.map((c) => (
-            <Link
-              key={c.id}
-              href={`/collections/${c.id}`}
-              className="grid grid-cols-[2fr_0.8fr_0.8fr_1fr_1fr] items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg"
-            >
-              <span className="text-[13.5px] font-bold">{c.name}</span>
-              <span
-                className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                  c.status === "DRAFT" ? "bg-slate-soft text-slate-text" : "bg-green-soft text-green"
-                }`}
+          {filtered.map((c) => {
+            const pitchedCustomers = Array.from(new Set(c.pitches.map((p) => p.customer)));
+            return (
+              <Link
+                key={c.id}
+                href={`/collections/${c.id}`}
+                className="grid grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg"
               >
-                {c.status === "DRAFT" ? "Draft" : "Đã gửi"}
-              </span>
-              <span className="text-right text-[13px] font-bold">{c.productCodes.length}</span>
-              <span className="text-[13px] text-text-muted">{c.createdByName}</span>
-              <span className="text-[13px] text-text-muted">{c.createdAt}</span>
-            </Link>
-          ))}
+                <span className="truncate text-[13.5px] font-bold">{c.name}</span>
+                <span
+                  className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                    c.status === "DRAFT" ? "bg-slate-soft text-slate-text" : "bg-green-soft text-green"
+                  }`}
+                >
+                  {c.status === "DRAFT" ? "Draft" : "Đã gửi"}
+                </span>
+                <span className="text-right text-[13px] font-bold">{c.productCodes.length}</span>
+                <span className="text-[13px] text-text-muted">{c.createdByName}</span>
+                <span className="text-[13px] text-text-muted">{c.createdAt}</span>
+                <span className="truncate text-[13px] text-text-muted">
+                  {pitchedCustomers.length > 0 ? pitchedCustomers.join(", ") : "—"}
+                </span>
+              </Link>
+            );
+          })}
         </div>
 
-        {collections.length === 0 && (
+        {filtered.length === 0 && (
           <div className="py-16 text-center text-sm text-text-faint">Chưa có collection nào.</div>
         )}
       </div>
