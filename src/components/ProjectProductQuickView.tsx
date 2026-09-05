@@ -17,13 +17,24 @@ interface ProjectProductQuickViewProps {
   item: ProjectProductItem;
   product: Product;
   isClosed: boolean;
+  onApprove: () => void;
+  onRequestChange: (reason: string) => void;
   onClose: () => void;
 }
 
-export function ProjectProductQuickView({ item, product, isClosed, onClose }: ProjectProductQuickViewProps) {
+export function ProjectProductQuickView({
+  item,
+  product,
+  isClosed,
+  onApprove,
+  onRequestChange,
+  onClose,
+}: ProjectProductQuickViewProps) {
   const { role } = useRole();
   const { addProjectProductFeedback } = useProjects();
   const [commentText, setCommentText] = useState("");
+  const [requestingChange, setRequestingChange] = useState(false);
+  const [changeReason, setChangeReason] = useState("");
   const customer = isCustomerRole(role);
   const usage = usageBadge(item.usage);
   const status = projectProductStatusBadge(item.status);
@@ -75,33 +86,81 @@ export function ProjectProductQuickView({ item, product, isClosed, onClose }: Pr
         <div className="flex flex-col gap-4 p-5">
           {item.note && <p className="text-[12.5px] leading-relaxed text-text-muted">{item.note}</p>}
 
+          {item.status === "DEVELOPING" && item.lastRejectionReason && (
+            <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-3">
+              <div className="text-[12px] font-bold text-red">Cần chỉnh sửa</div>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-text">{item.lastRejectionReason}</p>
+            </div>
+          )}
+
           <div className="text-[12px] text-text-muted">
             Phụ trách: <span className="font-semibold text-text">{item.assigneeName ?? "Chưa gán"}</span>
           </div>
 
-          <div className="flex items-center justify-between rounded-lg bg-bg px-3.5 py-2.5">
-            <span className={approval.className}>{approval.label}</span>
-            <div className="flex gap-2">
-              {showCustomerActions && (
-                <>
-                  <button className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-white">
-                    Request Change
-                  </button>
-                  <button className="h-8 rounded-md bg-green px-3 text-[12px] font-bold text-white hover:opacity-90">
-                    Approve
-                  </button>
-                </>
-              )}
-              {showWatchOnly && (
-                <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-text-faint">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  Đang chờ khách duyệt
-                </span>
-              )}
+          <div className="flex flex-col gap-2.5 rounded-lg bg-bg px-3.5 py-2.5">
+            <div className="flex items-center justify-between">
+              <span className={approval.className}>{approval.label}</span>
+              <div className="flex gap-2">
+                {showCustomerActions && !requestingChange && (
+                  <>
+                    <button
+                      onClick={() => setRequestingChange(true)}
+                      className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-white"
+                    >
+                      Request Change
+                    </button>
+                    <button
+                      onClick={onApprove}
+                      className="h-8 rounded-md bg-green px-3 text-[12px] font-bold text-white hover:opacity-90"
+                    >
+                      Approve
+                    </button>
+                  </>
+                )}
+                {showWatchOnly && (
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-text-faint">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                    Đang chờ khách duyệt
+                  </span>
+                )}
+              </div>
             </div>
+            {showCustomerActions && requestingChange && (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={changeReason}
+                  onChange={(e) => setChangeReason(e.target.value)}
+                  autoFocus
+                  placeholder="Bạn muốn chỉnh sửa gì?"
+                  className="min-h-[64px] w-full rounded-lg border border-line bg-surface p-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setRequestingChange(false);
+                      setChangeReason("");
+                    }}
+                    className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-white"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    disabled={!changeReason.trim()}
+                    onClick={() => {
+                      onRequestChange(changeReason.trim());
+                      setRequestingChange(false);
+                      setChangeReason("");
+                    }}
+                    className="h-8 rounded-md bg-red px-3 text-[12px] font-bold text-white hover:opacity-90 disabled:opacity-40"
+                  >
+                    Gửi yêu cầu
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3">

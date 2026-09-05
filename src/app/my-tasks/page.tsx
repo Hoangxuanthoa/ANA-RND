@@ -14,7 +14,7 @@ import { canViewMyTasks } from "@/lib/permissions";
 export default function MyTasksPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { projects, projectProducts } = useProjects();
+  const { projects, projectProducts, approveProjectProduct, rejectProjectProduct } = useProjects();
   const { products } = useProducts();
   const [quickView, setQuickView] = useState<{ projectCode: string; productCode: string } | null>(null);
 
@@ -119,6 +119,8 @@ export default function MyTasksPage() {
           item={quickViewItem}
           product={quickViewProduct}
           isClosed={quickViewProject.status === "CLOSED"}
+          onApprove={() => approveProjectProduct(quickViewItem.projectCode, quickViewItem.productCode)}
+          onRequestChange={(reason) => rejectProjectProduct(quickViewItem.projectCode, quickViewItem.productCode, reason)}
           onClose={() => setQuickView(null)}
         />
       )}

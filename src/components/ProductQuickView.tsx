@@ -12,6 +12,7 @@ import { canManageProduct, canPickProduct, canManageCollections, canReviewProduc
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { RejectProductModal } from "@/components/RejectProductModal";
+import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 
 interface ProductQuickViewProps {
   product: Product;
@@ -27,6 +28,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
@@ -192,7 +194,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                       <button
                         key={p.code}
                         onClick={() => {
-                          addProductToProject(p.code, product.code, "REUSE");
+                          guardPick(product, () => addProductToProject(p.code, product.code, "REUSE"));
                           setPickerOpen(false);
                           setAddedNotice(p.name);
                           setTimeout(() => setAddedNotice(null), 2500);
@@ -209,7 +211,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
             )}
             {canManageCollections(role) && isReleased && (
               <AddToCollectionButton
-                productCode={product.code}
+                product={product}
                 align="right"
                 className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg"
               />
@@ -239,6 +241,8 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
           }}
         />
       )}
+
+      {guardModal}
     </div>
   );
 }

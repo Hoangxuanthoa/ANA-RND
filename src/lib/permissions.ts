@@ -1,4 +1,4 @@
-import type { Role, Project, ProjectType, Product, Collection } from "@/lib/mock-data";
+import { STAFF, type Role, type Project, type ProjectType, type Product, type Collection } from "@/lib/mock-data";
 
 export const canViewLibrary = (role: Role) => role !== "CUSTOMER";
 export const canCreateProduct = (role: Role) => role === "RND" || role === "ADMIN";
@@ -36,12 +36,20 @@ export function isMyCollection(userName: string, collection: Collection) {
   return collection.createdByName === userName;
 }
 
-// Library visibility: Sales/Marketing only ever see Released products —
-// they shouldn't be offering a customer something not yet approved.
-// Admin sees everything. R&D sees everything RELEASED/PENDING_REVIEW
-// (that queue is team-visible), plus their OWN unsubmitted DRAFT/
-// DEVELOPING work — not a colleague's work-in-progress.
-export function canSeeProductInLibrary(role: Role, userName: string, product: Product) {
+// Library visibility has exactly two sources of a product, and they're
+// treated differently:
+// - Project-origin work (has any ProjectProductItem link at all) stays
+//   out of the Library entirely — for every role, Admin included — until
+//   it's actually Released. It "lives" in its project until then.
+// - A standalone direct R&D upload is visible early since there's no
+//   project page for it to live in instead: Admin sees all of it, R&D
+//   sees their own DRAFT/DEVELOPING (not a colleague's work-in-progress)
+//   plus everyone's PENDING_REVIEW (that queue is team-visible, same as
+//   the "Duyệt sản phẩm" badge). Sales/Marketing/Customer never see it
+//   before it's Released either way.
+export function canSeeProductInLibrary(role: Role, userName: string, product: Product, hasProjectOrigin: boolean) {
+  if (product.status === "RELEASED") return true;
+  if (hasProjectOrigin) return false;
   if (role === "ADMIN") return true;
   if (role === "RND") {
     if (product.status === "DRAFT" || product.status === "DEVELOPING") {
@@ -49,11 +57,13 @@ export function canSeeProductInLibrary(role: Role, userName: string, product: Pr
     }
     return true;
   }
-  return product.status === "RELEASED";
+  return false;
 }
 
-// Only Sales (or Admin) marks a design Exclusive to one customer — and
-// only while it's still inside that customer's project, before release.
+// Only Sales (or Admin) marks a design Exclusive — and only on a NEW
+// design still inside the project that produced it. A picked/REUSE
+// product or a standalone R&D upload is never eligible (see the "Gắn
+// Exclusive" button gating in the project detail page).
 export const canSetExclusive = (role: Role) => role === "SALES" || role === "ADMIN";
 
 // Edit/Delete a product: Admin can touch any of them; R&D only their own
@@ -124,10 +134,27 @@ export function isAssignedRndOwner(role: Role, userName: string, project: Projec
 }
 
 // A design can only be released to the general library once its project
-// has actually closed — releasing mid-project would show an unfinished
-// engagement's work to everyone else.
+// has completed (all its products approved internally) — releasing
+// mid-project would show an unfinished engagement's work to everyone
+// else. Release happens before the project is Closed, not after.
 export function canReleaseToLibrary(role: Role, userName: string, project: Project) {
-  return project.status === "CLOSED" && isAssignedRndOwner(role, userName, project);
+  return project.status === "COMPLETED" && isAssignedRndOwner(role, userName, project);
+}
+
+// Who created a project, by role — looked up from the staff roster since
+// Project only stores the creator's name. Used to decide the internal
+// review path for that project's products (see canReviewAsCreator).
+export function projectCreatorRole(project: Project): Role | undefined {
+  return STAFF.find((s) => s.name === project.createdByName)?.role;
+}
+
+// The first review stage for anything added to a project is always the
+// project's own creator — Sales, Marketing, or Admin, whoever it was —
+// plus Admin as universal oversight. Only when the creator is Sales does
+// the item go on to a real Customer review after this; Admin/Marketing
+// projects have no external customer, so the creator's approval is final.
+export function canReviewAsCreator(role: Role, userName: string, project: Project) {
+  return role === "ADMIN" || project.createdByName === userName;
 }
 
 // Which projects show up when picking one to add a library product to —

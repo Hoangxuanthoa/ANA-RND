@@ -21,6 +21,7 @@ import {
 import { canManageProduct, canPickProduct, canManageCollections, canEditProduct, canHardDeleteProduct, getPickableProjects } from "@/lib/permissions";
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 
 const TABS = [
   { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
@@ -45,6 +46,7 @@ export default function ProductDetailPage() {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   if (!product) return notFound();
 
@@ -60,7 +62,7 @@ export default function ProductDetailPage() {
   const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
   const pickableProjects = getPickableProjects(role, userName, projects);
-  // Only set once a design has actually been Released from a (closed)
+  // Only set once a design has actually been Released from a (completed)
   // project — not shown for standalone uploads or work still in progress.
   const relatedProject = product.sourceProjectName
     ? projects.find((p) => p.name === product.sourceProjectName)
@@ -250,7 +252,7 @@ export default function ProductDetailPage() {
                         <button
                           key={p.code}
                           onClick={() => {
-                            addProductToProject(p.code, product.code, "REUSE");
+                            guardPick(product, () => addProductToProject(p.code, product.code, "REUSE"));
                             setPickerOpen(false);
                             setAddedNotice(p.name);
                             setTimeout(() => setAddedNotice(null), 2500);
@@ -268,7 +270,7 @@ export default function ProductDetailPage() {
               {addedNotice && (
                 <p className="text-[12px] font-semibold text-green">Đã thêm vào {addedNotice}.</p>
               )}
-              {canManageCollections(role) && isReleased && <AddToCollectionButton productCode={product.code} />}
+              {canManageCollections(role) && isReleased && <AddToCollectionButton product={product} />}
               {canManageProduct(role) && product.status === "DRAFT" && (
                 <button
                   onClick={() => submitForReview(product.code)}
@@ -447,6 +449,8 @@ export default function ProductDetailPage() {
           setDeleteOpen(false);
         }}
       />
+
+      {guardModal}
     </div>
   );
 }

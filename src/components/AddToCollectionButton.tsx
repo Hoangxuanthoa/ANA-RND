@@ -3,16 +3,17 @@
 import { useState } from "react";
 import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
-import { CURRENT_USER_NAME } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
 import { getPickableCollections } from "@/lib/permissions";
+import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 
 interface AddToCollectionButtonProps {
-  productCode: string;
+  product: Product;
   className?: string;
   align?: "left" | "right";
 }
 
-export function AddToCollectionButton({ productCode, className, align = "left" }: AddToCollectionButtonProps) {
+export function AddToCollectionButton({ product, className, align = "left" }: AddToCollectionButtonProps) {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
   const { collections, createCollection, addProductToCollection } = useCollections();
@@ -20,9 +21,10 @@ export function AddToCollectionButton({ productCode, className, align = "left" }
   const [newName, setNewName] = useState("");
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const pickable = getPickableCollections(role, userName, collections);
+  const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   function handleAdd(id: string, name: string) {
-    addProductToCollection(id, productCode);
+    guardPick(product, () => addProductToCollection(id, product.code));
     setOpen(false);
     setAddedNotice(name);
     setTimeout(() => setAddedNotice(null), 2500);
@@ -84,6 +86,7 @@ export function AddToCollectionButton({ productCode, className, align = "left" }
           </div>
         </div>
       )}
+      {guardModal}
     </div>
   );
 }

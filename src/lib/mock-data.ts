@@ -110,6 +110,12 @@ export interface Product {
   description?: string;
   status: ProductStatus;
   reuse: ReusePermission;
+  // Who marked it Exclusive — only ever set via the "Gắn Exclusive" action
+  // on a freshly-designed (NEW usage) product inside a project, never on a
+  // picked/REUSE product or a standalone R&D upload. Cleared when
+  // un-marked. Drives the "ask this person first" warning when someone
+  // else tries to pick this product elsewhere.
+  exclusiveBy?: string;
   favorites: number;
   tint: "accent" | "blue" | "green" | "slate";
   createdAt: string;
@@ -121,7 +127,7 @@ export interface Product {
   sizeVariants?: ProductSizeVariant[];
   color?: string;
   // Set when this product was submitted via "Release to Library" from a
-  // closed project, rather than uploaded straight to the library.
+  // completed project, rather than uploaded straight to the library.
   sourceProjectName?: string;
   submittedAt?: string;
   lastRejectionReason?: string;
@@ -195,7 +201,7 @@ export const PRODUCTS: Product[] = [
     originCustomer: "ADE",
     description: "Khung gương treo tường đan mây hình mặt trời.",
     status: "DRAFT",
-    reuse: "EXCLUSIVE",
+    reuse: "REUSABLE",
     favorites: 0,
     tint: "slate",
     createdAt: "12/08/2026",
@@ -237,7 +243,7 @@ export const PRODUCTS: Product[] = [
     originCustomer: "SCG",
     description: "Đèn sàn chao hình nón đan mây, chân gỗ cao su.",
     status: "DEVELOPING",
-    reuse: "EXCLUSIVE",
+    reuse: "REUSABLE",
     favorites: 3,
     tint: "blue",
     createdAt: "15/07/2026",
@@ -321,7 +327,7 @@ export const PRODUCTS: Product[] = [
     originCustomer: "—",
     description: "Tranh treo tường đan đay macramé, khung gỗ tròn.",
     status: "DRAFT",
-    reuse: "EXCLUSIVE",
+    reuse: "REUSABLE",
     favorites: 0,
     tint: "slate",
     createdAt: "19/08/2026",
@@ -341,9 +347,12 @@ export const PRODUCTS: Product[] = [
     createdAt: "30/03/2026",
   },
   {
-    // Still being designed inside an active (not-yet-closed) project —
-    // Sales already flagged it Exclusive for JYSK. Not submitted for
-    // review yet: that only happens once the project closes.
+    // A NEW design still inside an active project — Hà (that project's
+    // Sales) flagged it Exclusive for JYSK. Only a project's own NEW item
+    // can ever be Exclusive; picked/REUSE items and standalone R&D
+    // uploads never are. Not submitted for review yet: for project-origin
+    // work that only happens once the project completes and R&D releases
+    // it.
     code: "RND-00341",
     name: "Storage Lid Insert",
     category: "Storage",
@@ -353,13 +362,15 @@ export const PRODUCTS: Product[] = [
     description: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.",
     status: "DRAFT",
     reuse: "EXCLUSIVE",
+    exclusiveBy: "Hà",
     favorites: 0,
     tint: "blue",
     createdAt: "24/08/2026",
   },
   {
-    // Released from a project that has actually closed (ADE Decor
-    // Refresh) — the valid case for sourceProjectName + PENDING_REVIEW.
+    // Released from a project that has actually completed and closed
+    // (ADE Decor Refresh) — the valid case for sourceProjectName +
+    // PENDING_REVIEW.
     code: "RND-00440",
     name: "Decor Wall Sconce",
     category: "Decor",
@@ -598,6 +609,9 @@ export interface ProjectProductItem {
   // from the project's overall rndOwner. Feeds a personal task queue.
   assigneeName?: string;
   feedback: FeedbackItem[];
+  // Set when sent back to DEVELOPING from either review stage — mirrors
+  // Product.lastRejectionReason. Cleared on resubmit.
+  lastRejectionReason?: string;
 }
 
 export const PROJECT_PRODUCTS: ProjectProductItem[] = [
@@ -631,9 +645,10 @@ export const PROJECT_PRODUCTS: ProjectProductItem[] = [
     productCode: "RND-00341",
     usage: "NEW",
     status: "DEVELOPING",
-    approval: "PENDING",
+    approval: "CHANGE_REQUESTED",
     note: "Thiết kế mới theo yêu cầu riêng — nắp đậy khớp với basket hiện có.",
     assigneeName: "An",
+    lastRejectionReason: "Nắp chưa khớp khít với basket hiện có, chỉnh lại dung sai rồi gửi duyệt lại.",
     feedback: [
       { author: "An Nguyễn (R&D)", content: "Đang thử 2 phương án khớp nắp, dự kiến xong bản vẽ trong tuần.", time: "4 ngày trước", initials: "AN", tint: "blue" },
     ],
@@ -652,10 +667,22 @@ export const PROJECT_PRODUCTS: ProjectProductItem[] = [
     projectCode: "PRJ-2026-006",
     productCode: "RND-00125",
     usage: "REUSE",
-    status: "DEVELOPING",
+    status: "SALES_REVIEW",
     approval: "PENDING",
     note: "",
     assigneeName: "An",
+    feedback: [],
+  },
+  {
+    // The one product from this closed project — released and already
+    // passed the project's own internal approval before that release.
+    projectCode: "PRJ-2025-021",
+    productCode: "RND-00440",
+    usage: "NEW",
+    status: "APPROVED",
+    approval: "APPROVED",
+    note: "Đèn tường trang trí đan mây, có thể gắn theo cụm.",
+    assigneeName: "Lan",
     feedback: [],
   },
 ];

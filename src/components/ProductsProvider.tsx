@@ -39,7 +39,9 @@ interface ProductsContextValue {
   // Path B: R&D releases a design out of a (closed) project into the
   // general library — also lands in the same review queue.
   releaseToLibrary: (code: string, projectName: string) => void;
-  setReusePermission: (code: string, reuse: ReusePermission) => void;
+  // exclusiveBy is who to credit/ask when reuse is EXCLUSIVE — omit (or
+  // pass undefined) when clearing it back to REUSABLE.
+  setReusePermission: (code: string, reuse: ReusePermission, exclusiveBy?: string) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
   createProduct: (
@@ -198,8 +200,10 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function setReusePermission(code: string, reuse: ReusePermission) {
-    setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, reuse } : p)));
+  function setReusePermission(code: string, reuse: ReusePermission, exclusiveBy?: string) {
+    setProducts((prev) =>
+      prev.map((p) => (p.code === code ? { ...p, reuse, exclusiveBy: reuse === "EXCLUSIVE" ? exclusiveBy : undefined } : p)),
+    );
   }
 
   function toggleFavorite(code: string) {
@@ -229,8 +233,9 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     },
     // Standalone Library/Dashboard uploads go straight to Admin review —
     // no separate "Nộp duyệt" click needed. Designs created inside a
-    // project stay DRAFT/DEVELOPING until the project closes and it's
-    // explicitly released, so this defaults to off.
+    // project stay DRAFT (its own internal review happens at the
+    // ProjectProductItem level, not here) until R&D releases it once the
+    // project completes, so this defaults to off.
     options?: { autoSubmit?: boolean },
   ) {
     const code = nextProductCode(products);

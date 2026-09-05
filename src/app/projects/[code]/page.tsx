@@ -11,7 +11,9 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
-import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
+import { RejectProjectProductModal } from "@/components/RejectProjectProductModal";
+import { useExclusiveGuard } from "@/components/useExclusiveGuard";
+import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY, type ProjectProductItem } from "@/lib/mock-data";
 import {
   projectStatusBadge,
   projectTypeBadge,
@@ -30,6 +32,8 @@ import {
   canMarkCompleted,
   canReleaseToLibrary,
   canSetExclusive,
+  canReviewAsCreator,
+  isAssignedRndOwner,
 } from "@/lib/permissions";
 
 const TABS = [
@@ -42,7 +46,20 @@ export default function ProjectDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const { role } = useRole();
-  const { projects, projectProducts, projectFeedback, closeProject, markCompleted, deleteProject, updateProject, addProjectFeedback, addProductToProject } = useProjects();
+  const {
+    projects,
+    projectProducts,
+    projectFeedback,
+    closeProject,
+    markCompleted,
+    deleteProject,
+    updateProject,
+    addProjectFeedback,
+    addProductToProject,
+    approveProjectProduct,
+    rejectProjectProduct,
+    resubmitProjectProduct,
+  } = useProjects();
   const { products, releaseToLibrary, setReusePermission } = useProducts();
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
@@ -53,6 +70,8 @@ export default function ProjectDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newDesignOpen, setNewDesignOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<ProjectProductItem | null>(null);
+  const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   if (!project) return notFound();
 
@@ -63,6 +82,11 @@ export default function ProjectDetailPage() {
   const editable = canEditProject(role, userName, project);
   const hardDelete = canHardDeleteProject(project);
   const isClosed = project.status === "CLOSED";
+  const isCompleted = project.status === "COMPLETED";
+  // New products can only be added/picked while the project is still
+  // actively being worked — not once every item has already been
+  // Approved (Completed) or the project has been Closed.
+  const canModifyProducts = project.status === "CREATED" || project.status === "DEVELOPING";
   const items = projectProducts.filter((pp) => pp.projectCode === project.code);
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
@@ -168,10 +192,15 @@ export default function ProjectDetailPage() {
           <div className="flex flex-col gap-3.5">
             {isClosed && (
               <div className="rounded-lg border border-line bg-bg px-4 py-2.5 text-[12.5px] font-semibold text-text-faint">
-                Dự án đã đóng — chỉ còn thao tác Release to Library cho R&D phụ trách.
+                Dự án đã đóng — chỉ để xem lại, không thể chỉnh sửa thêm.
               </div>
             )}
-            {!isClosed && (canPickProduct(role) || canCreateProduct(role)) && (
+            {isCompleted && (
+              <div className="rounded-lg border border-line bg-bg px-4 py-2.5 text-[12.5px] font-semibold text-text-faint">
+                Dự án đã hoàn thành — R&amp;D phụ trách có thể Release to Library cho các thiết kế mới, rồi đóng dự án.
+              </div>
+            )}
+            {canModifyProducts && (canPickProduct(role) || canCreateProduct(role)) && (
               <div className="flex justify-end gap-2">
                 {canCreateProduct(role) && (
                   <button
@@ -205,7 +234,7 @@ export default function ProjectDetailPage() {
                           <button
                             key={p.code}
                             onClick={() => {
-                              addProductToProject(project.code, p.code, "REUSE");
+                              guardPick(p, () => addProductToProject(project.code, p.code, "REUSE"));
                               setPickerOpen(false);
                             }}
                             className="flex w-full flex-col px-3.5 py-2.5 text-left hover:bg-bg"
@@ -230,10 +259,16 @@ export default function ProjectDetailPage() {
               const s = projectProductStatusBadge(i.status);
               const approval = customerApprovalBadge(i.approval);
               const reuse = reusePermissionBadge(product.reuse);
-              const needsAttention = !isClosed && i.approval === "PENDING" && i.status === "CUSTOMER_REVIEW";
+              const needsAttention =
+                !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
               const canRelease =
-                canReleaseToLibrary(role, userName, project) &&
-                (product.status === "DRAFT" || product.status === "DEVELOPING");
+                canReleaseToLibrary(role, userName, project) && i.status === "APPROVED" && product.status === "DRAFT";
+              const canReviewHere = !isClosed && i.status === "SALES_REVIEW" && canReviewAsCreator(role, userName, project);
+              const canResubmit =
+                !isClosed &&
+                i.status === "DEVELOPING" &&
+                i.approval === "CHANGE_REQUESTED" &&
+                isAssignedRndOwner(role, userName, project);
 
               return (
                 <div key={i.productCode} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
@@ -267,12 +302,18 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                     {i.note && <p className="text-[12.5px] leading-relaxed text-text-muted">{i.note}</p>}
+                    {i.status === "DEVELOPING" && i.lastRejectionReason && (
+                      <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-2.5">
+                        <div className="text-[11.5px] font-bold text-red">Cần chỉnh sửa</div>
+                        <p className="mt-0.5 text-[12.5px] leading-relaxed text-text">{i.lastRejectionReason}</p>
+                      </div>
+                    )}
                     <div className="text-[11.5px] text-text-faint">
                       Phụ trách: <span className="font-semibold text-text-muted">{i.assigneeName ?? "Chưa gán"}</span>
                     </div>
                     <div className="flex items-center justify-between border-t border-line pt-2">
                       <span className={approval.className}>{approval.label}</span>
-                      <div className="flex items-center gap-2.5">
+                      <div className="flex flex-wrap items-center justify-end gap-2.5">
                         <span className="text-[11.5px] font-semibold text-text-faint">
                           Feedback ({i.feedback.length})
                         </span>
@@ -285,15 +326,43 @@ export default function ProjectDetailPage() {
                             Cần duyệt
                           </span>
                         )}
-                        {canSetExclusive(role) && !isClosed && (
+                        {canSetExclusive(role) && !isClosed && i.usage === "NEW" && (
                           <button
                             onClick={() =>
-                              setReusePermission(product.code, product.reuse === "EXCLUSIVE" ? "REUSABLE" : "EXCLUSIVE")
+                              setReusePermission(
+                                product.code,
+                                product.reuse === "EXCLUSIVE" ? "REUSABLE" : "EXCLUSIVE",
+                                userName,
+                              )
                             }
                             className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-bg"
                           >
                             {product.reuse === "EXCLUSIVE" ? "Bỏ Exclusive" : "Gắn Exclusive"}
                           </button>
+                        )}
+                        {canResubmit && (
+                          <button
+                            onClick={() => resubmitProjectProduct(project.code, i.productCode)}
+                            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-bg"
+                          >
+                            Gửi lại duyệt
+                          </button>
+                        )}
+                        {canReviewHere && (
+                          <>
+                            <button
+                              onClick={() => setRejectTarget(i)}
+                              className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-red-soft hover:text-red"
+                            >
+                              Yêu cầu chỉnh sửa
+                            </button>
+                            <button
+                              onClick={() => approveProjectProduct(project.code, i.productCode)}
+                              className="h-7 rounded-md bg-green px-2.5 text-[11px] font-bold text-white hover:opacity-90"
+                            >
+                              Approve
+                            </button>
+                          </>
                         )}
                         {canRelease && (
                           <button
@@ -416,9 +485,26 @@ export default function ProjectDetailPage() {
           item={quickViewItem}
           product={quickViewProduct}
           isClosed={isClosed}
+          onApprove={() => approveProjectProduct(project.code, quickViewItem.productCode)}
+          onRequestChange={(reason) => rejectProjectProduct(project.code, quickViewItem.productCode, reason)}
           onClose={() => setQuickViewCode(null)}
         />
       )}
+
+      {rejectTarget && (
+        <RejectProjectProductModal
+          open
+          productName={products.find((p) => p.code === rejectTarget.productCode)?.name ?? rejectTarget.productCode}
+          productCode={rejectTarget.productCode}
+          onCancel={() => setRejectTarget(null)}
+          onConfirm={(reason) => {
+            rejectProjectProduct(project.code, rejectTarget.productCode, reason);
+            setRejectTarget(null);
+          }}
+        />
+      )}
+
+      {guardModal}
 
       {newDesignOpen && (
         <NewProductModal

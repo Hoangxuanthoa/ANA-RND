@@ -12,6 +12,7 @@ import {
   type UsageType,
 } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
+import { projectCreatorRole } from "@/lib/permissions";
 
 interface ProjectsContextValue {
   projects: Project[];
@@ -24,10 +25,27 @@ interface ProjectsContextValue {
   createProject: (project: Project) => void;
   // Picking a product into a project (from the Library) or R&D adding a
   // freshly-designed one — either way this is what auto-bumps a project
-  // out of "Created" the moment it gets its first product.
+  // out of "Created" the moment it gets its first product, and both go
+  // straight into the project's own internal review queue (no holding
+  // "Developing" stage — that status is only ever re-entered after a
+  // rejection sends something back for rework).
   addProductToProject: (projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) => void;
   addProjectFeedback: (projectCode: string, content: string) => void;
   addProjectProductFeedback: (projectCode: string, productCode: string, content: string) => void;
+  // Advances one item through its project's internal review: from the
+  // creator's own review to either Customer review (creator is Sales) or
+  // straight to Approved (creator is Admin/Marketing, no real customer to
+  // ask), or from Customer review to Approved. Auto-completes the project
+  // once every one of its items is Approved.
+  approveProjectProduct: (projectCode: string, productCode: string) => void;
+  // Sends an item back to Developing from whichever review stage it was
+  // at, recording why so R&D can see it (and dispute it via the item's
+  // own feedback thread) before resubmitting.
+  rejectProjectProduct: (projectCode: string, productCode: string, reason: string) => void;
+  // Puts a Developing (rejected) item back at the very first review
+  // stage — always the creator's, even if it was a Customer rejection —
+  // so the creator sees the fix before it goes to the customer again.
+  resubmitProjectProduct: (projectCode: string, productCode: string) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
@@ -86,7 +104,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           projectCode,
           productCode,
           usage,
-          status: "DEVELOPING",
+          status: "SALES_REVIEW",
           approval: "PENDING",
           note: "",
           assigneeName,
@@ -96,6 +114,56 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     });
     setProjects((prev) =>
       prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)),
+    );
+  }
+
+  function approveProjectProduct(projectCode: string, productCode: string) {
+    const project = projects.find((p) => p.code === projectCode);
+    const creatorRole = project ? projectCreatorRole(project) : undefined;
+    const updated = projectProducts.map((pp): ProjectProductItem => {
+      if (pp.projectCode !== projectCode || pp.productCode !== productCode) return pp;
+      if (pp.status === "SALES_REVIEW") {
+        const nextStatus = creatorRole === "SALES" ? "CUSTOMER_REVIEW" : "APPROVED";
+        return { ...pp, status: nextStatus, approval: nextStatus === "APPROVED" ? "APPROVED" : "PENDING" };
+      }
+      if (pp.status === "CUSTOMER_REVIEW") {
+        return { ...pp, status: "APPROVED", approval: "APPROVED" };
+      }
+      return pp;
+    });
+    setProjectProducts(updated);
+
+    // Auto-complete the moment every item in the project is Approved —
+    // the manual "Đánh dấu Hoàn thành" button still works too, for the
+    // edge case of wrapping up despite one stuck item.
+    const projectItems = updated.filter((pp) => pp.projectCode === projectCode);
+    if (
+      project &&
+      project.status === "DEVELOPING" &&
+      projectItems.length > 0 &&
+      projectItems.every((pp) => pp.status === "APPROVED")
+    ) {
+      updateProject(projectCode, { status: "COMPLETED" });
+    }
+  }
+
+  function rejectProjectProduct(projectCode: string, productCode: string, reason: string) {
+    setProjectProducts((prev) =>
+      prev.map((pp) =>
+        pp.projectCode === projectCode && pp.productCode === productCode
+          ? { ...pp, status: "DEVELOPING", approval: "CHANGE_REQUESTED", lastRejectionReason: reason }
+          : pp,
+      ),
+    );
+  }
+
+  function resubmitProjectProduct(projectCode: string, productCode: string) {
+    setProjectProducts((prev) =>
+      prev.map((pp) =>
+        pp.projectCode === projectCode && pp.productCode === productCode
+          ? { ...pp, status: "SALES_REVIEW", approval: "PENDING", lastRejectionReason: undefined }
+          : pp,
+      ),
     );
   }
 
@@ -113,6 +181,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         addProductToProject,
         addProjectFeedback,
         addProjectProductFeedback,
+        approveProjectProduct,
+        rejectProjectProduct,
+        resubmitProjectProduct,
       }}
     >
       {children}
