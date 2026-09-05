@@ -82,8 +82,7 @@ export default function DashboardPage() {
   const isCustomer = role === "CUSTOMER";
   const isAdmin = role === "ADMIN";
   const isRnd = role === "RND";
-  const projectOriginCodes = new Set(projectProducts.map((pp) => pp.productCode));
-  const visibleProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p, projectOriginCodes.has(p.code)));
+  const visibleProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p));
   const recentProducts = [...visibleProducts]
     .sort((a, b) => (parseDDMMYYYY(b.createdAt)?.getTime() ?? 0) - (parseDDMMYYYY(a.createdAt)?.getTime() ?? 0))
     .slice(0, 3);

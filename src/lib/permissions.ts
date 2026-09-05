@@ -36,26 +36,21 @@ export function isMyCollection(userName: string, collection: Collection) {
   return collection.createdByName === userName;
 }
 
-// Library visibility has exactly two sources of a product, and they're
-// treated differently:
-// - Project-origin work (has any ProjectProductItem link at all) stays
-//   out of the Library entirely — for every role, Admin included — until
-//   it's actually Released. It "lives" in its project until then.
-// - A standalone direct R&D upload is visible early since there's no
-//   project page for it to live in instead: Admin sees all of it, R&D
-//   sees their own DRAFT/DEVELOPING (not a colleague's work-in-progress)
-//   plus everyone's PENDING_REVIEW (that queue is team-visible, same as
-//   the "Duyệt sản phẩm" badge). Sales/Marketing/Customer never see it
-//   before it's Released either way.
-export function canSeeProductInLibrary(role: Role, userName: string, product: Product, hasProjectOrigin: boolean) {
+// The Library is the finished catalog — it only ever shows two things,
+// regardless of where a product came from (standalone upload or
+// released from a project): a RELEASED design (Reusable or Exclusive,
+// visible to everyone), or a PENDING_REVIEW one still waiting on Admin's
+// catalog approval (R&D sees their own only, Admin sees everyone's — same
+// scope as the "Duyệt sản phẩm" queue). DRAFT, DEVELOPING, and ARCHIVED
+// never show here for anyone, Admin included — a Draft still being
+// worked on (whether standalone or inside a project) or a retired design
+// simply isn't part of the catalog right now.
+export function canSeeProductInLibrary(role: Role, userName: string, product: Product) {
   if (product.status === "RELEASED") return true;
-  if (hasProjectOrigin) return false;
-  if (role === "ADMIN") return true;
-  if (role === "RND") {
-    if (product.status === "DRAFT" || product.status === "DEVELOPING") {
-      return product.designer.startsWith(userName);
-    }
-    return true;
+  if (product.status === "PENDING_REVIEW") {
+    if (role === "ADMIN") return true;
+    if (role === "RND") return product.designer.startsWith(userName);
+    return false;
   }
   return false;
 }

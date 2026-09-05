@@ -89,19 +89,17 @@ export default function LibraryPage() {
     return p.favorites + (favoritedCodes.has(p.code) ? 1 : 0);
   }
 
-  const projectOriginCodes = useMemo(() => new Set(projectProducts.map((pp) => pp.productCode)), [projectProducts]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
-      if (!canSeeProductInLibrary(role, userName, p, projectOriginCodes.has(p.code))) return false;
+      if (!canSeeProductInLibrary(role, userName, p)) return false;
       if (categories.length > 0 && !categories.includes(p.category)) return false;
       if (materials.length > 0 && !materials.includes(p.material)) return false;
       if (reuses.length > 0 && !reuses.includes(p.reuse)) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [products, role, userName, query, categories, materials, reuses, projectOriginCodes]);
+  }, [products, role, userName, query, categories, materials, reuses]);
 
   const sorted = useMemo(() => {
     if (sortBy === "default") return filtered;
