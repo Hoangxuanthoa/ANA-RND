@@ -5,6 +5,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
+import { useNotifications } from "@/components/NotificationsProvider";
 import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections } from "@/lib/permissions";
@@ -43,7 +44,8 @@ function NavLink({
 
 export function TopNav() {
   const { role, setRole } = useRole();
-  const { products, notifications, markNotificationRead } = useProducts();
+  const { products } = useProducts();
+  const { notifications, markNotificationRead } = useNotifications();
   const router = useRouter();
   const [bellOpen, setBellOpen] = useState(false);
 

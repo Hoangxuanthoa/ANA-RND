@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 import { RoleProvider } from "@/components/RoleProvider";
+import { NotificationsProvider } from "@/components/NotificationsProvider";
 import { ProjectsProvider } from "@/components/ProjectsProvider";
 import { ProductsProvider } from "@/components/ProductsProvider";
 import { SettingsProvider } from "@/components/SettingsProvider";
@@ -27,13 +28,15 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${manrope.variable} font-sans antialiased`}>
         <RoleProvider>
-          <SettingsProvider>
-            <ProjectsProvider>
-              <ProductsProvider>
-                <CollectionsProvider>{children}</CollectionsProvider>
-              </ProductsProvider>
-            </ProjectsProvider>
-          </SettingsProvider>
+          <NotificationsProvider>
+            <SettingsProvider>
+              <ProjectsProvider>
+                <ProductsProvider>
+                  <CollectionsProvider>{children}</CollectionsProvider>
+                </ProductsProvider>
+              </ProjectsProvider>
+            </SettingsProvider>
+          </NotificationsProvider>
         </RoleProvider>
       </body>
     </html>

@@ -6,12 +6,14 @@ import {
   PROJECT_PRODUCTS as INITIAL_PROJECT_PRODUCTS,
   PROJECT_FEEDBACK as INITIAL_PROJECT_FEEDBACK,
   feedbackIdentity,
+  CURRENT_USER_NAME,
   type Project,
   type ProjectProductItem,
   type ProjectFeedbackItem,
   type UsageType,
 } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
+import { useNotifications } from "@/components/NotificationsProvider";
 import { projectCreatorRole } from "@/lib/permissions";
 
 interface ProjectsContextValue {
@@ -52,6 +54,7 @@ const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 
 export function ProjectsProvider({ children }: { children: ReactNode }) {
   const { role } = useRole();
+  const { addNotification } = useNotifications();
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [projectProducts, setProjectProducts] = useState<ProjectProductItem[]>(INITIAL_PROJECT_PRODUCTS);
   const [projectFeedback, setProjectFeedback] = useState<ProjectFeedbackItem[]>(INITIAL_PROJECT_FEEDBACK);
@@ -80,6 +83,17 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   function addProjectFeedback(projectCode: string, content: string) {
     const { author, initials, tint } = feedbackIdentity(role);
     setProjectFeedback((prev) => [...prev, { projectCode, author, content, time: "Vừa xong", initials, tint }]);
+    const project = projects.find((p) => p.code === projectCode);
+    const actorName = CURRENT_USER_NAME[role];
+    if (project && project.createdByName !== actorName) {
+      addNotification({
+        type: "NEW_FEEDBACK",
+        title: `Bình luận mới trong dự án ${project.name}`,
+        message: content,
+        link: `/projects/${projectCode}`,
+        recipientName: project.createdByName,
+      });
+    }
   }
 
   function addProjectProductFeedback(projectCode: string, productCode: string, content: string) {
@@ -91,6 +105,24 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           : pp,
       ),
     );
+    const project = projects.find((p) => p.code === projectCode);
+    const item = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
+    const actorName = CURRENT_USER_NAME[role];
+    const recipient =
+      item?.assigneeName && item.assigneeName !== actorName
+        ? item.assigneeName
+        : project && project.createdByName !== actorName
+          ? project.createdByName
+          : undefined;
+    if (recipient) {
+      addNotification({
+        type: "NEW_FEEDBACK",
+        title: `Bình luận mới trên ${productCode}`,
+        message: content,
+        link: `/projects/${projectCode}`,
+        recipientName: recipient,
+      });
+    }
   }
 
   function addProductToProject(projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) {
@@ -115,11 +147,23 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     setProjects((prev) =>
       prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)),
     );
+    const project = projects.find((p) => p.code === projectCode);
+    const actorName = CURRENT_USER_NAME[role];
+    if (project && project.createdByName !== actorName) {
+      addNotification({
+        type: "PROJECT_ITEM_NEEDS_REVIEW",
+        title: "Có sản phẩm mới cần bạn duyệt",
+        message: `${productCode} trong dự án ${project.name}`,
+        link: `/projects/${projectCode}`,
+        recipientName: project.createdByName,
+      });
+    }
   }
 
   function approveProjectProduct(projectCode: string, productCode: string) {
     const project = projects.find((p) => p.code === projectCode);
     const creatorRole = project ? projectCreatorRole(project) : undefined;
+    const current = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
     const updated = projectProducts.map((pp): ProjectProductItem => {
       if (pp.projectCode !== projectCode || pp.productCode !== productCode) return pp;
       if (pp.status === "SALES_REVIEW") {
@@ -132,6 +176,30 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       return pp;
     });
     setProjectProducts(updated);
+
+    if (project && current) {
+      if (current.status === "SALES_REVIEW" && creatorRole === "SALES" && project.customer) {
+        // Moved on to the real Customer review stage — it's their turn now.
+        addNotification({
+          type: "PROJECT_ITEM_NEEDS_REVIEW",
+          title: "Có mẫu mới cần bạn duyệt",
+          message: `${productCode} trong dự án ${project.name}`,
+          link: `/projects/${projectCode}`,
+          recipientName: project.customer,
+        });
+      } else if (current.assigneeName) {
+        // Either the creator approved straight to final (Admin/Marketing
+        // project, no customer step) or the Customer just approved —
+        // either way the assigned R&D's work just got Approved.
+        addNotification({
+          type: "PROJECT_ITEM_APPROVED",
+          title: "Sản phẩm của bạn đã được duyệt",
+          message: `${productCode} trong dự án ${project.name} đã Approved.`,
+          link: `/projects/${projectCode}`,
+          recipientName: current.assigneeName,
+        });
+      }
+    }
 
     // Auto-complete the moment every item in the project is Approved —
     // the manual "Đánh dấu Hoàn thành" button still works too, for the
@@ -148,6 +216,8 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   }
 
   function rejectProjectProduct(projectCode: string, productCode: string, reason: string) {
+    const item = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
+    const project = projects.find((p) => p.code === projectCode);
     setProjectProducts((prev) =>
       prev.map((pp) =>
         pp.projectCode === projectCode && pp.productCode === productCode
@@ -155,6 +225,15 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           : pp,
       ),
     );
+    if (item?.assigneeName && project) {
+      addNotification({
+        type: "PROJECT_ITEM_CHANGE_REQUESTED",
+        title: `${productCode} cần chỉnh sửa`,
+        message: reason,
+        link: `/projects/${projectCode}`,
+        recipientName: item.assigneeName,
+      });
+    }
   }
 
   function resubmitProjectProduct(projectCode: string, productCode: string) {

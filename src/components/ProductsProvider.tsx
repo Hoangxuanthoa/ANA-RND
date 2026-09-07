@@ -3,7 +3,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import {
   PRODUCTS as INITIAL_PRODUCTS,
-  INITIAL_NOTIFICATIONS,
   PRODUCT_FEEDBACK as INITIAL_PRODUCT_FEEDBACK,
   PRODUCT_VERSIONS as INITIAL_PRODUCT_VERSIONS,
   CATEGORIES as INITIAL_CATEGORIES,
@@ -17,16 +16,15 @@ import {
   CURRENT_USER_NAME,
   type Product,
   type ProductSizeVariant,
-  type NotificationItem,
   type ProductFeedbackItem,
   type ReusePermission,
   type VersionItem,
 } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
+import { useNotifications } from "@/components/NotificationsProvider";
 
 interface ProductsContextValue {
   products: Product[];
-  notifications: NotificationItem[];
   favoritedCodes: Set<string>;
   productFeedback: ProductFeedbackItem[];
   productVersions: VersionItem[];
@@ -36,7 +34,6 @@ interface ProductsContextValue {
   colors: string[];
   approveProduct: (code: string) => void;
   rejectProduct: (code: string, reason: string) => void;
-  markNotificationRead: (id: string) => void;
   // Path A: a standalone (no project) draft is submitted straight to the
   // Admin review queue.
   submitForReview: (code: string) => void;
@@ -119,8 +116,8 @@ function useManagedField(
 
 export function ProductsProvider({ children }: { children: ReactNode }) {
   const { role } = useRole();
+  const { addNotification } = useNotifications();
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
   const [productVersions, setProductVersions] = useState<VersionItem[]>(INITIAL_PRODUCT_VERSIONS);
@@ -154,9 +151,19 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   }
 
   function approveProduct(code: string) {
+    const product = products.find((p) => p.code === code);
     setProducts((prev) =>
       prev.map((p) => (p.code === code ? { ...p, status: "RELEASED", lastRejectionReason: undefined } : p)),
     );
+    if (product) {
+      addNotification({
+        type: "PRODUCT_APPROVED",
+        title: `${product.name} đã được duyệt`,
+        message: "Sản phẩm đã Released vào Design Library.",
+        link: `/library/${code}`,
+        recipientName: product.designer,
+      });
+    }
   }
 
   function rejectProduct(code: string, reason: string) {
@@ -165,24 +172,14 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       prev.map((p) => (p.code === code ? { ...p, status: "DRAFT", lastRejectionReason: reason } : p)),
     );
     if (product) {
-      setNotifications((prev) => [
-        {
-          id: `${code}-${Date.now()}`,
-          type: "PRODUCT_REJECTED",
-          title: `${product.name} bị từ chối`,
-          message: reason,
-          link: `/library/${code}`,
-          recipientName: product.designer,
-          isRead: false,
-          time: "Vừa xong",
-        },
-        ...prev,
-      ]);
+      addNotification({
+        type: "PRODUCT_REJECTED",
+        title: `${product.name} bị từ chối`,
+        message: reason,
+        link: `/library/${code}`,
+        recipientName: product.designer,
+      });
     }
-  }
-
-  function markNotificationRead(id: string) {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   }
 
   // No bell notification here on purpose — the "Duyệt sản phẩm" nav badge
@@ -226,6 +223,17 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   function addProductFeedback(productCode: string, content: string) {
     const { author, initials, tint } = feedbackIdentity(role);
     setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
+    const product = products.find((p) => p.code === productCode);
+    const actorName = CURRENT_USER_NAME[role];
+    if (product && !product.designer.startsWith(actorName)) {
+      addNotification({
+        type: "NEW_FEEDBACK",
+        title: `Bình luận mới trên ${product.name}`,
+        message: content,
+        link: `/library/${productCode}`,
+        recipientName: product.designer,
+      });
+    }
   }
 
   function addProductVersion(productCode: string, note: string, image?: string) {
@@ -305,7 +313,6 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     <ProductsContext.Provider
       value={{
         products,
-        notifications,
         favoritedCodes,
         productFeedback,
         productVersions,
@@ -315,7 +322,6 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         colors: colorField.items,
         approveProduct,
         rejectProduct,
-        markNotificationRead,
         submitForReview,
         releaseToLibrary,
         setReusePermission,

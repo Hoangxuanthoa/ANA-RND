@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { COLLECTIONS as INITIAL_COLLECTIONS, todayDDMMYYYY, type Collection } from "@/lib/mock-data";
+import { useNotifications } from "@/components/NotificationsProvider";
 
 interface CollectionsContextValue {
   collections: Collection[];
@@ -19,6 +20,7 @@ interface CollectionsContextValue {
 const CollectionsContext = createContext<CollectionsContextValue | null>(null);
 
 export function CollectionsProvider({ children }: { children: ReactNode }) {
+  const { addNotification } = useNotifications();
   const [collections, setCollections] = useState<Collection[]>(INITIAL_COLLECTIONS);
 
   function createCollection(name: string, createdByName: string) {
@@ -65,6 +67,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   }
 
   function logPitch(id: string, customer: string, loggedByName: string, note?: string) {
+    const collection = collections.find((c) => c.id === id);
     setCollections((prev) =>
       prev.map((c) =>
         c.id === id
@@ -76,6 +79,15 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
           : c,
       ),
     );
+    if (collection && collection.createdByName !== loggedByName) {
+      addNotification({
+        type: "NEW_PITCH",
+        title: `Collection "${collection.name}" vừa được chào ${customer}`,
+        message: note?.trim() || `Đã chào ${customer}.`,
+        link: `/collections/${id}`,
+        recipientName: collection.createdByName,
+      });
+    }
   }
 
   return (

@@ -900,9 +900,18 @@ export function getProductFeedback(productCode: string) {
 }
 
 // NOTIFICATIONS — a personal inbox (who gets pinged), separate from the
-// shared Activity log (what happened). `recipientName` matches a
-// `designer` string above, e.g. "An Nguyễn".startsWith("An").
-export type NotificationType = "PRODUCT_REJECTED";
+// shared Activity log (what happened). `recipientName` either matches a
+// `designer` string above (e.g. "An Nguyễn".startsWith("An")) or is one
+// of the short CURRENT_USER_NAME values directly (e.g. "Hà", "JYSK") —
+// both work against the same `.startsWith(userName)` check in TopNav.
+export type NotificationType =
+  | "PRODUCT_REJECTED"
+  | "PRODUCT_APPROVED"
+  | "PROJECT_ITEM_NEEDS_REVIEW"
+  | "PROJECT_ITEM_CHANGE_REQUESTED"
+  | "PROJECT_ITEM_APPROVED"
+  | "NEW_FEEDBACK"
+  | "NEW_PITCH";
 
 export interface NotificationItem {
   id: string;
