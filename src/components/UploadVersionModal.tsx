@@ -31,7 +31,10 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      onClick={(e) => e.stopPropagation()}
+    >
       <form
         onSubmit={handleSubmit}
         className="flex w-full max-w-[460px] flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-md"
