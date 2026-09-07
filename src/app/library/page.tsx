@@ -148,7 +148,7 @@ export default function LibraryPage() {
       <TopNav />
       <div className="mx-auto flex w-full max-w-[1600px] flex-1 gap-6 p-7">
         {/* Sidebar */}
-        <aside className="flex w-[150px] flex-shrink-0 flex-col gap-4">
+        <aside className="flex w-[160px] flex-shrink-0 flex-col gap-4">
           <div className="relative">
             <svg
               width="16"
