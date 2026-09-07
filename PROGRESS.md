@@ -69,7 +69,11 @@ read it before changing any access-control logic. Highlights:
   fake numbers), activity feed.
 - **Library** (`/library`, `/library/[code]`) — catalog browse, product
   detail with tabs (info/projects used in/feedback), comment threads
-  (add + display), favorites, edit/delete/archive, size+color variants.
+  (add + display), favorites, edit/delete/archive, size+color variants,
+  real per-product Version history ("Upload Version" is functional —
+  required change note + optional new main image, auto-numbered,
+  productCode-scoped; a product with no real versions yet shows an
+  implied "V01 — Bản thiết kế gốc" derived from its own creation info).
 - **Projects** (`/projects`, `/projects/[code]`) — My Project / All Project
   tabs, full project detail (products, feedback tab, activity), approval
   pipeline (creator approval → customer approval), Exclusive/Reuse marking,
@@ -87,14 +91,29 @@ read it before changing any access-control logic. Highlights:
   `NotificationType`: `PRODUCT_REJECTED`. Nothing else in the app triggers a
   notification yet (task assigned, customer approved/rejected, new feedback,
   new pitch, etc. are all silent right now). **This is the most concrete
-  known gap** — flagged in conversation on 2026-09-05, not yet started.
+  known gap** — flagged in conversation on 2026-09-05, not yet started. The
+  user asked to tackle known gaps one at a time — Versions (below) was
+  first, this is next.
 
-## Next candidates (discussed with user, not yet decided/started)
+Also worth knowing: several accidental-data-loss and UX fixes landed
+recently across the create/edit forms — New Product, New/Edit Project, and
+removing a product from a Collection now all require confirmation before
+discarding instead of closing on a stray outside click. Deadline fields use
+a custom-built calendar dropdown (`src/components/DateInput.tsx`, not the
+native `<input type="date">`, which positioned inconsistently) that still
+supports typing the date by hand. If you add another form with meaningful
+user input, match this pattern rather than reintroducing outside-click-to-
+close.
 
-1. Expand the notification system to cover the missing event types above.
-2. Audit the CUSTOMER role's experience end-to-end (what they see, how they
+## Next candidates (discussed with user, going one at a time)
+
+1. ~~Product Versions were fake (one global list shared by every product)~~
+   — **done**, see Library above.
+2. Expand the notification system to cover the missing event types above.
+   **Next up.**
+3. Audit the CUSTOMER role's experience end-to-end (what they see, how they
    approve) — not yet specifically reviewed.
-3. Eventually: wire the real backend (Prisma/Supabase/auth) and migrate the
+4. Eventually: wire the real backend (Prisma/Supabase/auth) and migrate the
    Context providers to call real API routes instead of holding state in
    memory. Big, separate-scope effort — do not start opportunistically.
 
