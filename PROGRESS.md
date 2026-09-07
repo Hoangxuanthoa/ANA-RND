@@ -110,21 +110,33 @@ read it before changing any access-control logic. Highlights:
   that SVG). Image loads are wrapped per-image (`safeAddImage`) so one bad
   image degrades to a colored box instead of failing the whole export.
   PPTX and PDF share the same "log the pitch once per page visit" flag,
-  so triggering both on one visit doesn't double-log. Two bugs fixed
-  2026-09-07 after user report: (1) "Add to Collection" in
+  so triggering both on one visit doesn't double-log. Bug fixed
+  2026-09-07 after user report: "Add to Collection" in
   `ProductQuickView.tsx` opened a dropdown that was invisible — the modal
   card had `overflow-hidden` and the button sat at the very bottom edge
   with nothing below it in the flow, so the absolutely-positioned
   dropdown got clipped to zero visible height; removed `overflow-hidden`
   from that card (nothing else in it needed the clip — the product image
-  already has its own). (2) There was no way to add products to a
-  collection from the collection's own page — only from Library's own
-  "Add to Collection" button. Added a "+ Thêm sản phẩm" button (visible
-  when `editable`) that opens `AddProductsToCollectionModal.tsx`, a
-  search + pick list of RELEASED products not already in the collection
-  (same rule `AddToCollectionButton` uses from the other direction); the
-  empty-state message on the collection page now offers this directly
-  too instead of only pointing back to Library.
+  already has its own), and made the dropdown open upward there
+  (`AddToCollectionButton`'s new `openUp` prop) since even visible it was
+  still opening off-screen downward — same fix "Add to Project" already
+  had in that modal.
+
+  Also that day: briefly tried adding a "+ Thêm sản phẩm" button on the
+  collection page itself (a search + pick list modal, so you wouldn't
+  have to tab back to Library) — user tried it and reverted the idea:
+  a text-only list doesn't scale once there are hundreds/thousands of
+  products, no way to visually confirm you picked the right one. Decided
+  the Library page (with its filters + images) is the one correct place
+  to find and add a product, for both Collections and Projects — so
+  "+ Thêm sản phẩm" here and "Pick Product" on the project page
+  (`src/app/projects/[code]/page.tsx`) are now both just a `Link` to
+  `/library`, where the existing per-product "Add to Collection" /
+  "Add to Project" buttons (which only ever list a handful of
+  collections/projects by name, not products — that direction is fine as
+  a text list) do the actual adding. If a real product search UI is ever
+  wanted directly from these pages, it should reuse Library's own
+  filter/search, not a second parallel picker.
 - **My Task** (`/my-tasks`) — R&D personal queue, quick-view with
   approve/request-change actions.
 - **Review** (`/review`, "Duyệt sản phẩm") — Admin-only catalog approval

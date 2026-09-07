@@ -12,7 +12,6 @@ import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
 import { RejectProjectProductModal } from "@/components/RejectProjectProductModal";
-import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY, type ProjectProductItem } from "@/lib/mock-data";
 import {
   projectStatusBadge,
@@ -68,10 +67,8 @@ export default function ProjectDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [newDesignOpen, setNewDesignOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ProjectProductItem | null>(null);
-  const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   if (!project) return notFound();
 
@@ -90,8 +87,6 @@ export default function ProjectDetailPage() {
   const items = projectProducts.filter((pp) => pp.projectCode === project.code);
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
-  const usedCodes = new Set(items.map((i) => i.productCode));
-  const pickableLibraryProducts = products.filter((p) => p.status === "RELEASED" && !usedCodes.has(p.code));
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -215,39 +210,15 @@ export default function ProjectDetailPage() {
                   </button>
                 )}
                 {canPickProduct(role) && (
-                  <div className="relative">
-                    <button
-                      onClick={() => setPickerOpen((v) => !v)}
-                      className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                        <path d="M12 5v14M5 12h14" />
-                      </svg>
-                      Pick Product
-                    </button>
-                    {pickerOpen && (
-                      <div className="absolute top-11 right-0 z-20 max-h-80 w-72 overflow-y-auto rounded-lg border border-line bg-surface shadow-md">
-                        {pickableLibraryProducts.length === 0 && (
-                          <p className="p-3 text-[12px] text-text-faint">Không có sản phẩm Released nào để chọn.</p>
-                        )}
-                        {pickableLibraryProducts.map((p) => (
-                          <button
-                            key={p.code}
-                            onClick={() => {
-                              guardPick(p, () => addProductToProject(project.code, p.code, "REUSE"));
-                              setPickerOpen(false);
-                            }}
-                            className="flex w-full flex-col px-3.5 py-2.5 text-left hover:bg-bg"
-                          >
-                            <span className="text-[12.5px] font-bold">{p.name}</span>
-                            <span className="text-[11px] text-text-faint">
-                              {p.code} · {p.category} · {p.material}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <Link
+                    href="/library"
+                    className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    Pick Product
+                  </Link>
                 )}
               </div>
             )}
@@ -503,8 +474,6 @@ export default function ProjectDetailPage() {
           }}
         />
       )}
-
-      {guardModal}
 
       {newDesignOpen && (
         <NewProductModal

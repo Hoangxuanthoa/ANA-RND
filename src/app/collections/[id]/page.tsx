@@ -9,7 +9,6 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogPitchModal } from "@/components/LogPitchModal";
-import { AddProductsToCollectionModal } from "@/components/AddProductsToCollectionModal";
 import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections, canEditCollection } from "@/lib/permissions";
@@ -27,7 +26,6 @@ export default function CollectionDetailPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [shareBannerOpen, setShareBannerOpen] = useState(false);
-  const [addProductsOpen, setAddProductsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Product | null>(null);
   const [notice, setNotice] = useState<React.ReactNode | null>(null);
@@ -47,9 +45,6 @@ export default function CollectionDetailPage() {
 
   const editable = canEditCollection(role, userName, collection);
   const items = collection.productCodes.map((code) => products.find((p) => p.code === code)).filter((p): p is NonNullable<typeof p> => !!p);
-  // Same RELEASED-only rule AddToCollectionButton uses from the Library
-  // side — Collections are for finished designs, not works-in-progress.
-  const addCandidates = products.filter((p) => p.status === "RELEASED" && !collection.productCodes.includes(p.code));
 
   const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/collections/${collection.id}/share` : "";
 
@@ -149,12 +144,12 @@ export default function CollectionDetailPage() {
             </div>
             {editable && (
               <div className="flex gap-2">
-                <button
-                  onClick={() => setAddProductsOpen(true)}
-                  className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
+                <Link
+                  href="/library"
+                  className="flex h-8 items-center rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
                 >
                   + Thêm sản phẩm
-                </button>
+                </Link>
                 <button
                   onClick={() => setDeleteOpen(true)}
                   className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-red hover:bg-red-soft"
@@ -239,24 +234,12 @@ export default function CollectionDetailPage() {
         </div>
 
         {items.length === 0 && (
-          <div className="flex flex-col items-center gap-3 py-16 text-center text-sm text-text-faint">
-            <p>Chưa có sản phẩm nào trong collection này.</p>
-            {editable ? (
-              <button
-                onClick={() => setAddProductsOpen(true)}
-                className="h-9 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
-              >
-                + Thêm sản phẩm
-              </button>
-            ) : (
-              <p>
-                Vào{" "}
-                <Link href="/library" className="text-accent hover:text-accent-hover">
-                  Design Library
-                </Link>{" "}
-                và chọn &quot;Add to Collection&quot; trên sản phẩm đã Released.
-              </p>
-            )}
+          <div className="py-16 text-center text-sm text-text-faint">
+            Chưa có sản phẩm nào. Vào{" "}
+            <Link href="/library" className="text-accent hover:text-accent-hover">
+              Design Library
+            </Link>{" "}
+            và chọn &quot;Add to Collection&quot; trên sản phẩm đã Released.
           </div>
         )}
 
@@ -287,14 +270,6 @@ export default function CollectionDetailPage() {
           )}
         </div>
       </div>
-
-      <AddProductsToCollectionModal
-        open={addProductsOpen}
-        collectionId={collection.id}
-        userName={userName}
-        candidates={addCandidates}
-        onClose={() => setAddProductsOpen(false)}
-      />
 
       <LogPitchModal
         open={linkModalOpen}
