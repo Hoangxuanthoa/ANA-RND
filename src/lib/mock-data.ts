@@ -28,6 +28,25 @@ export const CURRENT_USER_NAME: Record<Role, string> = {
   CUSTOMER: "JYSK",
 };
 
+// Default contact info shown in the account dropdown / profile modal —
+// editable there (kept in RoleProvider, per role), but never used for
+// ownership/identity matching. That stays keyed on CURRENT_USER_NAME above.
+export const CURRENT_USER_EMAIL: Record<Role, string> = {
+  ADMIN: "minh@rattanco.vn",
+  RND: "an@rattanco.vn",
+  SALES: "ha@rattanco.vn",
+  MARKETING: "linh@rattanco.vn",
+  CUSTOMER: "purchasing@jysk.com",
+};
+
+export const CURRENT_USER_PHONE: Record<Role, string> = {
+  ADMIN: "090 123 4567",
+  RND: "090 234 5678",
+  SALES: "090 345 6789",
+  MARKETING: "090 456 7890",
+  CUSTOMER: "090 567 8901",
+};
+
 // Company roster — feeds the R&D-owner / assignee pickers on New Project
 // and Admin Settings' User management. At least 5 Sales, 1 Marketing, 2
 // R&D, matching the actual team size.

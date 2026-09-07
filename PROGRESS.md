@@ -109,6 +109,16 @@ read it before changing any access-control logic. Highlights:
   their own NEW design; no UI to set it otherwise, so no notification
   trigger for it either.
 
+- **Account menu** — the avatar in TopNav is now clickable: a dropdown
+  shows name/role/email and two actions, "Cập nhật thông tin" (opens
+  `ProfileModal` to edit email/phone — kept in `RoleProvider` as
+  `profile`/`updateProfile`, per role, so it survives navigation) and
+  "Đăng xuất" (just routes to `/login` — no real session to tear down).
+  Deliberately did NOT make the person's *name* editable there — it's
+  `CURRENT_USER_NAME`, the same string used everywhere for ownership
+  matching (`createdByName`, `rndOwner`, `assigneeName`); letting it drift
+  from a profile edit would silently break those comparisons.
+
 Also worth knowing: several accidental-data-loss and UX fixes landed
 recently across the create/edit forms — New Product, New/Edit Project, and
 removing a product from a Collection now all require confirmation before

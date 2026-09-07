@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useNotifications } from "@/components/NotificationsProvider";
+import { ProfileModal } from "@/components/ProfileModal";
 import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections } from "@/lib/permissions";
@@ -43,11 +44,13 @@ function NavLink({
 }
 
 export function TopNav() {
-  const { role, setRole } = useRole();
+  const { role, setRole, profile, updateProfile } = useRole();
   const { products } = useProducts();
   const { notifications, markNotificationRead } = useNotifications();
   const router = useRouter();
   const [bellOpen, setBellOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const pendingCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
   const userName = CURRENT_USER_NAME[role];
@@ -139,12 +142,67 @@ export function TopNav() {
           )}
         </div>
 
-        <div
-          className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${TINT_AVATAR_BG[role]}`}
-        >
-          {ROLE_INITIALS[role]}
+        <div className="relative">
+          <button
+            onClick={() => setAccountOpen((v) => !v)}
+            className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${TINT_AVATAR_BG[role]}`}
+          >
+            {ROLE_INITIALS[role]}
+          </button>
+
+          {accountOpen && (
+            <div className="absolute top-11 right-0 z-40 flex w-64 flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-md">
+              <div className="border-b border-line px-4 py-3">
+                <p className="text-[13px] font-bold">{userName}</p>
+                <p className="text-[12px] text-text-faint">
+                  {ROLE_LABEL[role]} · {profile.email}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setAccountOpen(false);
+                  setProfileModalOpen(true);
+                }}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-bg"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                Cập nhật thông tin
+              </button>
+              <div className="border-t border-line" />
+              <button
+                onClick={() => {
+                  setAccountOpen(false);
+                  router.push("/login");
+                }}
+                className="flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-red hover:bg-red-soft"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <path d="M16 17l5-5-5-5" />
+                  <path d="M21 12H9" />
+                </svg>
+                Đăng xuất
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      <ProfileModal
+        open={profileModalOpen}
+        role={role}
+        name={userName}
+        email={profile.email}
+        phone={profile.phone}
+        onSave={(patch) => {
+          updateProfile(patch);
+          setProfileModalOpen(false);
+        }}
+        onCancel={() => setProfileModalOpen(false)}
+      />
     </div>
   );
 }
