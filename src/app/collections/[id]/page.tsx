@@ -9,7 +9,7 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogPitchModal } from "@/components/LogPitchModal";
-import { CURRENT_USER_NAME } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections, canEditCollection } from "@/lib/permissions";
 
@@ -28,6 +28,7 @@ export default function CollectionDetailPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [pendingExport, setPendingExport] = useState<PendingExport>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<Product | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   if (!canManageCollections(role)) {
@@ -172,7 +173,7 @@ export default function CollectionDetailPage() {
                 )}
                 {editable && (
                   <button
-                    onClick={() => removeProductFromCollection(collection.id, p.code)}
+                    onClick={() => setRemoveTarget(p)}
                     title="Bỏ khỏi collection"
                     className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-text-faint hover:text-red"
                   >
@@ -242,6 +243,19 @@ export default function CollectionDetailPage() {
           if (pendingExport === "pdf") flash("Đã tạo file PDF (mô phỏng) — sẵn sàng tải xuống.");
           else flash(`Đã tạo link: designlibrary.internal/share/${collection.id}`);
           setPendingExport(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={removeTarget !== null}
+        danger
+        title="Bỏ sản phẩm khỏi collection?"
+        description={removeTarget ? `"${removeTarget.name}" sẽ bị bỏ khỏi collection này.` : ""}
+        confirmLabel="Bỏ khỏi collection"
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={() => {
+          if (removeTarget) removeProductFromCollection(collection.id, removeTarget.code);
+          setRemoveTarget(null);
         }}
       />
 
