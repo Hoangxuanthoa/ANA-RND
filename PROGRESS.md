@@ -86,14 +86,18 @@ read it before changing any access-control logic. Highlights:
   queue for `PENDING_REVIEW` products.
 - **Settings** (`/settings`) — Admin-only CRUD for Category/Material/Size/
   Color tags and staff/user roster (with role assignment).
-- **Notifications** — bell dropdown UI in `TopNav` works, but
-  [src/lib/mock-data.ts](src/lib/mock-data.ts) only defines one
-  `NotificationType`: `PRODUCT_REJECTED`. Nothing else in the app triggers a
-  notification yet (task assigned, customer approved/rejected, new feedback,
-  new pitch, etc. are all silent right now). **This is the most concrete
-  known gap** — flagged in conversation on 2026-09-05, not yet started. The
-  user asked to tackle known gaps one at a time — Versions (below) was
-  first, this is next.
+- **Notifications** — now a shared `NotificationsProvider` (placed above
+  Projects/Products/Collections in layout.tsx) instead of living inside
+  ProductsProvider, so all three can push into the same inbox. Real event
+  types now firing: `PRODUCT_REJECTED`/`PRODUCT_APPROVED` (Admin review),
+  `PROJECT_ITEM_NEEDS_REVIEW` (a product enters Sales Review or advances to
+  Customer Review — the reviewer's turn), `PROJECT_ITEM_CHANGE_REQUESTED`
+  (rejected at either stage), `PROJECT_ITEM_APPROVED` (reaches final
+  Approved), `NEW_FEEDBACK` (a comment on a product/project/project-product),
+  `NEW_PITCH` (a Collection pitch logged). Every one excludes whoever caused
+  it as the recipient. "Task assigned" was deliberately left out — there's
+  still no assign/reassign UI to hook a real event off of; that's a separate
+  feature, not a notification-wiring gap.
 
 Also worth knowing: several accidental-data-loss and UX fixes landed
 recently across the create/edit forms — New Product, New/Edit Project, and
@@ -109,13 +113,19 @@ close.
 
 1. ~~Product Versions were fake (one global list shared by every product)~~
    — **done**, see Library above.
-2. Expand the notification system to cover the missing event types above.
-   **Next up.**
+2. ~~Notification system only covered product rejection~~ — **done**, see
+   Notifications above.
 3. Audit the CUSTOMER role's experience end-to-end (what they see, how they
-   approve) — not yet specifically reviewed.
+   approve) — not yet specifically reviewed. **Next up.**
 4. Eventually: wire the real backend (Prisma/Supabase/auth) and migrate the
    Context providers to call real API routes instead of holding state in
    memory. Big, separate-scope effort — do not start opportunistically.
+5. Possible future feature (not yet requested, just noted while working on
+   notifications): there's no way to assign/reassign an R&D person to a
+   project's product after creation — `assigneeName` only ever gets set
+   automatically when an R&D creates their own NEW design. If a real "assign
+   to teammate" flow gets built later, "task assigned" is the natural
+   notification to pair with it.
 
 ## Workflow
 
