@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Project } from "@/lib/mock-data";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { DateInput } from "@/components/DateInput";
 
 interface EditProjectModalProps {
   open: boolean;
@@ -51,10 +52,9 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
 
         <label className="flex flex-col gap-1.5">
           <span className="text-[12.5px] font-semibold">Deadline</span>
-          <input
+          <DateInput
             value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            placeholder="dd/mm/yyyy"
+            onChange={setDeadline}
             className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
           />
         </label>

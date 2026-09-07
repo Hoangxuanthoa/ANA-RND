@@ -10,6 +10,7 @@ import {
 } from "@/lib/mock-data";
 import { creatableProjectTypes } from "@/lib/permissions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { DateInput } from "@/components/DateInput";
 
 const TYPE_LABEL: Record<ProjectType, string> = {
   CUSTOMER: "Khách hàng",
@@ -163,10 +164,9 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
 
         <label className="flex flex-col gap-1.5">
           <span className="text-[12.5px] font-semibold">Deadline</span>
-          <input
+          <DateInput
             value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            placeholder="dd/mm/yyyy"
+            onChange={setDeadline}
             className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
           />
         </label>
