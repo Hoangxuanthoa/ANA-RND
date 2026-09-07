@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ImageCropModal } from "@/components/ImageCropModal";
 import { nextProductCode, type Product } from "@/lib/mock-data";
 
 interface SizeVariantInput {
@@ -74,6 +75,11 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
   const { products, categories, materials, sizes, colors, createProduct, updateProduct } = useProducts();
   const isEditing = !!product;
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [cropTarget, setCropTarget] = useState<{ src: string; onDone: (url: string) => void } | null>(null);
+
+  function pickForCrop(file: File, onDone: (url: string) => void) {
+    setCropTarget({ src: URL.createObjectURL(file), onDone });
+  }
   const [name, setName] = useState(product?.name ?? "");
   const [mainImage, setMainImage] = useState<string | undefined>(product?.mainImage);
   const [images, setImages] = useState<string[]>(product?.images ?? []);
@@ -175,7 +181,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
             {mainImage ? (
               <FilledImageTile src={mainImage} onRemove={() => setMainImage(undefined)} />
             ) : (
-              <PickImageTile label="Ảnh chính" onPick={(file) => setMainImage(URL.createObjectURL(file))} />
+              <PickImageTile label="Ảnh chính" onPick={(file) => pickForCrop(file, setMainImage)} />
             )}
             {images.map((src, i) => (
               <FilledImageTile
@@ -186,7 +192,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
             ))}
             <PickImageTile
               label="Thêm ảnh"
-              onPick={(file) => setImages((prev) => [...prev, URL.createObjectURL(file)])}
+              onPick={(file) => pickForCrop(file, (url) => setImages((prev) => [...prev, url]))}
             />
           </div>
         </div>
@@ -318,6 +324,16 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
           </button>
         </div>
       </form>
+
+      <ImageCropModal
+        open={cropTarget !== null}
+        imageSrc={cropTarget?.src ?? ""}
+        onCancel={() => setCropTarget(null)}
+        onCropped={(url) => {
+          cropTarget?.onDone(url);
+          setCropTarget(null);
+        }}
+      />
 
       <ConfirmDialog
         open={confirmCloseOpen}

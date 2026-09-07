@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-easy-crop/react-easy-crop.css";
 
 :root {
   --bg: oklch(98% 0.004 95);

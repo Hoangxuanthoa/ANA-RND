@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ImageCropModal } from "@/components/ImageCropModal";
 
 interface UploadVersionModalProps {
   open: boolean;
@@ -14,6 +15,7 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
   const [note, setNote] = useState("");
   const [image, setImage] = useState<string | undefined>(undefined);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
 
   if (!open) return null;
 
@@ -86,7 +88,7 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) setImage(URL.createObjectURL(file));
+                  if (file) setCropSrc(URL.createObjectURL(file));
                   e.target.value = "";
                 }}
               />
@@ -111,6 +113,16 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
           </button>
         </div>
       </form>
+
+      <ImageCropModal
+        open={cropSrc !== null}
+        imageSrc={cropSrc ?? ""}
+        onCancel={() => setCropSrc(null)}
+        onCropped={(url) => {
+          setImage(url);
+          setCropSrc(null);
+        }}
+      />
 
       <ConfirmDialog
         open={confirmCloseOpen}
