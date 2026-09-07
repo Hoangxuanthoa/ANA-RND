@@ -73,7 +73,8 @@ body {
 
 @media print {
   @page {
-    margin: 14mm;
+    size: landscape;
+    margin: 10mm;
   }
   body {
     background: white;

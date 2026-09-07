@@ -132,7 +132,7 @@ export default function CollectionDetailPage() {
                   items.length === 0 ? "pointer-events-none opacity-40" : ""
                 }`}
               >
-                Xuất PDF
+                Xuất Collection
               </Link>
               <button
                 onClick={() => setLinkModalOpen(true)}
@@ -247,7 +247,7 @@ export default function CollectionDetailPage() {
           <h2 className="text-[16px] font-extrabold">Lịch sử chào hàng</h2>
           {collection.pitches.length === 0 ? (
             <div className="rounded-xl border border-line bg-surface px-4 py-8 text-center text-[13px] text-text-faint">
-              Chưa có lượt chào nào — bấm &quot;Xuất PDF&quot; hoặc &quot;Lấy link online&quot; để ghi lại khi chào khách.
+              Chưa có lượt chào nào — bấm &quot;Xuất Collection&quot; hoặc &quot;Lấy link online&quot; để ghi lại khi chào khách.
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl border border-line bg-surface">

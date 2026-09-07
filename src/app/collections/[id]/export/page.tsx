@@ -7,25 +7,15 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
 import { useProducts } from "@/components/ProductsProvider";
+import { CollectionSlideDeck } from "@/components/CollectionSlideDeck";
 import { CURRENT_USER_NAME, CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYYY } from "@/lib/mock-data";
-import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections } from "@/lib/permissions";
 import { generateCollectionPptx, PRODUCTS_PER_SLIDE_OPTIONS, type ProductsPerSlide } from "@/lib/pptxExport";
 import { useSettings } from "@/components/SettingsProvider";
 
-function sizeSummary(sizeVariants?: { size: string; length?: number; width?: number; height?: number }[]) {
-  if (!sizeVariants || sizeVariants.length === 0) return "—";
-  return sizeVariants
-    .map((v) => {
-      const dims = formatSizeVariantDimensions(v);
-      return dims ? `${v.size} (${dims})` : v.size;
-    })
-    .join(", ");
-}
-
-// One line per size variant for the PPTX's "Dimension:" rows (e.g.
-// "S: 40 x 40 x 45 cm") — distinct from sizeSummary's comma-joined
-// single-line version used in the PDF/HTML preview.
+// One line per size variant (e.g. "S: 40 x 40 x 45 cm") — feeds both the
+// PPTX's and the slide-deck preview/PDF's "Dimension:" rows, so the two
+// exports always show the same thing.
 function sizeLines(sizeVariants?: { size: string; length?: number; width?: number; height?: number }[]): string[] {
   if (!sizeVariants || sizeVariants.length === 0) return [];
   return sizeVariants.map((v) => {
@@ -73,6 +63,14 @@ export default function CollectionExportPage() {
   if (!collection) return notFound();
 
   const selectedItems = items.filter((p) => included.has(p.code));
+  const deckItems = selectedItems.map((p) => ({
+    code: p.code,
+    category: p.category,
+    material: p.material,
+    sizeLines: sizeLines(p.sizeVariants),
+    mainImage: p.mainImage,
+    tint: p.tint,
+  }));
 
   function toggle(code: string) {
     setIncluded((prev) => {
@@ -105,14 +103,7 @@ export default function CollectionExportPage() {
         note,
         date: todayDDMMYYYY(),
         perSlide,
-        items: selectedItems.map((p) => ({
-          code: p.code,
-          category: p.category,
-          material: p.material,
-          sizeLines: sizeLines(p.sizeVariants),
-          mainImage: p.mainImage,
-          tint: p.tint,
-        })),
+        items: deckItems,
         template: {
           backgroundImage: pptxTemplate.coverImage,
           closingBackgroundImage: pptxTemplate.closingImage,
@@ -139,9 +130,15 @@ export default function CollectionExportPage() {
             <Link href={`/collections/${collection.id}`} className="text-accent hover:text-accent-hover">
               {collection.name}
             </Link>{" "}
-            / <span className="text-text">Xuất PDF</span>
+            / <span className="text-text">Xuất Collection</span>
           </div>
           <div className="flex gap-2">
+            <a
+              href="#slide-deck"
+              className="flex h-10 items-center rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg"
+            >
+              Preview
+            </a>
             <button
               onClick={handlePptx}
               disabled={selectedItems.length === 0 || pptxBusy}
@@ -154,7 +151,7 @@ export default function CollectionExportPage() {
               disabled={selectedItems.length === 0}
               className="h-10 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
             >
-              In / Xuất PDF
+              Xuất PDF
             </button>
           </div>
         </div>
@@ -192,7 +189,7 @@ export default function CollectionExportPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5">
-              <span className="text-[12.5px] font-semibold">Số sản phẩm/trang (PPTX)</span>
+              <span className="text-[12.5px] font-semibold">Số sản phẩm/trang</span>
               <select
                 value={perSlide}
                 onChange={(e) => setPerSlide(Number(e.target.value) as ProductsPerSlide)}
@@ -236,50 +233,17 @@ export default function CollectionExportPage() {
           </div>
         </div>
 
-        {/* Printable document */}
-        <div className="flex flex-col gap-5 rounded-xl border border-line bg-white p-6 print:rounded-none print:border-0 print:p-0">
-          <div className="flex items-center justify-between border-b border-line pb-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="Artex Nam An" className="h-7 w-auto self-start" />
-            <span className="text-[12px] text-text-faint">{todayDDMMYYYY()}</span>
-          </div>
-
-          <div>
-            <h1 className="text-xl font-extrabold">{collection.name}</h1>
-            {customer && <p className="mt-1 text-[13px] text-text-muted">Gửi: {customer}</p>}
-            {note.trim() && <p className="mt-1 text-[13px] text-text">{note}</p>}
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            {selectedItems.map((p) => (
-              <div key={p.code} className="overflow-hidden rounded-xl border border-line">
-                <div className={`flex h-28 items-center justify-center ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
-                  {p.mainImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[p.tint]} stroke="currentColor" strokeWidth="1.4">
-                      <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                      <path d="M3 8v8l9 5 9-5V8" />
-                      <path d="M12 13v8" />
-                    </svg>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1 p-3">
-                  <div className="text-[12.5px] font-bold">{p.code}</div>
-                  <div className="text-[11px] text-text-muted">
-                    {p.category} · {p.material}
-                  </div>
-                  <div className="text-[11px] text-text-faint">{sizeSummary(p.sizeVariants)}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {selectedItems.length === 0 && (
-            <p className="py-10 text-center text-sm text-text-faint">Chưa chọn sản phẩm nào để xuất.</p>
-          )}
-        </div>
+        <CollectionSlideDeck
+          collectionName={collection.name}
+          customer={customer}
+          note={note}
+          date={todayDDMMYYYY()}
+          items={deckItems}
+          perSlide={perSlide}
+          coverImage={pptxTemplate.coverImage}
+          closingImage={pptxTemplate.closingImage}
+          closingText={pptxTemplate.closingText}
+        />
       </div>
     </div>
   );

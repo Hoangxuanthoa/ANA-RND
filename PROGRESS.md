@@ -84,30 +84,57 @@ read it before changing any access-control logic. Highlights:
   project's `rndOwner` after creation (didn't exist before at all).
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
-  real, not simulated: "Xuất PDF" goes to `/collections/[id]/export`, a
-  page where you pick which products to include (checkboxes, all on by
-  default), a customer, and an optional note, with a live preview of the
-  document below — "In / Xuất PDF" logs the pitch then calls
-  `window.print()`, so "save as PDF" in the browser's print dialog
-  produces a real file (no PDF library added, browsers already do this
-  well). "Lấy link online" still logs a pitch via the existing
+  real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it
+  led to a page offering both PPTX and PDF — the old name stopped making
+  sense) goes to `/collections/[id]/export`, where you pick which
+  products to include (checkboxes, all on by default), a customer, an
+  optional note, and a "Số sản phẩm/trang" mode, then either "Xuất PPTX"
+  (real .pptx via `pptxgenjs`, `src/lib/pptxExport.ts` — added as an npm
+  dependency since there's no browser-native way to produce PowerPoint)
+  or "Xuất PDF" (`window.print()` — browsers already do PDF well, no
+  library needed). "Lấy link online" still logs a pitch via the existing
   `LogPitchModal`, then reveals a real working link to
   `/collections/[id]/share` — a public-style read-only page (no TopNav,
   no role gating) showing the collection's *current* full contents live
   (not the customized export subset). Per-item fields are deliberately
   just mã/category/material/kích thước, no product name — user said
   Vietnamese product names aren't standardized enough to show a customer.
-  There's also a "Xuất PPTX" button on the same export page, generating a
-  real .pptx client-side via `pptxgenjs` (`src/lib/pptxExport.ts`) — added
-  as an npm dependency since (unlike PDF) there's no browser-native way to
-  produce PowerPoint. Product images embed via pptxgenjs's own `path`
-  loader (works for both real URLs and session-only `blob:` object URLs);
-  a product with no image gets a flat tinted rounded-rect instead of the
-  app's usual placeholder icon (pptxgenjs shapes can't easily draw that
-  SVG). Image loads are wrapped per-image (`safeAddImage`) so one bad
-  image degrades to a colored box instead of failing the whole export.
-  PPTX and PDF share the same "log the pitch once per page visit" flag,
-  so triggering both on one visit doesn't double-log.
+  Product images embed via pptxgenjs's own `path` loader (works for both
+  real URLs and session-only `blob:` object URLs); a product with no
+  image gets a flat tinted rounded-rect instead of the app's usual
+  placeholder icon (pptxgenjs shapes can't easily draw that SVG). Image
+  loads are wrapped per-image (`safeAddImage`) so one bad image degrades
+  to a colored box instead of failing the whole export. PPTX and PDF
+  share the same "log the pitch once per page visit" flag, so triggering
+  both on one visit doesn't double-log.
+
+  **PDF now mirrors PPTX exactly (2026-09-07):** PDF used to be a
+  completely separate, simpler HTML design (single doc, 3-col grid) from
+  the PPTX's 5 fixed layouts — user pointed out this was confusing
+  ("vào trong lại có 2 option") and asked PDF to just export whatever the
+  PPTX pages look like. Built `src/components/CollectionSlideDeck.tsx`,
+  an HTML/CSS mirror of pptxExport.ts's slides (imports `CONTENT_LAYOUTS`
+  from there so the cols/rows/inner decision per mode is never
+  duplicated/out of sync) — real 16:9-shaped slide cards (cover → content
+  pages using the selected mode → closing), same labeled Item code/
+  Category/Material/Dimension rows, same cover/closing template images
+  from Settings. This is now the export page's only preview — the old
+  static 3-col doc is gone. "Xuất PDF" prints this deck directly (one
+  slide per printed page via `print:break-after-page` +
+  `print:break-inside-avoid`; `globals.css`'s `@page` is now `size:
+  landscape` to match). Also added a **"Preview" link** before "Xuất
+  PPTX" — just an anchor (`#slide-deck`) that scrolls down to this
+  always-rendered deck, so there's no separate show/hide state to keep in
+  sync with what actually prints.
+
+  **Known cosmetic issue, not yet fixed:** `public/logo.png` has a fully
+  opaque white background baked into the file (confirmed via canvas
+  alpha readback — 255 everywhere), not a transparent PNG. Invisible
+  everywhere it's been used so far (white TopNav, white login card), but
+  now visibly shows as a white box wherever the full logo sits on the
+  green cover/closing slides (both this HTML deck and the real .pptx use
+  the same file the same way, so both are affected equally). Flagged to
+  the user, not yet actioned.
 
   **PPTX template (2026-09-07):** content slides use 5 fixed, deliberately
   designed layouts (not a generic auto-grid) picked via "Số sản

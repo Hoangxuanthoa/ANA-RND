@@ -67,6 +67,11 @@ const LAYOUTS: Record<ProductsPerSlide, LayoutConfig> = {
   6: { cols: 3, rows: 2, inner: "LR", fontSizes: { code: 11, meta: 9, size: 8.5 } },
 };
 
+// Exposed so the PDF export (an HTML/CSS mirror of these same slides,
+// see CollectionSlideDeck.tsx) uses the exact same cols/rows/inner
+// decision per mode instead of a second, potentially-drifting copy.
+export const CONTENT_LAYOUTS: Record<ProductsPerSlide, Pick<LayoutConfig, "cols" | "rows" | "inner">> = LAYOUTS;
+
 interface Rect {
   x: number;
   y: number;
