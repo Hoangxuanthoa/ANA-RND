@@ -110,7 +110,21 @@ read it before changing any access-control logic. Highlights:
   that SVG). Image loads are wrapped per-image (`safeAddImage`) so one bad
   image degrades to a colored box instead of failing the whole export.
   PPTX and PDF share the same "log the pitch once per page visit" flag,
-  so triggering both on one visit doesn't double-log.
+  so triggering both on one visit doesn't double-log. Two bugs fixed
+  2026-09-07 after user report: (1) "Add to Collection" in
+  `ProductQuickView.tsx` opened a dropdown that was invisible — the modal
+  card had `overflow-hidden` and the button sat at the very bottom edge
+  with nothing below it in the flow, so the absolutely-positioned
+  dropdown got clipped to zero visible height; removed `overflow-hidden`
+  from that card (nothing else in it needed the clip — the product image
+  already has its own). (2) There was no way to add products to a
+  collection from the collection's own page — only from Library's own
+  "Add to Collection" button. Added a "+ Thêm sản phẩm" button (visible
+  when `editable`) that opens `AddProductsToCollectionModal.tsx`, a
+  search + pick list of RELEASED products not already in the collection
+  (same rule `AddToCollectionButton` uses from the other direction); the
+  empty-state message on the collection page now offers this directly
+  too instead of only pointing back to Library.
 - **My Task** (`/my-tasks`) — R&D personal queue, quick-view with
   approve/request-change actions.
 - **Review** (`/review`, "Duyệt sản phẩm") — Admin-only catalog approval
