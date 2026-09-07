@@ -32,12 +32,9 @@ export default function LoginPage() {
         </svg>
 
         <div className="relative flex items-center gap-2.5">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8">
-            <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-            <path d="M3 8v8l9 5 9-5V8" />
-            <path d="M12 13v8" />
-          </svg>
-          <span className="text-[15px] font-bold text-white">R&amp;D Design Library</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon.png" alt="" className="h-7 w-7 rounded-full bg-white/90" />
+          <span className="text-[15px] font-bold text-white">Artex Nam An</span>
         </div>
 
         <div className="relative">

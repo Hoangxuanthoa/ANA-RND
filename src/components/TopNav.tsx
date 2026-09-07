@@ -58,12 +58,9 @@ export function TopNav() {
     <div className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-line bg-surface px-7">
       <div className="flex items-center gap-8">
         <div className="flex items-center gap-2">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8">
-            <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-            <path d="M3 8v8l9 5 9-5V8" />
-            <path d="M12 13v8" />
-          </svg>
-          <span className="text-[15px] font-bold">R&amp;D Design Library</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Artex Nam An" className="h-7 w-auto" />
+          <span className="text-[15px] font-bold">Design Library</span>
         </div>
         <nav className="flex gap-1">
           <NavLink href="/dashboard">Dashboard</NavLink>

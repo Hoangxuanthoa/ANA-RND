@@ -8,13 +8,18 @@
   --text-muted: oklch(52% 0.012 95);
   --text-faint: oklch(65% 0.01 95);
 
-  --accent: oklch(56% 0.15 48);
-  --accent-hover: oklch(49% 0.15 48);
-  --accent-soft: oklch(94% 0.035 55);
-  --accent-soft-text: oklch(42% 0.12 48);
+  /* Brand palette — sampled directly from the Artex Nam An logo
+     (leaf/drop mark green + ring green). Accent doubles as the "positive
+     status" green (Reusable/Approved badges share --green-soft) since
+     the brand color and a nature-materials company's "good/approved"
+     color are the same idea here, not a coincidence to avoid. */
+  --accent: #1c8f18;
+  --accent-hover: #156f12;
+  --accent-soft: #e3f6e1;
+  --accent-soft-text: #134f0f;
 
-  --green: oklch(58% 0.13 148);
-  --green-soft: oklch(94% 0.05 148);
+  --green: #176813;
+  --green-soft: #e3f6e1;
   --blue: oklch(50% 0.14 250);
   --blue-soft: oklch(94% 0.03 250);
   --amber: oklch(58% 0.14 70);

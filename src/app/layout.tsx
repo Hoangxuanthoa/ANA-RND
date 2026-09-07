@@ -15,8 +15,8 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Design Library",
-  description: "Internal design library for 3D product management",
+  title: "Design Library — Artex Nam An",
+  description: "Thư viện thiết kế nội bộ — quản lý sản phẩm 3D, dự án và phản hồi khách hàng.",
 };
 
 export default function RootLayout({

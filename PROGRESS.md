@@ -140,6 +140,24 @@ close.
    — only the project-level `rndOwner` can be assigned now. If a real
    per-product "assign to teammate" flow gets built later, pair it with a
    notification the same way `PROJECT_ASSIGNED` was just added.
+6. ~~Branding pass using the real company logo~~ — **done**. User supplied
+   the "Artex Nam An" logo (`public/logo.png`, full lockup) and said the
+   brand colors are "xanh lá cây + nâu đất" (green + earthy brown).
+   `--accent`/`--accent-hover`/`--accent-soft`/`--accent-soft-text` and
+   `--green`/`--green-soft` in
+   [globals.css](src/app/globals.css) were retinted to real hex values
+   sampled from the logo (accent darkened to `#1c8f18` vs. the logo's
+   brightest green `#25B81E` for WCAG contrast on white button text — see
+   comment in globals.css). Deliberately did not add a standalone
+   `--brown` token — the brown shows up naturally via the logo image
+   itself, not as a UI accent color. `src/app/icon.png` (210×210 crop of
+   just the leaf/drop mark) replaces the default `favicon.ico` (deleted)
+   via Next's automatic file-based icon convention. TopNav uses the full
+   `logo.png` lockup; the login page's green brand panel uses the cropped
+   `icon.png` mark (on a white circle) plus a plain "Artex Nam An" text
+   wordmark instead of the logo file, since the logo's own green/brown
+   wordmark wouldn't read against a green background. `layout.tsx`
+   metadata title/description updated to the real brand too.
 
 ## Workflow
 
