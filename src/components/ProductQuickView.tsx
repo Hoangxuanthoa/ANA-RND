@@ -215,6 +215,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
               <AddToCollectionButton
                 product={product}
                 align="right"
+                openUp
                 className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg"
               />
             )}

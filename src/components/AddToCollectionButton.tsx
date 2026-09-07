@@ -11,9 +11,15 @@ interface AddToCollectionButtonProps {
   product: Product;
   className?: string;
   align?: "left" | "right";
+  // The full product-detail page has room below (a sidebar with more
+  // buttons under this one), so the dropdown opens downward there. The
+  // compact quick-view modal has this button on its bottom-most row —
+  // opening downward pushes the dropdown off-screen, so it needs to open
+  // upward instead, same as that modal's "Add to Project" button.
+  openUp?: boolean;
 }
 
-export function AddToCollectionButton({ product, className, align = "left" }: AddToCollectionButtonProps) {
+export function AddToCollectionButton({ product, className, align = "left", openUp = false }: AddToCollectionButtonProps) {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
   const { collections, createCollection, addProductToCollection } = useCollections();
@@ -48,9 +54,9 @@ export function AddToCollectionButton({ product, className, align = "left" }: Ad
       {addedNotice && <p className="mt-1.5 text-[12px] font-semibold text-green">Đã thêm vào {addedNotice}.</p>}
       {open && (
         <div
-          className={`absolute top-11 z-20 w-64 overflow-hidden rounded-lg border border-line bg-surface shadow-md ${
-            align === "right" ? "right-0" : "left-0"
-          }`}
+          className={`absolute z-20 w-64 overflow-hidden rounded-lg border border-line bg-surface shadow-md ${
+            openUp ? "bottom-11" : "top-11"
+          } ${align === "right" ? "right-0" : "left-0"}`}
         >
           {pickable.map((c) => (
             <button
