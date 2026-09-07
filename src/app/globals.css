@@ -70,13 +70,3 @@ body {
   background: var(--bg);
   color: var(--text);
 }
-
-@media print {
-  @page {
-    size: landscape;
-    margin: 10mm;
-  }
-  body {
-    background: white;
-  }
-}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
@@ -11,6 +11,7 @@ import { CollectionSlideDeck } from "@/components/CollectionSlideDeck";
 import { CURRENT_USER_NAME, CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYYY } from "@/lib/mock-data";
 import { canManageCollections } from "@/lib/permissions";
 import { generateCollectionPptx, PRODUCTS_PER_SLIDE_OPTIONS, type ProductsPerSlide } from "@/lib/pptxExport";
+import { generateCollectionPdf } from "@/lib/pdfExport";
 import { useSettings } from "@/components/SettingsProvider";
 
 // One line per size variant (e.g. "S: 40 x 40 x 45 cm") — feeds both the
@@ -24,6 +25,10 @@ function sizeLines(sizeVariants?: { size: string; length?: number; width?: numbe
   });
 }
 
+function safeFileName(name: string): string {
+  return name.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "collection";
+}
+
 export default function CollectionExportPage() {
   const params = useParams<{ id: string }>();
   const { role } = useRole();
@@ -32,6 +37,7 @@ export default function CollectionExportPage() {
   const { products } = useProducts();
   const { pptxTemplate } = useSettings();
   const collection = collections.find((c) => c.id === params.id);
+  const deckRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(
     () =>
@@ -48,6 +54,8 @@ export default function CollectionExportPage() {
   const [logged, setLogged] = useState(false);
   const [pptxBusy, setPptxBusy] = useState(false);
   const [pptxError, setPptxError] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState("");
 
   if (!canManageCollections(role)) {
     return (
@@ -88,9 +96,18 @@ export default function CollectionExportPage() {
     }
   }
 
-  function handlePrint() {
-    ensureLogged();
-    window.print();
+  async function handlePdf() {
+    if (!deckRef.current) return;
+    setPdfError("");
+    setPdfBusy(true);
+    try {
+      await generateCollectionPdf(deckRef.current, `${safeFileName(collection!.name)}.pdf`);
+      ensureLogged();
+    } catch {
+      setPdfError("Xuất PDF thất bại — thử lại hoặc bỏ bớt sản phẩm có ảnh lỗi.");
+    } finally {
+      setPdfBusy(false);
+    }
   }
 
   async function handlePptx() {
@@ -119,13 +136,11 @@ export default function CollectionExportPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg print:bg-white">
-      <div className="print:hidden">
-        <TopNav />
-      </div>
+    <div className="flex min-h-screen flex-col bg-bg">
+      <TopNav />
 
-      <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-5 p-7 print:max-w-none print:gap-0 print:p-0">
-        <div className="flex items-center justify-between print:hidden">
+      <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-5 p-7">
+        <div className="flex items-center justify-between">
           <div className="text-[13px] text-text-faint">
             <Link href={`/collections/${collection.id}`} className="text-accent hover:text-accent-hover">
               {collection.name}
@@ -133,12 +148,6 @@ export default function CollectionExportPage() {
             / <span className="text-text">Xuất Collection</span>
           </div>
           <div className="flex gap-2">
-            <a
-              href="#slide-deck"
-              className="flex h-10 items-center rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg"
-            >
-              Preview
-            </a>
             <button
               onClick={handlePptx}
               disabled={selectedItems.length === 0 || pptxBusy}
@@ -147,23 +156,23 @@ export default function CollectionExportPage() {
               {pptxBusy ? "Đang tạo PPTX…" : "Xuất PPTX"}
             </button>
             <button
-              onClick={handlePrint}
-              disabled={selectedItems.length === 0}
+              onClick={handlePdf}
+              disabled={selectedItems.length === 0 || pdfBusy}
               className="h-10 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
             >
-              Xuất PDF
+              {pdfBusy ? "Đang tạo PDF…" : "Xuất PDF"}
             </button>
           </div>
         </div>
 
-        {pptxError && (
-          <div className="rounded-lg border border-red-soft bg-red-soft px-4 py-2.5 text-[12.5px] font-semibold text-red print:hidden">
-            {pptxError}
+        {(pptxError || pdfError) && (
+          <div className="rounded-lg border border-red-soft bg-red-soft px-4 py-2.5 text-[12.5px] font-semibold text-red">
+            {pptxError || pdfError}
           </div>
         )}
 
-        {/* Customize panel — hidden when printing */}
-        <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 print:hidden">
+        {/* Customize panel */}
+        <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5">
           <div className="grid grid-cols-3 gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-[12.5px] font-semibold">Chào khách nào</span>
@@ -233,17 +242,19 @@ export default function CollectionExportPage() {
           </div>
         </div>
 
-        <CollectionSlideDeck
-          collectionName={collection.name}
-          customer={customer}
-          note={note}
-          date={todayDDMMYYYY()}
-          items={deckItems}
-          perSlide={perSlide}
-          coverImage={pptxTemplate.coverImage}
-          closingImage={pptxTemplate.closingImage}
-          closingText={pptxTemplate.closingText}
-        />
+        <div ref={deckRef}>
+          <CollectionSlideDeck
+            collectionName={collection.name}
+            customer={customer}
+            note={note}
+            date={todayDDMMYYYY()}
+            items={deckItems}
+            perSlide={perSlide}
+            coverImage={pptxTemplate.coverImage}
+            closingImage={pptxTemplate.closingImage}
+            closingText={pptxTemplate.closingText}
+          />
+        </div>
       </div>
     </div>
   );

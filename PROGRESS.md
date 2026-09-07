@@ -118,14 +118,29 @@ read it before changing any access-control logic. Highlights:
   duplicated/out of sync) — real 16:9-shaped slide cards (cover → content
   pages using the selected mode → closing), same labeled Item code/
   Category/Material/Dimension rows, same cover/closing template images
-  from Settings. This is now the export page's only preview — the old
-  static 3-col doc is gone. "Xuất PDF" prints this deck directly (one
-  slide per printed page via `print:break-after-page` +
-  `print:break-inside-avoid`; `globals.css`'s `@page` is now `size:
-  landscape` to match). Also added a **"Preview" link** before "Xuất
-  PPTX" — just an anchor (`#slide-deck`) that scrolls down to this
-  always-rendered deck, so there's no separate show/hide state to keep in
-  sync with what actually prints.
+  from Settings. This is now the export page's only preview (always
+  rendered, no toggle).
+
+  **Follow-up same day:** user tried it and pointed out two things —
+  (1) the "Preview" link was pointless since the deck is already always
+  visible below, and (2) "Xuất PDF" still opened the OS print dialog
+  (`window.print()`), which isn't a real "click and get a file" export
+  like PPTX. Fixed both: removed the Preview link entirely, and replaced
+  print-to-PDF with a direct download — `src/lib/pdfExport.ts` uses
+  `html2canvas-pro` (NOT the original `html2canvas`, which can't parse
+  this app's `oklch()` CSS colors — `-pro` is a maintained fork that
+  added support for modern color functions) to screenshot each
+  `[data-pdf-slide]` element, then `jspdf` assembles those images into a
+  landscape PDF (`doc.save(...)` triggers an automatic download, same as
+  `pptx.writeFile(...)`). Both are npm dependencies added out of
+  necessity — no browser-native way to get a directly-downloaded PDF
+  without a print dialog. Trade-off: the PDF's text is now a raster image
+  per slide, not selectable/searchable text (a real print dialog would
+  have kept it as real PDF text) — accepted since matching PPTX's export
+  flow (one click, no dialog) was the explicit ask. All print-specific
+  CSS (`print:*` Tailwind classes, `globals.css`'s `@page` rule) was
+  removed since nothing calls `window.print()` anywhere in the app
+  anymore.
 
   **Known cosmetic issue, not yet fixed:** `public/logo.png` has a fully
   opaque white background baked into the file (confirmed via canvas

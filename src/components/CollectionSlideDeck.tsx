@@ -5,10 +5,11 @@ import { TINT_BG, TINT_FG } from "@/lib/badges";
 
 // HTML/CSS mirror of pptxExport.ts's slides — same cols/rows/inner
 // layout decision per mode (imported from there, not re-decided here),
-// same labeled info rows. This is what "Preview" scrolls through and
-// what "Xuất PDF" prints (one 16:9 slide per printed page), so the PDF
-// and PPTX exports finally look like the same deck instead of two
-// unrelated designs.
+// same labeled info rows. This is the export page's live preview, and
+// also what "Xuất PDF" captures (src/lib/pdfExport.ts screenshots each
+// `[data-pdf-slide]` element into one PDF page each via html2canvas +
+// jsPDF), so the PDF and PPTX exports look like the same deck instead of
+// two unrelated designs.
 
 export interface SlideDeckItem {
   code: string;
@@ -35,19 +36,13 @@ const TEXT_SCALE: Record<ProductsPerSlide, TextScale> = {
 
 function SlideFrame({
   children,
-  isLast,
   className,
 }: {
   children: React.ReactNode;
-  isLast?: boolean;
   className?: string;
 }) {
   return (
-    <div
-      className={`relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-line print:rounded-none print:border-0 print:break-inside-avoid ${
-        isLast ? "" : "print:break-after-page"
-      } ${className ?? ""}`}
-    >
+    <div data-pdf-slide className={`relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-line ${className ?? ""}`}>
       {children}
     </div>
   );
@@ -55,15 +50,13 @@ function SlideFrame({
 
 function BrandSlide({
   image,
-  isLast,
   children,
 }: {
   image?: string;
-  isLast?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <SlideFrame isLast={isLast} className="bg-accent">
+    <SlideFrame className="bg-accent">
       {image && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -169,7 +162,7 @@ export function CollectionSlideDeck({
   for (let i = 0; i < items.length; i += perSlide) chunks.push(items.slice(i, i + perSlide));
 
   return (
-    <div id="slide-deck" className="flex flex-col gap-6 print:gap-0">
+    <div id="slide-deck" className="flex flex-col gap-6">
       <BrandSlide image={coverImage}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="" className="h-[10%] w-auto flex-shrink-0 self-start" />
@@ -191,7 +184,7 @@ export function CollectionSlideDeck({
         </SlideFrame>
       )}
 
-      <BrandSlide image={closingImage} isLast>
+      <BrandSlide image={closingImage}>
         <div className="flex h-full items-center justify-center">
           <p className="text-center text-2xl font-extrabold">{closingText.trim() || "Cảm ơn quý khách"}</p>
         </div>
