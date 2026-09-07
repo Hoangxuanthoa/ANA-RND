@@ -911,7 +911,9 @@ export type NotificationType =
   | "PROJECT_ITEM_CHANGE_REQUESTED"
   | "PROJECT_ITEM_APPROVED"
   | "NEW_FEEDBACK"
-  | "NEW_PITCH";
+  | "NEW_PITCH"
+  | "PROJECT_REQUESTED_BY_CUSTOMER"
+  | "PROJECT_ASSIGNED";
 
 export interface NotificationItem {
   id: string;

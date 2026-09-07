@@ -77,11 +77,14 @@ export function canHardDeleteProduct(product: Product, usageCount: number) {
 }
 
 // Which Project types a role is allowed to create. R&D creates none —
-// they receive and work projects, never originate them.
+// they receive and work projects, never originate them. Customer can
+// only ever request their own — a lightweight intake that Sales then
+// takes ownership of (see NewProjectModal / ProjectsProvider.createProject).
 export function creatableProjectTypes(role: Role): ProjectType[] {
   if (role === "ADMIN") return ["CUSTOMER", "INTERNAL", "MARKETING"];
   if (role === "SALES") return ["CUSTOMER"];
   if (role === "MARKETING") return ["MARKETING", "CUSTOMER"];
+  if (role === "CUSTOMER") return ["CUSTOMER"];
   return [];
 }
 export const canCreateProject = (role: Role) => creatableProjectTypes(role).length > 0;

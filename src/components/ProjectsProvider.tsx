@@ -60,7 +60,21 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   const [projectFeedback, setProjectFeedback] = useState<ProjectFeedbackItem[]>(INITIAL_PROJECT_FEEDBACK);
 
   function updateProject(code: string, patch: Partial<Project>) {
+    const before = projects.find((p) => p.code === code);
     setProjects((prev) => prev.map((p) => (p.code === code ? { ...p, ...patch } : p)));
+    // A fresh or changed R&D assignment — notify whoever it's now
+    // pointed at. This is the one real trigger for "task assigned" in
+    // the app right now; there's no other place rndOwner gets set after
+    // creation.
+    if (before && patch.rndOwner && patch.rndOwner !== before.rndOwner) {
+      addNotification({
+        type: "PROJECT_ASSIGNED",
+        title: "Bạn được gán phụ trách dự án mới",
+        message: `${patch.name ?? before.name} cần bạn xử lý.`,
+        link: `/projects/${code}`,
+        recipientName: patch.rndOwner,
+      });
+    }
   }
 
   function closeProject(code: string) {
@@ -78,6 +92,15 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
   function createProject(project: Project) {
     setProjects((prev) => [project, ...prev]);
+    if (role === "CUSTOMER" && project.sales) {
+      addNotification({
+        type: "PROJECT_REQUESTED_BY_CUSTOMER",
+        title: "Khách hàng vừa gửi yêu cầu dự án mới",
+        message: `${project.name} — cần bạn gán R&D phụ trách.`,
+        link: `/projects/${project.code}`,
+        recipientName: project.sales,
+      });
+    }
   }
 
   function addProjectFeedback(projectCode: string, content: string) {

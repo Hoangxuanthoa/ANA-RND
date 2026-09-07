@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Project } from "@/lib/mock-data";
+import { STAFF, type Project } from "@/lib/mock-data";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DateInput } from "@/components/DateInput";
 
@@ -13,7 +13,9 @@ interface EditProjectModalProps {
 }
 
 export function EditProjectModal({ open, project, onSave, onCancel }: EditProjectModalProps) {
+  const rndStaff = STAFF.filter((s) => s.role === "RND");
   const [name, setName] = useState(project.name);
+  const [rndOwner, setRndOwner] = useState(project.rndOwner ?? "");
   const [deadline, setDeadline] = useState(project.deadline === "—" ? "" : project.deadline);
   const [brief, setBrief] = useState(project.brief);
   const [attachments, setAttachments] = useState<string[]>(project.attachments);
@@ -23,7 +25,7 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSave({ name, deadline: deadline.trim() || "—", brief, attachments });
+    onSave({ name, rndOwner: rndOwner || undefined, deadline: deadline.trim() || "—", brief, attachments });
   }
 
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -48,6 +50,22 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
             onChange={(e) => setName(e.target.value)}
             className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
           />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] font-semibold">R&amp;D phụ trách</span>
+          <select
+            value={rndOwner}
+            onChange={(e) => setRndOwner(e.target.value)}
+            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
+          >
+            <option value="">Chưa gán</option>
+            {rndStaff.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="flex flex-col gap-1.5">

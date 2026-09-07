@@ -286,7 +286,10 @@ export default function ProjectsPage() {
             customer: input.customer,
             sales: input.sales,
             rndOwner: input.rndOwner,
-            createdByName: userName,
+            // A Customer request is owned by the Sales rep it's routed
+            // to from the start — the customer submitted it, but Sales
+            // manages it going forward (edit, assign R&D, etc.).
+            createdByName: role === "CUSTOMER" ? (input.sales ?? userName) : userName,
             createdAt: todayDDMMYYYY(),
             status: "CREATED",
             deadline: input.deadline,
