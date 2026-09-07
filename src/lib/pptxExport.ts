@@ -7,7 +7,9 @@ export interface PptxExportItem {
   code: string;
   category: string;
   material: string;
-  sizeSummary: string;
+  // One line per size variant (e.g. "S: 40 x 40 x 45 cm") — empty when the
+  // product has no size variants, rendered as a single "—" line instead.
+  sizeLines: string[];
   mainImage?: string;
   tint: "accent" | "blue" | "green" | "slate" | "amber";
 }
@@ -44,8 +46,10 @@ const FONT = "Arial";
 const LOGO_PATH = "/logo.png";
 const LOGO_ASPECT = 210 / 738;
 
-// 10in x 5.625in slide (LAYOUT_16x9), minus header space for logo/title.
-const CONTENT_AREA = { x: 0.4, y: 1.0, w: 9.2, h: 4.3 };
+// 10in x 5.625in slide (LAYOUT_16x9), minus header space for the logo —
+// content slides show just the logo (no collection name repeated on
+// every page, already on the cover), so the header band is short.
+const CONTENT_AREA = { x: 0.4, y: 0.75, w: 9.2, h: 4.55 };
 const GAP = 0.25;
 
 interface LayoutConfig {
@@ -150,8 +154,7 @@ export async function generateCollectionPptx({
     const chunk = items.slice(i, i + perSlide);
     const slide = pptx.addSlide();
     slide.background = { color: COLORS.white };
-    safeAddImage(slide, { path: LOGO_PATH, x: 0.4, y: 0.3, w: 1.3, h: 1.3 * LOGO_ASPECT });
-    slide.addText(collectionName, { x: 0.4, y: 0.75, w: 9, h: 0.35, fontSize: 15, bold: true, color: COLORS.text, fontFace: FONT });
+    safeAddImage(slide, { path: LOGO_PATH, x: 0.4, y: 0.15, w: 1.3, h: 1.3 * LOGO_ASPECT });
 
     chunk.forEach((item, idx) => {
       const cell = cellRect(idx, layout);
@@ -202,26 +205,26 @@ function drawProductCell(
     slide.addShape("roundRect", { ...image, fill: { color: TINT_HEX[item.tint] }, line: { color: TINT_HEX[item.tint] }, rectRadius: 0.06 });
   }
 
-  const lineH = fontSizes.code / 62; // rough inches-per-line at this font size
-  slide.addText(item.code, { x: info.x, y: info.y, w: info.w, h: lineH + 0.1, fontSize: fontSizes.code, bold: true, color: COLORS.text, fontFace: FONT });
-  slide.addText(`${item.category} · ${item.material}`, {
-    x: info.x,
-    y: info.y + lineH + 0.1,
-    w: info.w,
-    h: lineH + 0.06,
-    fontSize: fontSizes.meta,
-    color: COLORS.textMuted,
-    fontFace: FONT,
-  });
-  slide.addText(item.sizeSummary, {
-    x: info.x,
-    y: info.y + (lineH + 0.1) * 2,
-    w: info.w,
-    h: info.h - (lineH + 0.1) * 2,
-    fontSize: fontSizes.size,
-    color: COLORS.textFaint,
-    fontFace: FONT,
-  });
+  // Fixed labeled rows, one per line: Item code / Category / Material /
+  // Dimension: (header) / one line per size variant (or "—" if none).
+  const rows: { text: string; size: number; bold?: boolean; color: string }[] = [
+    { text: `Item code: ${item.code}`, size: fontSizes.code, bold: true, color: COLORS.text },
+    { text: `Category: ${item.category}`, size: fontSizes.meta, color: COLORS.textMuted },
+    { text: `Material: ${item.material}`, size: fontSizes.meta, color: COLORS.textMuted },
+    { text: "Dimension:", size: fontSizes.meta, color: COLORS.textMuted },
+    ...(item.sizeLines.length > 0 ? item.sizeLines : ["—"]).map((line) => ({
+      text: line,
+      size: fontSizes.size,
+      color: COLORS.textFaint,
+    })),
+  ];
+
+  let y = info.y;
+  for (const row of rows) {
+    const h = row.size / 62 + 0.06;
+    slide.addText(row.text, { x: info.x, y, w: info.w, h, fontSize: row.size, bold: row.bold, color: row.color, fontFace: FONT });
+    y += h;
+  }
 }
 
 // Cover/closing background: a user-supplied image (from Settings) with a

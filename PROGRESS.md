@@ -116,9 +116,15 @@ read it before changing any access-control logic. Highlights:
   ("LR"); 2/3 use image-top/info-bottom ("TB") — see the `LAYOUTS` table
   in pptxExport.ts for the exact per-mode grid/font-size config. A
   shorter last chunk just leaves the unused slots of that mode's layout
-  empty rather than switching modes. Per-item fields stay mã/category/
-  material/kích thước at every density — user explicitly did not want
-  extra fields shown even where there's more room. Cover/closing slide
+  empty rather than switching modes. Per-cell info is 4+N labeled rows
+  now (`drawProductCell` in pptxExport.ts), stacked with each row's own
+  height so the size-variant count doesn't need special-casing: "Item
+  code: …", "Category: …", "Material: …", "Dimension:", then one line
+  per size variant ("S: 40 x 40 x 45 cm") or a single "—" row when the
+  product has none. Content slides show only the logo (moved up to
+  y=0.15in) — no collection name repeated per page, since it's already
+  on the cover; this freed up header space so `CONTENT_AREA` starts
+  higher (y=0.75 vs the old 1.0). Cover/closing slide
   backgrounds are now configurable (a photo instead of the flat green,
   with an automatic 55%-black overlay so white text stays legible) via a
   new **"Mẫu PPTX" tab in Settings** (Admin-only, `SettingsProvider`'s

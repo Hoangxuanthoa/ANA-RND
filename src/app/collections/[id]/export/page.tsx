@@ -23,6 +23,17 @@ function sizeSummary(sizeVariants?: { size: string; length?: number; width?: num
     .join(", ");
 }
 
+// One line per size variant for the PPTX's "Dimension:" rows (e.g.
+// "S: 40 x 40 x 45 cm") — distinct from sizeSummary's comma-joined
+// single-line version used in the PDF/HTML preview.
+function sizeLines(sizeVariants?: { size: string; length?: number; width?: number; height?: number }[]): string[] {
+  if (!sizeVariants || sizeVariants.length === 0) return [];
+  return sizeVariants.map((v) => {
+    const dims = formatSizeVariantDimensions(v);
+    return dims ? `${v.size}: ${dims}` : v.size;
+  });
+}
+
 export default function CollectionExportPage() {
   const params = useParams<{ id: string }>();
   const { role } = useRole();
@@ -98,7 +109,7 @@ export default function CollectionExportPage() {
           code: p.code,
           category: p.category,
           material: p.material,
-          sizeSummary: sizeSummary(p.sizeVariants),
+          sizeLines: sizeLines(p.sizeVariants),
           mainImage: p.mainImage,
           tint: p.tint,
         })),
