@@ -67,17 +67,28 @@ export function DateInput({ value, onChange, className }: DateInputProps) {
 
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={openPicker}
-        className={`${className ?? "h-10 rounded-lg border border-line px-3 text-[13px]"} flex w-full items-center justify-between gap-2 text-left`}
+      <div
+        className={`${className ?? "h-10 rounded-lg border border-line px-3 text-[13px]"} flex items-center gap-2 focus-within:border-accent focus-within:ring-[3px] focus-within:ring-accent/15`}
       >
-        <span className={value ? "" : "text-text-faint"}>{value || "dd/mm/yyyy"}</span>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 text-text-faint">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M8 3v4M16 3v4M3 10h18" />
-        </svg>
-      </button>
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={openPicker}
+          placeholder="dd/mm/yyyy"
+          className="min-w-0 flex-1 bg-transparent focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => (open ? setOpen(false) : openPicker())}
+          className="flex-shrink-0 text-text-faint hover:text-text"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M8 3v4M16 3v4M3 10h18" />
+          </svg>
+        </button>
+      </div>
 
       {open && (
         <div className="absolute top-full left-0 z-30 mt-1.5 w-64 rounded-lg border border-line bg-surface p-3 shadow-md">
