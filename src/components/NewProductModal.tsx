@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useProducts } from "@/components/ProductsProvider";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { nextProductCode, type Product } from "@/lib/mock-data";
 
 interface SizeVariantInput {
@@ -72,6 +73,7 @@ function PickImageTile({ label, onPick }: { label: string; onPick: (file: File) 
 export function NewProductModal({ open, title, projectCustomer, product, autoSubmit, onCancel, onCreate }: NewProductModalProps) {
   const { products, categories, materials, sizes, colors, createProduct, updateProduct } = useProducts();
   const isEditing = !!product;
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [name, setName] = useState(product?.name ?? "");
   const [mainImage, setMainImage] = useState<string | undefined>(product?.mainImage);
   const [images, setImages] = useState<string[]>(product?.images ?? []);
@@ -132,11 +134,10 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
       <form
         onSubmit={handleSubmit}
         className="flex w-full max-w-[580px] flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-md"
-        onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-[15px] font-bold">{title ?? (isEditing ? "Sửa sản phẩm" : "Thiết kế sản phẩm mới")}</h3>
 
@@ -303,7 +304,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
         <div className="mt-1 flex justify-end gap-2.5">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={() => setConfirmCloseOpen(true)}
             className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg"
           >
             Hủy
@@ -317,6 +318,19 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={confirmCloseOpen}
+        danger
+        title="Hủy thao tác?"
+        description="Thông tin bạn đang nhập sẽ không được lưu lại. Bạn có chắc muốn thoát không?"
+        confirmLabel="Thoát"
+        onCancel={() => setConfirmCloseOpen(false)}
+        onConfirm={() => {
+          setConfirmCloseOpen(false);
+          onCancel();
+        }}
+      />
     </div>
   );
 }
