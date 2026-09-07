@@ -292,7 +292,7 @@ export default function ProjectsPage() {
             deadline: input.deadline,
             brief: input.brief,
             isMine: input.customer === CURRENT_USER_NAME.CUSTOMER,
-            attachments: [],
+            attachments: input.attachments,
           });
           setNewProjectOpen(false);
         }}
