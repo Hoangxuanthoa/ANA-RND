@@ -10,6 +10,9 @@ import { useProducts } from "@/components/ProductsProvider";
 import { CURRENT_USER_NAME, CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYYY } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections } from "@/lib/permissions";
+import { generateCollectionPptx } from "@/lib/pptxExport";
+
+const PER_SLIDE_OPTIONS = [2, 4, 6, 9];
 
 function sizeSummary(sizeVariants?: { size: string; length?: number; width?: number; height?: number }[]) {
   if (!sizeVariants || sizeVariants.length === 0) return "—";
@@ -40,7 +43,10 @@ export default function CollectionExportPage() {
   const [included, setIncluded] = useState<Set<string>>(() => new Set(items.map((p) => p.code)));
   const [customer, setCustomer] = useState(CUSTOMERS[0]);
   const [note, setNote] = useState("");
+  const [perSlide, setPerSlide] = useState(6);
   const [logged, setLogged] = useState(false);
+  const [pptxBusy, setPptxBusy] = useState(false);
+  const [pptxError, setPptxError] = useState("");
 
   if (!canManageCollections(role)) {
     return (
@@ -66,12 +72,43 @@ export default function CollectionExportPage() {
     });
   }
 
-  function handlePrint() {
+  function ensureLogged() {
     if (!logged && collection) {
       logPitch(collection.id, customer, userName, note);
       setLogged(true);
     }
+  }
+
+  function handlePrint() {
+    ensureLogged();
     window.print();
+  }
+
+  async function handlePptx() {
+    setPptxError("");
+    setPptxBusy(true);
+    try {
+      await generateCollectionPptx({
+        collectionName: collection!.name,
+        customer,
+        note,
+        date: todayDDMMYYYY(),
+        perSlide,
+        items: selectedItems.map((p) => ({
+          code: p.code,
+          category: p.category,
+          material: p.material,
+          sizeSummary: sizeSummary(p.sizeVariants),
+          mainImage: p.mainImage,
+          tint: p.tint,
+        })),
+      });
+      ensureLogged();
+    } catch {
+      setPptxError("Xuất PPTX thất bại — thử lại hoặc bỏ bớt sản phẩm có ảnh lỗi.");
+    } finally {
+      setPptxBusy(false);
+    }
   }
 
   return (
@@ -88,18 +125,33 @@ export default function CollectionExportPage() {
             </Link>{" "}
             / <span className="text-text">Xuất PDF</span>
           </div>
-          <button
-            onClick={handlePrint}
-            disabled={selectedItems.length === 0}
-            className="h-10 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
-          >
-            In / Xuất PDF
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handlePptx}
+              disabled={selectedItems.length === 0 || pptxBusy}
+              className="h-10 rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+            >
+              {pptxBusy ? "Đang tạo PPTX…" : "Xuất PPTX"}
+            </button>
+            <button
+              onClick={handlePrint}
+              disabled={selectedItems.length === 0}
+              className="h-10 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
+            >
+              In / Xuất PDF
+            </button>
+          </div>
         </div>
+
+        {pptxError && (
+          <div className="rounded-lg border border-red-soft bg-red-soft px-4 py-2.5 text-[12.5px] font-semibold text-red print:hidden">
+            {pptxError}
+          </div>
+        )}
 
         {/* Customize panel — hidden when printing */}
         <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 print:hidden">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-[12.5px] font-semibold">Chào khách nào</span>
               <select
@@ -122,6 +174,20 @@ export default function CollectionExportPage() {
                 placeholder="Không bắt buộc"
                 className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
               />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[12.5px] font-semibold">Số sản phẩm/trang (PPTX)</span>
+              <select
+                value={perSlide}
+                onChange={(e) => setPerSlide(Number(e.target.value))}
+                className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
+              >
+                {PER_SLIDE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n} sản phẩm/trang
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
 

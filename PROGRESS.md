@@ -97,6 +97,20 @@ read it before changing any access-control logic. Highlights:
   (not the customized export subset). Per-item fields are deliberately
   just mã/category/material/kích thước, no product name — user said
   Vietnamese product names aren't standardized enough to show a customer.
+  There's also a "Xuất PPTX" button on the same export page, generating a
+  real .pptx client-side via `pptxgenjs` (`src/lib/pptxExport.ts`) — added
+  as an npm dependency since (unlike PDF) there's no browser-native way to
+  produce PowerPoint. Template: accent-green cover slide (logo + name +
+  customer + note + date) → content slides grid-chunked by a "Số sản
+  phẩm/trang" picker (2/4/6/9, default 6) → accent-green closing slide
+  ("Cảm ơn quý khách" + logo). Product images embed via pptxgenjs's own
+  `path` loader (works for both real URLs and session-only `blob:` object
+  URLs); a product with no image gets a flat tinted rounded-rect instead
+  of the app's usual placeholder icon (pptxgenjs shapes can't easily draw
+  that SVG). Image loads are wrapped per-image (`safeAddImage`) so one bad
+  image degrades to a colored box instead of failing the whole export.
+  PPTX and PDF share the same "log the pitch once per page visit" flag,
+  so triggering both on one visit doesn't double-log.
 - **My Task** (`/my-tasks`) — R&D personal queue, quick-view with
   approve/request-change actions.
 - **Review** (`/review`, "Duyệt sản phẩm") — Admin-only catalog approval
