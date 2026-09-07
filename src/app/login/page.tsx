@@ -19,7 +19,7 @@ export default function LoginPage() {
       <form onSubmit={handleSubmit} className="flex w-full max-w-[360px] flex-col gap-7">
         <div className="flex flex-col gap-1.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="Artex Nam An" className="mb-2 h-8 w-auto" />
+          <img src="/logo.png" alt="Artex Nam An" className="mb-2 h-8 w-auto self-start" />
           <h2 className="text-[22px] font-bold">Đăng nhập</h2>
           <p className="text-sm text-text-muted">Dùng tài khoản công ty được Admin cấp.</p>
         </div>

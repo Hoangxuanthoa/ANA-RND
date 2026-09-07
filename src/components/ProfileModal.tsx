@@ -18,12 +18,32 @@ interface ProfileModalProps {
 export function ProfileModal({ open, role, name, email, phone, onSave, onCancel }: ProfileModalProps) {
   const [emailInput, setEmailInput] = useState(email);
   const [phoneInput, setPhoneInput] = useState(phone);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
 
   if (!open) return null;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const wantsPasswordChange = currentPassword || newPassword || confirmPassword;
+    if (wantsPasswordChange) {
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        setPasswordError("Điền đủ cả 3 ô để đổi mật khẩu.");
+        return;
+      }
+      if (newPassword.length < 6) {
+        setPasswordError("Mật khẩu mới cần ít nhất 6 ký tự.");
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        setPasswordError("Xác nhận mật khẩu mới không khớp.");
+        return;
+      }
+    }
+    setPasswordError("");
     onSave({ email: emailInput, phone: phoneInput });
   }
 
@@ -31,7 +51,7 @@ export function ProfileModal({ open, role, name, email, phone, onSave, onCancel 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-[400px] flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-md"
+        className="flex max-h-[90vh] w-full max-w-[400px] flex-col gap-4 overflow-y-auto rounded-xl border border-line bg-surface p-5 shadow-md"
       >
         <h3 className="text-[15px] font-bold">Cập nhật thông tin</h3>
 
@@ -66,6 +86,43 @@ export function ProfileModal({ open, role, name, email, phone, onSave, onCancel 
             className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
           />
         </label>
+
+        <div className="flex flex-col gap-1 border-t border-line pt-3.5">
+          <span className="text-[12.5px] font-semibold">Đổi mật khẩu</span>
+          <span className="text-[11.5px] text-text-faint">Để trống nếu không muốn đổi.</span>
+        </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] font-semibold">Mật khẩu hiện tại</span>
+          <input
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] font-semibold">Mật khẩu mới</span>
+          <input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12.5px] font-semibold">Xác nhận mật khẩu mới</span>
+          <input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+          />
+        </label>
+
+        {passwordError && <p className="text-[12px] font-semibold text-red">{passwordError}</p>}
 
         <div className="mt-1 flex justify-end gap-2.5">
           <button

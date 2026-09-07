@@ -117,7 +117,13 @@ read it before changing any access-control logic. Highlights:
   Deliberately did NOT make the person's *name* editable there — it's
   `CURRENT_USER_NAME`, the same string used everywhere for ownership
   matching (`createdByName`, `rndOwner`, `assigneeName`); letting it drift
-  from a profile edit would silently break those comparisons.
+  from a profile edit would silently break those comparisons. ProfileModal
+  also has a "Đổi mật khẩu" section (current/new/confirm) — client-side
+  validated (all 3 filled, min 6 chars, new === confirm) but purely
+  cosmetic, same as the rest of auth in this prototype: there's no real
+  password anywhere to check against or update. Both the bell and account
+  dropdowns close on outside click now (`mousedown` listener + ref, same
+  pattern as `DateInput.tsx` — match it for any future dropdown).
 
 Also worth knowing: several accidental-data-loss and UX fixes landed
 recently across the create/edit forms — New Product, New/Edit Project, and

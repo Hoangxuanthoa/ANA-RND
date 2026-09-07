@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
@@ -51,11 +51,27 @@ export function TopNav() {
   const [bellOpen, setBellOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
 
   const pendingCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
   const userName = CURRENT_USER_NAME[role];
   const myNotifications = notifications.filter((n) => n.recipientName.startsWith(userName));
   const unreadCount = myNotifications.filter((n) => !n.isRead).length;
+
+  useEffect(() => {
+    if (!bellOpen && !accountOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (bellOpen && bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
+      if (accountOpen && accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setAccountOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [bellOpen, accountOpen]);
 
   return (
     <div className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-line bg-surface px-7">
@@ -96,7 +112,7 @@ export function TopNav() {
           ))}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={bellRef}>
           <button
             onClick={() => setBellOpen((v) => !v)}
             className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-line bg-surface text-text-muted hover:bg-bg hover:text-text"
@@ -142,7 +158,7 @@ export function TopNav() {
           )}
         </div>
 
-        <div className="relative">
+        <div className="relative" ref={accountRef}>
           <button
             onClick={() => setAccountOpen((v) => !v)}
             className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${TINT_AVATAR_BG[role]}`}
