@@ -12,6 +12,16 @@ export interface PptxExportItem {
   tint: "accent" | "blue" | "green" | "slate" | "amber";
 }
 
+// The 5 fixed content-slide layouts the user asked for — not a generic
+// auto-grid, each count has its own deliberate look:
+//   1 → one block filling the slide, image left / info right
+//   2 → 2 columns side by side, each block image top / info bottom
+//   3 → 3 columns side by side (1 row), each block image top / info bottom
+//   4 → 2x2 grid, each cell image left / info right
+//   6 → 2x3 grid (2 rows, 3 cols), each cell image left / info right
+export type ProductsPerSlide = 1 | 2 | 3 | 4 | 6;
+export const PRODUCTS_PER_SLIDE_OPTIONS: ProductsPerSlide[] = [1, 2, 3, 4, 6];
+
 // Rough hex equivalents of the app's oklch tint tokens (globals.css) —
 // pptxgenjs needs plain hex, no CSS custom properties.
 const TINT_HEX: Record<PptxExportItem["tint"], string> = {
@@ -34,13 +44,59 @@ const FONT = "Arial";
 const LOGO_PATH = "/logo.png";
 const LOGO_ASPECT = 210 / 738;
 
+// 10in x 5.625in slide (LAYOUT_16x9), minus header space for logo/title.
+const CONTENT_AREA = { x: 0.4, y: 1.0, w: 9.2, h: 4.3 };
+const GAP = 0.25;
+
+interface LayoutConfig {
+  cols: number;
+  rows: number;
+  inner: "LR" | "TB"; // per-cell layout: left-image/right-info, or top-image/bottom-info
+  fontSizes: { code: number; meta: number; size: number };
+}
+
+const LAYOUTS: Record<ProductsPerSlide, LayoutConfig> = {
+  1: { cols: 1, rows: 1, inner: "LR", fontSizes: { code: 20, meta: 14, size: 12 } },
+  2: { cols: 2, rows: 1, inner: "TB", fontSizes: { code: 16, meta: 12, size: 10.5 } },
+  3: { cols: 3, rows: 1, inner: "TB", fontSizes: { code: 14, meta: 11, size: 9.5 } },
+  4: { cols: 2, rows: 2, inner: "LR", fontSizes: { code: 13, meta: 10.5, size: 9 } },
+  6: { cols: 3, rows: 2, inner: "LR", fontSizes: { code: 11, meta: 9, size: 8.5 } },
+};
+
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+function cellRect(index: number, layout: LayoutConfig): Rect {
+  const col = index % layout.cols;
+  const row = Math.floor(index / layout.cols);
+  const w = (CONTENT_AREA.w - GAP * (layout.cols - 1)) / layout.cols;
+  const h = (CONTENT_AREA.h - GAP * (layout.rows - 1)) / layout.rows;
+  return {
+    x: CONTENT_AREA.x + col * (w + GAP),
+    y: CONTENT_AREA.y + row * (h + GAP),
+    w,
+    h,
+  };
+}
+
+export interface CoverTemplate {
+  backgroundImage?: string;
+  closingBackgroundImage?: string;
+  closingText: string;
+}
+
 export interface GeneratePptxOptions {
   collectionName: string;
   customer: string;
   note?: string;
   date: string;
   items: PptxExportItem[];
-  perSlide: number;
+  perSlide: ProductsPerSlide;
+  template?: CoverTemplate;
 }
 
 export async function generateCollectionPptx({
@@ -50,6 +106,7 @@ export async function generateCollectionPptx({
   date,
   items,
   perSlide,
+  template,
 }: GeneratePptxOptions): Promise<void> {
   const PptxGenJS = (await import("pptxgenjs")).default;
   const pptx = new PptxGenJS();
@@ -60,7 +117,7 @@ export async function generateCollectionPptx({
 
   // Cover slide
   const cover = pptx.addSlide();
-  cover.background = { color: COLORS.accent };
+  addCoverBackground(cover, template?.backgroundImage);
   safeAddImage(cover, { path: LOGO_PATH, x: 0.5, y: 0.45, w: logoW, h: logoH });
   cover.addText(collectionName, {
     x: 0.5,
@@ -84,18 +141,11 @@ export async function generateCollectionPptx({
     lineSpacingMultiple: 1.5,
   });
 
-  // Content slides
-  const cols = perSlide <= 2 ? 2 : perSlide <= 6 ? 3 : 3;
-  const rows = Math.ceil(perSlide / cols);
-  const gridTop = 1.25;
-  const gridWidth = 9.2;
-  const gridHeight = 3.95;
-  const gapX = 0.25;
-  const gapY = 0.3;
-  const cellW = (gridWidth - gapX * (cols - 1)) / cols;
-  const cellH = (gridHeight - gapY * (rows - 1)) / rows;
-  const imgH = cellH * 0.55;
-
+  // Content slides — same fixed layout (slot positions) reused for every
+  // slide of a given mode, including a final partial slide (fewer items
+  // than perSlide just leaves the remaining slots empty rather than
+  // switching to a different mode).
+  const layout = LAYOUTS[perSlide];
   for (let i = 0; i < items.length; i += perSlide) {
     const chunk = items.slice(i, i + perSlide);
     const slide = pptx.addSlide();
@@ -104,37 +154,16 @@ export async function generateCollectionPptx({
     slide.addText(collectionName, { x: 0.4, y: 0.75, w: 9, h: 0.35, fontSize: 15, bold: true, color: COLORS.text, fontFace: FONT });
 
     chunk.forEach((item, idx) => {
-      const col = idx % cols;
-      const row = Math.floor(idx / cols);
-      const x = 0.4 + col * (cellW + gapX);
-      const y = gridTop + row * (cellH + gapY);
-
-      if (item.mainImage) {
-        safeAddImage(slide, { path: item.mainImage, x, y, w: cellW, h: imgH, sizing: { type: "cover", w: cellW, h: imgH } });
-      } else {
-        slide.addShape("roundRect", { x, y, w: cellW, h: imgH, fill: { color: TINT_HEX[item.tint] }, line: { color: TINT_HEX[item.tint] }, rectRadius: 0.06 });
-      }
-
-      const textY = y + imgH + 0.06;
-      slide.addText(item.code, { x, y: textY, w: cellW, h: 0.24, fontSize: 11, bold: true, color: COLORS.text, fontFace: FONT });
-      slide.addText(`${item.category} · ${item.material}`, {
-        x,
-        y: textY + 0.22,
-        w: cellW,
-        h: 0.2,
-        fontSize: 9,
-        color: COLORS.textMuted,
-        fontFace: FONT,
-      });
-      slide.addText(item.sizeSummary, { x, y: textY + 0.4, w: cellW, h: 0.4, fontSize: 8.5, color: COLORS.textFaint, fontFace: FONT });
+      const cell = cellRect(idx, layout);
+      drawProductCell(slide, item, cell, layout.inner, layout.fontSizes);
     });
   }
 
   // Closing slide
   const closing = pptx.addSlide();
-  closing.background = { color: COLORS.accent };
+  addCoverBackground(closing, template?.closingBackgroundImage);
   safeAddImage(closing, { path: LOGO_PATH, x: (10 - logoW) / 2, y: 1.9, w: logoW, h: logoH });
-  closing.addText("Cảm ơn quý khách", {
+  closing.addText(template?.closingText?.trim() || "Cảm ơn quý khách", {
     x: 0.5,
     y: 2.9,
     w: 9,
@@ -148,6 +177,63 @@ export async function generateCollectionPptx({
 
   const safeName = collectionName.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "collection";
   await pptx.writeFile({ fileName: `${safeName}.pptx` });
+}
+
+function drawProductCell(
+  slide: PptxGenJSType.Slide,
+  item: PptxExportItem,
+  cell: Rect,
+  inner: "LR" | "TB",
+  fontSizes: LayoutConfig["fontSizes"],
+) {
+  const gap = 0.12;
+  const image: Rect =
+    inner === "LR"
+      ? { x: cell.x, y: cell.y, w: cell.w * 0.42, h: cell.h }
+      : { x: cell.x, y: cell.y, w: cell.w, h: cell.h * 0.55 };
+  const info: Rect =
+    inner === "LR"
+      ? { x: cell.x + cell.w * 0.42 + gap, y: cell.y, w: cell.w * 0.58 - gap, h: cell.h }
+      : { x: cell.x, y: cell.y + cell.h * 0.55 + gap, w: cell.w, h: cell.h * 0.45 - gap };
+
+  if (item.mainImage) {
+    safeAddImage(slide, { path: item.mainImage, ...image, sizing: { type: "cover", w: image.w, h: image.h } });
+  } else {
+    slide.addShape("roundRect", { ...image, fill: { color: TINT_HEX[item.tint] }, line: { color: TINT_HEX[item.tint] }, rectRadius: 0.06 });
+  }
+
+  const lineH = fontSizes.code / 62; // rough inches-per-line at this font size
+  slide.addText(item.code, { x: info.x, y: info.y, w: info.w, h: lineH + 0.1, fontSize: fontSizes.code, bold: true, color: COLORS.text, fontFace: FONT });
+  slide.addText(`${item.category} · ${item.material}`, {
+    x: info.x,
+    y: info.y + lineH + 0.1,
+    w: info.w,
+    h: lineH + 0.06,
+    fontSize: fontSizes.meta,
+    color: COLORS.textMuted,
+    fontFace: FONT,
+  });
+  slide.addText(item.sizeSummary, {
+    x: info.x,
+    y: info.y + (lineH + 0.1) * 2,
+    w: info.w,
+    h: info.h - (lineH + 0.1) * 2,
+    fontSize: fontSizes.size,
+    color: COLORS.textFaint,
+    fontFace: FONT,
+  });
+}
+
+// Cover/closing background: a user-supplied image (from Settings) with a
+// dark overlay so white text stays legible over any photo, or the flat
+// brand green when no image is configured.
+function addCoverBackground(slide: PptxGenJSType.Slide, backgroundImage?: string) {
+  if (!backgroundImage) {
+    slide.background = { color: COLORS.accent };
+    return;
+  }
+  safeAddImage(slide, { path: backgroundImage, x: 0, y: 0, w: 10, h: 5.63, sizing: { type: "cover", w: 10, h: 5.63 } });
+  slide.addShape("rect", { x: 0, y: 0, w: 10, h: 5.63, fill: { color: "000000", transparency: 55 }, line: { type: "none" } });
 }
 
 // pptxgenjs resolves `path` images lazily when writing the file — a bad

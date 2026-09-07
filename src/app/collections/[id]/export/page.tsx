@@ -10,9 +10,8 @@ import { useProducts } from "@/components/ProductsProvider";
 import { CURRENT_USER_NAME, CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYYY } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections } from "@/lib/permissions";
-import { generateCollectionPptx } from "@/lib/pptxExport";
-
-const PER_SLIDE_OPTIONS = [2, 4, 6, 9];
+import { generateCollectionPptx, PRODUCTS_PER_SLIDE_OPTIONS, type ProductsPerSlide } from "@/lib/pptxExport";
+import { useSettings } from "@/components/SettingsProvider";
 
 function sizeSummary(sizeVariants?: { size: string; length?: number; width?: number; height?: number }[]) {
   if (!sizeVariants || sizeVariants.length === 0) return "—";
@@ -30,6 +29,7 @@ export default function CollectionExportPage() {
   const userName = CURRENT_USER_NAME[role];
   const { collections, logPitch } = useCollections();
   const { products } = useProducts();
+  const { pptxTemplate } = useSettings();
   const collection = collections.find((c) => c.id === params.id);
 
   const items = useMemo(
@@ -43,7 +43,7 @@ export default function CollectionExportPage() {
   const [included, setIncluded] = useState<Set<string>>(() => new Set(items.map((p) => p.code)));
   const [customer, setCustomer] = useState(CUSTOMERS[0]);
   const [note, setNote] = useState("");
-  const [perSlide, setPerSlide] = useState(6);
+  const [perSlide, setPerSlide] = useState<ProductsPerSlide>(6);
   const [logged, setLogged] = useState(false);
   const [pptxBusy, setPptxBusy] = useState(false);
   const [pptxError, setPptxError] = useState("");
@@ -102,6 +102,11 @@ export default function CollectionExportPage() {
           mainImage: p.mainImage,
           tint: p.tint,
         })),
+        template: {
+          backgroundImage: pptxTemplate.coverImage,
+          closingBackgroundImage: pptxTemplate.closingImage,
+          closingText: pptxTemplate.closingText,
+        },
       });
       ensureLogged();
     } catch {
@@ -179,10 +184,10 @@ export default function CollectionExportPage() {
               <span className="text-[12.5px] font-semibold">Số sản phẩm/trang (PPTX)</span>
               <select
                 value={perSlide}
-                onChange={(e) => setPerSlide(Number(e.target.value))}
+                onChange={(e) => setPerSlide(Number(e.target.value) as ProductsPerSlide)}
                 className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
               >
-                {PER_SLIDE_OPTIONS.map((n) => (
+                {PRODUCTS_PER_SLIDE_OPTIONS.map((n) => (
                   <option key={n} value={n}>
                     {n} sản phẩm/trang
                   </option>

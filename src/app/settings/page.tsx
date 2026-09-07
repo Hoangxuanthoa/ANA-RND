@@ -15,6 +15,7 @@ const TABS = [
   { key: "size", label: "Size" },
   { key: "color", label: "Màu sắc" },
   { key: "user", label: "User" },
+  { key: "pptx", label: "Mẫu PPTX" },
 ] as const;
 
 const STAFF_ROLES: Exclude<Role, "CUSTOMER">[] = ["ADMIN", "RND", "SALES", "MARKETING"];
@@ -236,6 +237,93 @@ function UserTab() {
   );
 }
 
+function PptxBackgroundPicker({
+  label,
+  image,
+  onPick,
+  onClear,
+}: {
+  label: string;
+  image?: string;
+  onPick: (file: File) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[13px] font-bold">{label}</span>
+      <div className="flex items-center gap-3">
+        {image ? (
+          <div className="relative h-24 w-40 flex-shrink-0 overflow-hidden rounded-lg border border-line">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={image} alt="" className="h-full w-full object-cover" />
+            <button
+              onClick={onClear}
+              className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                <path d="M18 6L6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="flex h-24 w-40 flex-shrink-0 items-center justify-center rounded-lg bg-accent px-2 text-center text-[11px] font-semibold text-white">
+            Mặc định (nền xanh thương hiệu)
+          </div>
+        )}
+        <label className="flex h-9 cursor-pointer items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg">
+          {image ? "Đổi ảnh" : "Tải ảnh lên"}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onPick(file);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function PptxTemplateTab() {
+  const { pptxTemplate, updatePptxTemplate } = useSettings();
+
+  return (
+    <div className="flex flex-col gap-6">
+      <p className="text-[12.5px] text-text-faint">
+        Áp dụng cho mọi lượt xuất PPTX của cả team (trang thông tin sản phẩm giữ nguyên bố cục cố định, không
+        chỉnh ở đây). Ảnh lưu tạm trong trình duyệt — mất khi tải lại trang, giống ảnh sản phẩm.
+      </p>
+
+      <PptxBackgroundPicker
+        label="Ảnh nền trang bìa"
+        image={pptxTemplate.coverImage}
+        onPick={(file) => updatePptxTemplate({ coverImage: URL.createObjectURL(file) })}
+        onClear={() => updatePptxTemplate({ coverImage: undefined })}
+      />
+
+      <PptxBackgroundPicker
+        label="Ảnh nền trang cuối"
+        image={pptxTemplate.closingImage}
+        onPick={(file) => updatePptxTemplate({ closingImage: URL.createObjectURL(file) })}
+        onClear={() => updatePptxTemplate({ closingImage: undefined })}
+      />
+
+      <label className="flex max-w-sm flex-col gap-1.5">
+        <span className="text-[13px] font-bold">Chữ trang cuối</span>
+        <input
+          value={pptxTemplate.closingText}
+          onChange={(e) => updatePptxTemplate({ closingText: e.target.value })}
+          className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+        />
+      </label>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { role } = useRole();
   const {
@@ -341,6 +429,8 @@ export default function SettingsPage() {
         )}
 
         {tab === "user" && <UserTab />}
+
+        {tab === "pptx" && <PptxTemplateTab />}
       </div>
     </div>
   );

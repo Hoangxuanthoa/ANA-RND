@@ -100,18 +100,47 @@ read it before changing any access-control logic. Highlights:
   There's also a "Xuất PPTX" button on the same export page, generating a
   real .pptx client-side via `pptxgenjs` (`src/lib/pptxExport.ts`) — added
   as an npm dependency since (unlike PDF) there's no browser-native way to
-  produce PowerPoint. Template: accent-green cover slide (logo + name +
-  customer + note + date) → content slides grid-chunked by a "Số sản
-  phẩm/trang" picker (2/4/6/9, default 6) → accent-green closing slide
-  ("Cảm ơn quý khách" + logo). Product images embed via pptxgenjs's own
-  `path` loader (works for both real URLs and session-only `blob:` object
-  URLs); a product with no image gets a flat tinted rounded-rect instead
-  of the app's usual placeholder icon (pptxgenjs shapes can't easily draw
-  that SVG). Image loads are wrapped per-image (`safeAddImage`) so one bad
+  produce PowerPoint. Product images embed via pptxgenjs's own `path`
+  loader (works for both real URLs and session-only `blob:` object URLs);
+  a product with no image gets a flat tinted rounded-rect instead of the
+  app's usual placeholder icon (pptxgenjs shapes can't easily draw that
+  SVG). Image loads are wrapped per-image (`safeAddImage`) so one bad
   image degrades to a colored box instead of failing the whole export.
   PPTX and PDF share the same "log the pitch once per page visit" flag,
-  so triggering both on one visit doesn't double-log. Bug fixed
-  2026-09-07 after user report: "Add to Collection" in
+  so triggering both on one visit doesn't double-log.
+
+  **PPTX template (2026-09-07):** content slides use 5 fixed, deliberately
+  designed layouts (not a generic auto-grid) picked via "Số sản
+  phẩm/trang" — `1|2|3|4|6` (`ProductsPerSlide` in pptxExport.ts,
+  `PRODUCTS_PER_SLIDE_OPTIONS`). 1/4/6 use an image-left/info-right cell
+  ("LR"); 2/3 use image-top/info-bottom ("TB") — see the `LAYOUTS` table
+  in pptxExport.ts for the exact per-mode grid/font-size config. A
+  shorter last chunk just leaves the unused slots of that mode's layout
+  empty rather than switching modes. Per-item fields stay mã/category/
+  material/kích thước at every density — user explicitly did not want
+  extra fields shown even where there's more room. Cover/closing slide
+  backgrounds are now configurable (a photo instead of the flat green,
+  with an automatic 55%-black overlay so white text stays legible) via a
+  new **"Mẫu PPTX" tab in Settings** (Admin-only, `SettingsProvider`'s
+  `pptxTemplate`/`updatePptxTemplate` — cover image, closing image,
+  closing text, applies to every export team-wide). The cover title
+  itself stays bound to the real collection name always — not part of
+  this template, matches user's own framing ("chữ thì mặc định là tên
+  Collection rồi"). Cover/closing images are NOT run through the 1:1 crop
+  tool (see below) — a slide background should be 16:9, cropping it
+  square would letterbox it.
+
+  **Image crop tool (2026-09-07):** every product image upload (main
+  image + gallery images, both create and edit, plus Upload Version) now
+  opens `ImageCropModal.tsx` (built on `react-easy-crop`, aspect locked
+  to 1:1) before the file becomes state — user wants every product photo
+  standardized to a square now that thumbnails show up everywhere
+  (Library/Collection grids, PPTX cells) and were getting cropped
+  differently by each container's own CSS. `src/lib/cropImage.ts` does
+  the actual canvas crop and returns a real Blob object URL, so nothing
+  downstream needs to know a crop happened.
+
+  Bug fixed 2026-09-07 after user report: "Add to Collection" in
   `ProductQuickView.tsx` opened a dropdown that was invisible — the modal
   card had `overflow-hidden` and the button sat at the very bottom edge
   with nothing below it in the flow, so the absolutely-positioned
