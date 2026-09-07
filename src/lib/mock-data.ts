@@ -434,19 +434,31 @@ export const PRODUCT_ASSETS: AssetItem[] = [
   { label: "Drawing kỹ thuật (.pdf)", tint: "slate" },
 ];
 
+// Kept newest-first, per product — the "Mới nhất" badge in the UI just
+// marks whichever entry comes first for that productCode.
 export interface VersionItem {
+  productCode: string;
   number: string;
   note: string;
   by: string;
   date: string;
+  image?: string;
 }
 
 export const PRODUCT_VERSIONS: VersionItem[] = [
-  { number: "V04", note: "Gia cố đáy, đổi kiểu đan viền", by: "An Nguyễn", date: "12/08/2026" },
-  { number: "V03", note: "Điều chỉnh theo feedback JYSK — thu nhỏ 10%", by: "An Nguyễn", date: "02/07/2026" },
-  { number: "V02", note: "Thêm size M, L", by: "An Nguyễn", date: "18/05/2026" },
-  { number: "V01", note: "Bản thiết kế gốc", by: "An Nguyễn", date: "30/03/2026" },
+  { productCode: "RND-00125", number: "V04", note: "Gia cố đáy, đổi kiểu đan viền", by: "An Nguyễn", date: "12/08/2026" },
+  { productCode: "RND-00125", number: "V03", note: "Điều chỉnh theo feedback JYSK — thu nhỏ 10%", by: "An Nguyễn", date: "02/07/2026" },
+  { productCode: "RND-00125", number: "V02", note: "Thêm size M, L", by: "An Nguyễn", date: "18/05/2026" },
+  { productCode: "RND-00125", number: "V01", note: "Bản thiết kế gốc", by: "An Nguyễn", date: "30/03/2026" },
 ];
+
+// The next version's label for one product's history — count starts from
+// 1 even with zero real entries yet, since the UI always synthesizes an
+// implicit "V01 — Bản thiết kế gốc" when a product has no real history.
+export function nextVersionNumber(existingForProduct: VersionItem[]): string {
+  const count = existingForProduct.length > 0 ? existingForProduct.length : 1;
+  return `V${String(count + 1).padStart(2, "0")}`;
+}
 
 export interface FeedbackItem {
   author: string;

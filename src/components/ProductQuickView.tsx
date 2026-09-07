@@ -12,6 +12,7 @@ import { canManageProduct, canPickProduct, canManageCollections, canReviewProduc
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { ImageLightbox } from "@/components/ImageLightbox";
 import { RejectProductModal } from "@/components/RejectProductModal";
+import { UploadVersionModal } from "@/components/UploadVersionModal";
 import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 
 interface ProductQuickViewProps {
@@ -22,12 +23,13 @@ interface ProductQuickViewProps {
 export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct } = useProducts();
+  const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct, addProductVersion } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
   const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   const status = productStatusBadge(product.status);
@@ -217,7 +219,10 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
               />
             )}
             {canManageProduct(role) && isReleased && (
-              <button className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg">
+              <button
+                onClick={() => setUploadVersionOpen(true)}
+                className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg"
+              >
                 Upload Version
               </button>
             )}
@@ -238,6 +243,18 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
             rejectProduct(product.code, reason);
             setRejectOpen(false);
             onClose();
+          }}
+        />
+      )}
+
+      {uploadVersionOpen && (
+        <UploadVersionModal
+          open
+          productName={product.name}
+          onCancel={() => setUploadVersionOpen(false)}
+          onConfirm={(note, image) => {
+            addProductVersion(product.code, note, image);
+            setUploadVersionOpen(false);
           }}
         />
       )}

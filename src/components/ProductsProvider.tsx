@@ -5,12 +5,14 @@ import {
   PRODUCTS as INITIAL_PRODUCTS,
   INITIAL_NOTIFICATIONS,
   PRODUCT_FEEDBACK as INITIAL_PRODUCT_FEEDBACK,
+  PRODUCT_VERSIONS as INITIAL_PRODUCT_VERSIONS,
   CATEGORIES as INITIAL_CATEGORIES,
   MATERIALS as INITIAL_MATERIALS,
   SIZES as INITIAL_SIZES,
   COLORS as INITIAL_COLORS,
   feedbackIdentity,
   nextProductCode,
+  nextVersionNumber,
   todayDDMMYYYY,
   CURRENT_USER_NAME,
   type Product,
@@ -18,6 +20,7 @@ import {
   type NotificationItem,
   type ProductFeedbackItem,
   type ReusePermission,
+  type VersionItem,
 } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 
@@ -26,6 +29,7 @@ interface ProductsContextValue {
   notifications: NotificationItem[];
   favoritedCodes: Set<string>;
   productFeedback: ProductFeedbackItem[];
+  productVersions: VersionItem[];
   categories: string[];
   materials: string[];
   sizes: string[];
@@ -44,6 +48,9 @@ interface ProductsContextValue {
   setReusePermission: (code: string, reuse: ReusePermission, exclusiveBy?: string) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
+  // Appends a new, auto-numbered version entry for this product and, if
+  // an image was included, makes it the product's live main image too.
+  addProductVersion: (productCode: string, note: string, image?: string) => void;
   createProduct: (
     input: {
       name: string;
@@ -116,6 +123,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
+  const [productVersions, setProductVersions] = useState<VersionItem[]>(INITIAL_PRODUCT_VERSIONS);
   const categoryField = useManagedField(INITIAL_CATEGORIES, "category", products, setProducts);
   const materialField = useManagedField(INITIAL_MATERIALS, "material", products, setProducts);
   const colorField = useManagedField(INITIAL_COLORS, "color", products, setProducts);
@@ -220,6 +228,22 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
   }
 
+  function addProductVersion(productCode: string, note: string, image?: string) {
+    const existing = productVersions.filter((v) => v.productCode === productCode);
+    const entry: VersionItem = {
+      productCode,
+      number: nextVersionNumber(existing),
+      note,
+      by: CURRENT_USER_NAME[role],
+      date: todayDDMMYYYY(),
+      image,
+    };
+    setProductVersions((prev) => [entry, ...prev]);
+    if (image) {
+      setProducts((prev) => prev.map((p) => (p.code === productCode ? { ...p, mainImage: image } : p)));
+    }
+  }
+
   function createProduct(
     input: {
       name: string;
@@ -284,6 +308,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         notifications,
         favoritedCodes,
         productFeedback,
+        productVersions,
         categories: categoryField.items,
         materials: materialField.items,
         sizes,
@@ -296,6 +321,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         setReusePermission,
         toggleFavorite,
         addProductFeedback,
+        addProductVersion,
         createProduct,
         updateProduct,
         archiveProduct,

@@ -9,7 +9,8 @@ import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { PRODUCT_VERSIONS, ROLE_INITIALS, CURRENT_USER_NAME, formatSizeVariantDimensions } from "@/lib/mock-data";
+import { UploadVersionModal } from "@/components/UploadVersionModal";
+import { ROLE_INITIALS, CURRENT_USER_NAME, formatSizeVariantDimensions, type VersionItem } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -24,7 +25,7 @@ import { ImageLightbox } from "@/components/ImageLightbox";
 import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 
 const TABS = [
-  { key: "versions", label: `Versions (${PRODUCT_VERSIONS.length})` },
+  { key: "versions", label: "Versions" },
   { key: "projects", label: "Used in Projects" },
   { key: "feedback", label: "Feedback" },
 ] as const;
@@ -32,8 +33,18 @@ const TABS = [
 export default function ProductDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const { products, favoritedCodes, toggleFavorite, submitForReview, productFeedback, addProductFeedback, archiveProduct, deleteProduct } =
-    useProducts();
+  const {
+    products,
+    favoritedCodes,
+    toggleFavorite,
+    submitForReview,
+    productFeedback,
+    addProductFeedback,
+    productVersions,
+    addProductVersion,
+    archiveProduct,
+    deleteProduct,
+  } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const product = products.find((p) => p.code === params.code);
   const { role } = useRole();
@@ -46,11 +57,20 @@ export default function ProductDetailPage() {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
   const { guardPick, guardModal } = useExclusiveGuard(userName);
 
   if (!product) return notFound();
 
   const feedback = productFeedback.filter((f) => f.productCode === product.code);
+  const realVersions = productVersions.filter((v) => v.productCode === product.code);
+  // Every product shows an implicit "V01 — Bản thiết kế gốc" derived from
+  // its own creation info, appended after any real versions (which are
+  // kept newest-first) so the history always reads as one continuous
+  // line back to the origin, never jumping straight from V02 to nothing.
+  const impliedV01: VersionItem = { productCode: product.code, number: "V01", note: "Bản thiết kế gốc", by: product.designer, date: product.createdAt };
+  const hasRealOrigin = realVersions.some((v) => v.number === "V01");
+  const versions = hasRealOrigin ? realVersions : [...realVersions, impliedV01];
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
@@ -284,7 +304,10 @@ export default function ProductDetailPage() {
                 </button>
               )}
               {canManageProduct(role) && isReleased && (
-                <button className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg">
+                <button
+                  onClick={() => setUploadVersionOpen(true)}
+                  className="inline-flex h-[38px] items-center justify-center gap-1.5 rounded-lg border border-line bg-surface text-[13px] font-bold hover:bg-bg"
+                >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 3v12M7 8l5-5 5 5" />
                     <path d="M5 21h14" />
@@ -306,7 +329,11 @@ export default function ProductDetailPage() {
                 tab === t.key ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
             >
-              {t.key === "projects" ? `${t.label} (${usages.length})` : t.key === "feedback" ? `${t.label} (${feedback.length})` : t.label}
+              {t.key === "projects"
+                ? `${t.label} (${usages.length})`
+                : t.key === "feedback"
+                  ? `${t.label} (${feedback.length})`
+                  : `${t.label} (${versions.length})`}
             </button>
           ))}
         </div>
@@ -314,15 +341,22 @@ export default function ProductDetailPage() {
         {tab === "versions" && (
           <div className="flex flex-col pt-4">
             <p className="mb-3 text-xs text-text-faint">Lịch sử version — không ghi đè, chỉ thêm mới.</p>
-            {PRODUCT_VERSIONS.map((v, i) => (
+            {versions.map((v, i) => (
               <div key={v.number} className="flex items-center gap-4 border-b border-line py-3.5 last:border-b-0">
-                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-bg text-xs font-extrabold text-text-muted">
-                  {v.number}
-                </div>
+                {v.image ? (
+                  <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={v.image} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg bg-bg text-xs font-extrabold text-text-muted">
+                    {v.number}
+                  </div>
+                )}
                 <div className="flex-1">
                   <div className="text-[13.5px] font-bold">{v.note}</div>
                   <div className="mt-0.5 text-xs text-text-faint">
-                    bởi {v.by} · {v.date}
+                    {v.number} · bởi {v.by} · {v.date}
                   </div>
                 </div>
                 {i === 0 && (
@@ -425,6 +459,18 @@ export default function ProductDetailPage() {
           product={product}
           onCancel={() => setEditOpen(false)}
           onCreate={() => setEditOpen(false)}
+        />
+      )}
+
+      {uploadVersionOpen && (
+        <UploadVersionModal
+          open
+          productName={product.name}
+          onCancel={() => setUploadVersionOpen(false)}
+          onConfirm={(note, image) => {
+            addProductVersion(product.code, note, image);
+            setUploadVersionOpen(false);
+          }}
         />
       )}
 
