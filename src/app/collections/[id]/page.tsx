@@ -13,8 +13,6 @@ import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections, canEditCollection } from "@/lib/permissions";
 
-type PendingExport = "pdf" | "link" | null;
-
 export default function CollectionDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -26,10 +24,11 @@ export default function CollectionDetailPage() {
 
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState("");
-  const [pendingExport, setPendingExport] = useState<PendingExport>(null);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [shareBannerOpen, setShareBannerOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Product | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<React.ReactNode | null>(null);
 
   if (!canManageCollections(role)) {
     return (
@@ -47,8 +46,11 @@ export default function CollectionDetailPage() {
   const editable = canEditCollection(role, userName, collection);
   const items = collection.productCodes.map((code) => products.find((p) => p.code === code)).filter((p): p is NonNullable<typeof p> => !!p);
 
-  function flash(message: string) {
-    setNotice(message);
+  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/collections/${collection.id}/share` : "";
+
+  function copyShareLink() {
+    navigator.clipboard?.writeText(shareUrl);
+    setNotice("Đã copy link vào clipboard.");
     setTimeout(() => setNotice(null), 3000);
   }
 
@@ -123,15 +125,17 @@ export default function CollectionDetailPage() {
 
           <div className="flex flex-shrink-0 flex-col items-end gap-2">
             <div className="flex gap-2">
-              <button
-                onClick={() => setPendingExport("pdf")}
-                disabled={items.length === 0}
-                className="h-9 rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg disabled:opacity-40"
+              <Link
+                href={`/collections/${collection.id}/export`}
+                aria-disabled={items.length === 0}
+                className={`flex h-9 items-center rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg ${
+                  items.length === 0 ? "pointer-events-none opacity-40" : ""
+                }`}
               >
                 Xuất PDF
-              </button>
+              </Link>
               <button
-                onClick={() => setPendingExport("link")}
+                onClick={() => setLinkModalOpen(true)}
                 disabled={items.length === 0}
                 className="h-9 rounded-lg border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg disabled:opacity-40"
               >
@@ -150,6 +154,33 @@ export default function CollectionDetailPage() {
             )}
           </div>
         </div>
+
+        {shareBannerOpen && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-green-soft bg-green-soft px-4 py-3 text-[12.5px] font-semibold text-green">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span>Link xem trước cho khách hàng:</span>
+              <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="truncate underline">
+                {shareUrl}
+              </a>
+            </div>
+            <div className="flex flex-shrink-0 gap-2">
+              <button
+                onClick={copyShareLink}
+                className="h-8 rounded-md border border-green/30 bg-white px-3 text-[12px] font-bold text-green hover:bg-green-soft"
+              >
+                Copy link
+              </button>
+              <button
+                onClick={() => setShareBannerOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-md text-green hover:bg-white"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {notice && (
           <div className="rounded-lg border border-green-soft bg-green-soft px-4 py-2.5 text-[12.5px] font-semibold text-green">
@@ -235,14 +266,13 @@ export default function CollectionDetailPage() {
       </div>
 
       <LogPitchModal
-        open={pendingExport !== null}
-        actionLabel={pendingExport === "pdf" ? "Xuất PDF" : "Lấy link online"}
-        onCancel={() => setPendingExport(null)}
+        open={linkModalOpen}
+        actionLabel="Lấy link online"
+        onCancel={() => setLinkModalOpen(false)}
         onConfirm={(customer, note) => {
           logPitch(collection.id, customer, userName, note);
-          if (pendingExport === "pdf") flash("Đã tạo file PDF (mô phỏng) — sẵn sàng tải xuống.");
-          else flash(`Đã tạo link: designlibrary.internal/share/${collection.id}`);
-          setPendingExport(null);
+          setShareBannerOpen(true);
+          setLinkModalOpen(false);
         }}
       />
 

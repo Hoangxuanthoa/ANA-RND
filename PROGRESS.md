@@ -83,7 +83,20 @@ read it before changing any access-control logic. Highlights:
   not the customer. EditProjectModal can now also assign/reassign a
   project's `rndOwner` after creation (didn't exist before at all).
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
-  set of designs, pitch log (who was pitched what, when).
+  set of designs, pitch log (who was pitched what, when). Export is now
+  real, not simulated: "Xuất PDF" goes to `/collections/[id]/export`, a
+  page where you pick which products to include (checkboxes, all on by
+  default), a customer, and an optional note, with a live preview of the
+  document below — "In / Xuất PDF" logs the pitch then calls
+  `window.print()`, so "save as PDF" in the browser's print dialog
+  produces a real file (no PDF library added, browsers already do this
+  well). "Lấy link online" still logs a pitch via the existing
+  `LogPitchModal`, then reveals a real working link to
+  `/collections/[id]/share` — a public-style read-only page (no TopNav,
+  no role gating) showing the collection's *current* full contents live
+  (not the customized export subset). Per-item fields are deliberately
+  just mã/category/material/kích thước, no product name — user said
+  Vietnamese product names aren't standardized enough to show a customer.
 - **My Task** (`/my-tasks`) — R&D personal queue, quick-view with
   approve/request-change actions.
 - **Review** (`/review`, "Duyệt sản phẩm") — Admin-only catalog approval

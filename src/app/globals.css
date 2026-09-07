@@ -69,3 +69,12 @@ body {
   background: var(--bg);
   color: var(--text);
 }
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  body {
+    background: white;
+  }
+}
