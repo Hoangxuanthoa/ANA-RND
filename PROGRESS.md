@@ -77,7 +77,11 @@ read it before changing any access-control logic. Highlights:
 - **Projects** (`/projects`, `/projects/[code]`) — My Project / All Project
   tabs, full project detail (products, feedback tab, activity), approval
   pipeline (creator approval → customer approval), Exclusive/Reuse marking,
-  reject-with-reason flow.
+  reject-with-reason flow. Customer can now request a new project (their
+  own type only, no Khách hàng/R&D pickers — see NewProjectModal); the
+  chosen Sales rep becomes its real owner (`createdByName`) from creation,
+  not the customer. EditProjectModal can now also assign/reassign a
+  project's `rndOwner` after creation (didn't exist before at all).
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when).
 - **My Task** (`/my-tasks`) — R&D personal queue, quick-view with
@@ -94,10 +98,16 @@ read it before changing any access-control logic. Highlights:
   Customer Review — the reviewer's turn), `PROJECT_ITEM_CHANGE_REQUESTED`
   (rejected at either stage), `PROJECT_ITEM_APPROVED` (reaches final
   Approved), `NEW_FEEDBACK` (a comment on a product/project/project-product),
-  `NEW_PITCH` (a Collection pitch logged). Every one excludes whoever caused
-  it as the recipient. "Task assigned" was deliberately left out — there's
-  still no assign/reassign UI to hook a real event off of; that's a separate
-  feature, not a notification-wiring gap.
+  `NEW_PITCH` (a Collection pitch logged), `PROJECT_REQUESTED_BY_CUSTOMER`
+  (Customer submits a new project request — the chosen Sales rep is
+  notified), `PROJECT_ASSIGNED` (a project's `rndOwner` is set/changed via
+  EditProjectModal — the new R&D owner is notified; this is "task assigned"
+  at the project level). Every one excludes whoever caused it as the
+  recipient. Still not covered: assigning/reassigning a specific
+  `ProjectProductItem.assigneeName` (per-product task within a project) —
+  that field still only ever gets set automatically when an R&D creates
+  their own NEW design; no UI to set it otherwise, so no notification
+  trigger for it either.
 
 Also worth knowing: several accidental-data-loss and UX fixes landed
 recently across the create/edit forms — New Product, New/Edit Project, and
@@ -115,17 +125,21 @@ close.
    — **done**, see Library above.
 2. ~~Notification system only covered product rejection~~ — **done**, see
    Notifications above.
-3. Audit the CUSTOMER role's experience end-to-end (what they see, how they
-   approve) — not yet specifically reviewed. **Next up.**
+3. ~~Audit the CUSTOMER role's experience end-to-end~~ — **done**. Biggest
+   gap found: Customer couldn't originate a project at all. Fixed by adding
+   a request-intake flow (see Projects above) rather than just reviewing
+   the prior read-only experience.
 4. Eventually: wire the real backend (Prisma/Supabase/auth) and migrate the
    Context providers to call real API routes instead of holding state in
    memory. Big, separate-scope effort — do not start opportunistically.
+   **Next candidate**, but confirm with the user first — nothing else from
+   this list is currently blocking it.
 5. Possible future feature (not yet requested, just noted while working on
-   notifications): there's no way to assign/reassign an R&D person to a
-   project's product after creation — `assigneeName` only ever gets set
-   automatically when an R&D creates their own NEW design. If a real "assign
-   to teammate" flow gets built later, "task assigned" is the natural
-   notification to pair with it.
+   the above): there's still no way to assign/reassign an R&D person to a
+   specific *product* inside a project (`ProjectProductItem.assigneeName`)
+   — only the project-level `rndOwner` can be assigned now. If a real
+   per-product "assign to teammate" flow gets built later, pair it with a
+   notification the same way `PROJECT_ASSIGNED` was just added.
 
 ## Workflow
 
