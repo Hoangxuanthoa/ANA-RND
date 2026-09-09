@@ -56,15 +56,19 @@ export default function ProjectsPage() {
     setScope(role === "ADMIN" ? "all" : "mine");
   }, [role]);
 
-  const filtered = useMemo(() => {
-    let base: Project[];
-    if (isCustomer) {
-      base = projects.filter((p) => p.isMine);
-    } else {
-      base = scope === "mine" ? projects.filter((p) => isMyProject(role, userName, p)) : projects;
-    }
-    return status === "ALL" ? base : base.filter((p) => p.status === status);
-  }, [projects, status, isCustomer, scope, role, userName]);
+  // Scoped by My/All (or Customer's own projects) but not yet by status —
+  // this is what the status chips' counts are based on, so switching
+  // scope updates the counts but picking a status chip doesn't (a chip's
+  // own count shouldn't change just because it's the one selected).
+  const scoped = useMemo(() => {
+    if (isCustomer) return projects.filter((p) => p.isMine);
+    return scope === "mine" ? projects.filter((p) => isMyProject(role, userName, p)) : projects;
+  }, [projects, isCustomer, scope, role, userName]);
+
+  const filtered = useMemo(
+    () => (status === "ALL" ? scoped : scoped.filter((p) => p.status === status)),
+    [scoped, status],
+  );
   const mineCount = useMemo(
     () => projects.filter((p) => isMyProject(role, userName, p)).length,
     [projects, role, userName],
@@ -129,11 +133,14 @@ export default function ProjectsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {STATUS_OPTIONS.map((s) => (
-            <Chip key={s.key} active={status === s.key} onClick={() => setStatus(s.key)}>
-              {s.label}
-            </Chip>
-          ))}
+          {STATUS_OPTIONS.map((s) => {
+            const count = s.key === "ALL" ? scoped.length : scoped.filter((p) => p.status === s.key).length;
+            return (
+              <Chip key={s.key} active={status === s.key} onClick={() => setStatus(s.key)}>
+                {s.label} ({count})
+              </Chip>
+            );
+          })}
         </div>
 
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
