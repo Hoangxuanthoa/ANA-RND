@@ -65,6 +65,10 @@ export default function ProjectsPage() {
     }
     return status === "ALL" ? base : base.filter((p) => p.status === status);
   }, [projects, status, isCustomer, scope, role, userName]);
+  const mineCount = useMemo(
+    () => projects.filter((p) => isMyProject(role, userName, p)).length,
+    [projects, role, userName],
+  );
 
   // minmax(0, Nfr) — not bare Nfr — on every track: the header row and
   // each data row are separate grid containers, so without the 0 floor a
@@ -88,46 +92,41 @@ export default function ProjectsPage() {
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
       <div className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col gap-5 p-7">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-1 text-[22px] font-extrabold">Projects</h1>
-            <p className="text-[13.5px] text-text-muted">
-              {filtered.length} {isCustomer || scope === "mine" ? "dự án của bạn" : "dự án"}
-            </p>
-          </div>
+        <div className="flex items-center justify-between border-b border-line">
+          {isCustomer ? (
+            <div />
+          ) : (
+            <div className="flex gap-6">
+              <button
+                onClick={() => setScope("mine")}
+                className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                  scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
+                }`}
+              >
+                My Project ({mineCount})
+              </button>
+              <button
+                onClick={() => setScope("all")}
+                className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                  scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
+                }`}
+              >
+                All Project ({projects.length})
+              </button>
+            </div>
+          )}
           {canCreateProject(role) && (
             <button
               onClick={() => setNewProjectOpen(true)}
-              className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
+              className="mb-2 inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                 <path d="M12 5v14M5 12h14" />
               </svg>
               New Project
             </button>
           )}
         </div>
-
-        {!isCustomer && (
-          <div className="flex gap-6 border-b border-line">
-            <button
-              onClick={() => setScope("mine")}
-              className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
-                scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
-              }`}
-            >
-              My Project
-            </button>
-            <button
-              onClick={() => setScope("all")}
-              className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
-                scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
-              }`}
-            >
-              All Project
-            </button>
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((s) => (
