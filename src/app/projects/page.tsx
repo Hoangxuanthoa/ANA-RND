@@ -14,6 +14,8 @@ import { canCreateProject, canEditProject, canHardDeleteProject, canMarkComplete
 
 type Scope = "mine" | "all";
 
+const PAGE_SIZE = 10;
+
 const STATUS_OPTIONS: { key: ProjectStatus | "ALL"; label: string }[] = [
   { key: "ALL", label: "All" },
   { key: "CREATED", label: "Created" },
@@ -51,9 +53,11 @@ export default function ProjectsPage() {
   // their own, so they default to "mine" — re-defaulting whenever the
   // role switches, since that's effectively "logging in as" someone else.
   const [scope, setScope] = useState<Scope>(role === "ADMIN" ? "all" : "mine");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     setScope(role === "ADMIN" ? "all" : "mine");
+    setPage(1);
   }, [role]);
 
   // Scoped by My/All (or Customer's own projects) but not yet by status —
@@ -69,6 +73,9 @@ export default function ProjectsPage() {
     () => (status === "ALL" ? scoped : scoped.filter((p) => p.status === status)),
     [scoped, status],
   );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const mineCount = useMemo(
     () => projects.filter((p) => isMyProject(role, userName, p)).length,
     [projects, role, userName],
@@ -102,7 +109,10 @@ export default function ProjectsPage() {
           ) : (
             <div className="flex gap-6">
               <button
-                onClick={() => setScope("mine")}
+                onClick={() => {
+                  setScope("mine");
+                  setPage(1);
+                }}
                 className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
                   scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
                 }`}
@@ -110,7 +120,10 @@ export default function ProjectsPage() {
                 My Project ({mineCount})
               </button>
               <button
-                onClick={() => setScope("all")}
+                onClick={() => {
+                  setScope("all");
+                  setPage(1);
+                }}
                 className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
                   scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
                 }`}
@@ -136,7 +149,14 @@ export default function ProjectsPage() {
           {STATUS_OPTIONS.map((s) => {
             const count = s.key === "ALL" ? scoped.length : scoped.filter((p) => p.status === s.key).length;
             return (
-              <Chip key={s.key} active={status === s.key} onClick={() => setStatus(s.key)}>
+              <Chip
+                key={s.key}
+                active={status === s.key}
+                onClick={() => {
+                  setStatus(s.key);
+                  setPage(1);
+                }}
+              >
                 {s.label} ({count})
               </Chip>
             );
@@ -160,7 +180,7 @@ export default function ProjectsPage() {
             <span className="text-right">Products</span>
             {!isCustomer && <span />}
           </div>
-          {filtered.map((p) => {
+          {pageItems.map((p) => {
             const badge = projectStatusBadge(p.status);
             const typeBadge = projectTypeBadge(p.type);
             const editable = canEditProject(role, userName, p);
@@ -243,6 +263,36 @@ export default function ProjectsPage() {
 
         {filtered.length === 0 && (
           <div className="py-16 text-center text-sm text-text-faint">Không có dự án ở trạng thái này.</div>
+        )}
+
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+            >
+              ← Back
+            </button>
+            <select
+              value={currentPage}
+              onChange={(e) => setPage(Number(e.target.value))}
+              className="h-9 rounded-lg border border-line bg-surface px-3 text-[13px] font-bold focus:border-accent focus:outline-none"
+            >
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  Trang {n}/{totalPages}
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+            >
+              Next →
+            </button>
+          </div>
         )}
       </div>
 

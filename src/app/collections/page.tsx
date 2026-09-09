@@ -10,6 +10,8 @@ import { canManageCollections, isMyCollection } from "@/lib/permissions";
 
 type Scope = "mine" | "all";
 
+const PAGE_SIZE = 10;
+
 export default function CollectionsPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
@@ -20,9 +22,11 @@ export default function CollectionsPage() {
   // mostly cares about the collections they made, same default logic as
   // the Projects tab.
   const [scope, setScope] = useState<Scope>(role === "ADMIN" ? "all" : "mine");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     setScope(role === "ADMIN" ? "all" : "mine");
+    setPage(1);
   }, [role]);
 
   const filtered = useMemo(
@@ -30,6 +34,9 @@ export default function CollectionsPage() {
     [collections, scope, userName],
   );
   const myCount = useMemo(() => collections.filter((c) => isMyCollection(userName, c)).length, [collections, userName]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   if (!canManageCollections(role)) {
     return (
@@ -95,7 +102,10 @@ export default function CollectionsPage() {
         <div className="flex items-center justify-between border-b border-line">
           <div className="flex gap-6">
             <button
-              onClick={() => setScope("mine")}
+              onClick={() => {
+                setScope("mine");
+                setPage(1);
+              }}
               className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
                 scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
@@ -103,7 +113,10 @@ export default function CollectionsPage() {
               My Collection ({myCount})
             </button>
             <button
-              onClick={() => setScope("all")}
+              onClick={() => {
+                setScope("all");
+                setPage(1);
+              }}
               className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
                 scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
@@ -131,7 +144,7 @@ export default function CollectionsPage() {
             <span>Ngày tạo</span>
             <span>Đã chào</span>
           </div>
-          {filtered.map((c) => {
+          {pageItems.map((c) => {
             const pitchedCustomers = Array.from(new Set(c.pitches.map((p) => p.customer)));
             return (
               <Link
@@ -160,6 +173,36 @@ export default function CollectionsPage() {
 
         {filtered.length === 0 && (
           <div className="py-16 text-center text-sm text-text-faint">Chưa có collection nào.</div>
+        )}
+
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+            >
+              ← Back
+            </button>
+            <select
+              value={currentPage}
+              onChange={(e) => setPage(Number(e.target.value))}
+              className="h-9 rounded-lg border border-line bg-surface px-3 text-[13px] font-bold focus:border-accent focus:outline-none"
+            >
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  Trang {n}/{totalPages}
+                </option>
+              ))}
+            </select>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+            >
+              Next →
+            </button>
+          </div>
         )}
       </div>
     </div>
