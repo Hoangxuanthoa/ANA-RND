@@ -142,14 +142,18 @@ read it before changing any access-control logic. Highlights:
   removed since nothing calls `window.print()` anywhere in the app
   anymore.
 
-  **Known cosmetic issue, not yet fixed:** `public/logo.png` has a fully
-  opaque white background baked into the file (confirmed via canvas
-  alpha readback — 255 everywhere), not a transparent PNG. Invisible
-  everywhere it's been used so far (white TopNav, white login card), but
-  now visibly shows as a white box wherever the full logo sits on the
-  green cover/closing slides (both this HTML deck and the real .pptx use
-  the same file the same way, so both are affected equally). Flagged to
-  the user, not yet actioned.
+  **Fixed 2026-09-09:** `public/logo.png` used to have a fully opaque
+  white background baked in (confirmed via canvas alpha readback — 255
+  everywhere), invisible on white surfaces but showing as a visible white
+  box on the green cover/closing slides. Chroma-keyed it via a one-off
+  PowerShell + System.Drawing pass (same tool used earlier for the
+  favicon crop): white/near-white *and* neutral (low-saturation) pixels
+  go transparent, with a soft partial-alpha fade at anti-aliased edges;
+  saturated logo colors (including the pale green ring, which could have
+  been mistaken for background) are left untouched since they fail the
+  "neutral" check. No code changed, just the asset — the fix applies
+  everywhere `/logo.png` is referenced (TopNav, login, share page,
+  CollectionSlideDeck, and the real .pptx via pptxExport.ts) for free.
 
   **PPTX template (2026-09-07):** content slides use 5 fixed, deliberately
   designed layouts (not a generic auto-grid) picked via "Số sản
