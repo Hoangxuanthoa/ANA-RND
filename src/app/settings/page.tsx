@@ -369,11 +369,6 @@ export default function SettingsPage() {
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
       <div className="mx-auto flex w-full max-w-[720px] flex-1 flex-col gap-5 p-7">
-        <div>
-          <h1 className="mb-1 text-[22px] font-extrabold">Cài đặt hệ thống</h1>
-          <p className="text-[13.5px] text-text-muted">Quản lý Category, Material, Size, Màu sắc và người dùng nội bộ.</p>
-        </div>
-
         <div className="flex gap-6 border-b border-line">
           {TABS.map((t) => (
             <button

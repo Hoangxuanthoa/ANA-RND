@@ -42,10 +42,7 @@ export default function ReviewQueuePage() {
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
       <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-5 p-7">
-        <div>
-          <h1 className="mb-1 text-[22px] font-extrabold">Duyệt sản phẩm</h1>
-          <p className="text-[13.5px] text-text-muted">{pending.length} sản phẩm đang chờ duyệt</p>
-        </div>
+        <p className="text-[13.5px] text-text-muted">{pending.length} sản phẩm đang chờ duyệt</p>
 
         <div className="flex flex-col gap-3.5">
           {pending.map((p) => (
