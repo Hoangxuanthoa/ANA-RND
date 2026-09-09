@@ -29,6 +29,7 @@ export default function CollectionsPage() {
     () => (scope === "mine" ? collections.filter((c) => isMyCollection(userName, c)) : collections),
     [collections, scope, userName],
   );
+  const myCount = useMemo(() => collections.filter((c) => isMyCollection(userName, c)).length, [collections, userName]);
 
   if (!canManageCollections(role)) {
     return (
@@ -54,24 +55,6 @@ export default function CollectionsPage() {
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
       <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col gap-5 p-7">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="mb-1 text-[22px] font-extrabold">Collections</h1>
-            <p className="text-[13.5px] text-text-muted">
-              {filtered.length} collection{scope === "mine" ? " của bạn" : ""}
-            </p>
-          </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            New Collection
-          </button>
-        </div>
-
         {creating && (
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface p-4">
             <input
@@ -109,30 +92,41 @@ export default function CollectionsPage() {
           </div>
         )}
 
-        <div className="flex gap-6 border-b border-line">
+        <div className="flex items-center justify-between border-b border-line">
+          <div className="flex gap-6">
+            <button
+              onClick={() => setScope("mine")}
+              className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
+              }`}
+            >
+              My Collection ({myCount})
+            </button>
+            <button
+              onClick={() => setScope("all")}
+              className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
+              }`}
+            >
+              All Collection ({collections.length})
+            </button>
+          </div>
           <button
-            onClick={() => setScope("mine")}
-            className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
-              scope === "mine" ? "border-accent text-text" : "border-transparent text-text-faint"
-            }`}
+            onClick={() => setCreating(true)}
+            className="mb-2 inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
           >
-            My Collection
-          </button>
-          <button
-            onClick={() => setScope("all")}
-            className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
-              scope === "all" ? "border-accent text-text" : "border-transparent text-text-faint"
-            }`}
-          >
-            All Collection
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            New Collection
           </button>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
-          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-2 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase">
+          <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-4 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase">
             <span>Collection</span>
             <span>Trạng thái</span>
-            <span className="text-right">Sản phẩm</span>
+            <span className="text-center">Sản phẩm</span>
             <span>Tạo bởi</span>
             <span>Ngày tạo</span>
             <span>Đã chào</span>
@@ -143,7 +137,7 @@ export default function CollectionsPage() {
               <Link
                 key={c.id}
                 href={`/collections/${c.id}`}
-                className="grid grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg"
+                className="grid grid-cols-[minmax(0,2fr)_minmax(0,0.8fr)_minmax(0,0.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)] items-center gap-4 border-t border-line px-4 py-3.5 hover:bg-bg"
               >
                 <span className="truncate text-[13.5px] font-bold">{c.name}</span>
                 <span
@@ -153,7 +147,7 @@ export default function CollectionsPage() {
                 >
                   {c.status === "DRAFT" ? "Draft" : "Đã gửi"}
                 </span>
-                <span className="text-right text-[13px] font-bold">{c.productCodes.length}</span>
+                <span className="text-center text-[13px] font-bold">{c.productCodes.length}</span>
                 <span className="text-[13px] text-text-muted">{c.createdByName}</span>
                 <span className="text-[13px] text-text-muted">{c.createdAt}</span>
                 <span className="truncate text-[13px] text-text-muted">
