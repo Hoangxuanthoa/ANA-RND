@@ -1,6 +1,6 @@
 "use client";
 
-import { LAYOUTS as CONTENT_LAYOUTS, type ProductsPerSlide, type ExportItem } from "@/lib/exportLayout";
+import { LAYOUTS as CONTENT_LAYOUTS, hasVisibleInfo, type ProductsPerSlide, type ExportItem, type InfoVisibility } from "@/lib/exportLayout";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 
 // HTML/CSS mirror of the same layout geometry the real exports use
@@ -61,14 +61,25 @@ function BrandSlide({
   );
 }
 
-function ProductCell({ item, inner, scale }: { item: SlideDeckItem; inner: "LR" | "TB"; scale: TextScale }) {
+function ProductCell({
+  item,
+  inner,
+  scale,
+  infoVisibility,
+}: {
+  item: SlideDeckItem;
+  inner: "LR" | "TB";
+  scale: TextScale;
+  infoVisibility: InfoVisibility;
+}) {
   const isLR = inner === "LR";
+  const hasInfo = hasVisibleInfo(infoVisibility);
   const lines = item.sizeLines.length > 0 ? item.sizeLines : ["—"];
   return (
-    <div className={`flex h-full min-h-0 min-w-0 gap-2.5 ${isLR ? "flex-row" : "flex-col"}`}>
+    <div className={`flex h-full min-h-0 min-w-0 gap-2.5 ${hasInfo && isLR ? "flex-row" : "flex-col"}`}>
       <div
         className={`flex flex-shrink-0 items-center justify-center overflow-hidden rounded-lg ${
-          isLR ? "h-full w-[42%]" : "h-[55%] w-full"
+          !hasInfo ? "h-full w-full" : isLR ? "h-full w-[42%]" : "h-[55%] w-full"
         } ${item.mainImage ? "" : TINT_BG[item.tint]}`}
       >
         {item.mainImage ? (
@@ -82,17 +93,23 @@ function ProductCell({ item, inner, scale }: { item: SlideDeckItem; inner: "LR" 
           </svg>
         )}
       </div>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
-        <div className={`truncate font-bold text-text ${scale.code}`}>Item code: {item.code}</div>
-        <div className={`truncate text-text-muted ${scale.meta}`}>Category: {item.category}</div>
-        <div className={`truncate text-text-muted ${scale.meta}`}>Material: {item.material}</div>
-        <div className={`text-text-muted ${scale.meta}`}>Dimension:</div>
-        {lines.map((line, i) => (
-          <div key={i} className={`truncate text-text-faint ${scale.size}`}>
-            {line}
-          </div>
-        ))}
-      </div>
+      {hasInfo && (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
+          {infoVisibility.code && <div className={`truncate font-bold text-text ${scale.code}`}>Item code: {item.code}</div>}
+          {infoVisibility.category && <div className={`truncate text-text-muted ${scale.meta}`}>Category: {item.category}</div>}
+          {infoVisibility.material && <div className={`truncate text-text-muted ${scale.meta}`}>Material: {item.material}</div>}
+          {infoVisibility.dimension && (
+            <>
+              <div className={`text-text-muted ${scale.meta}`}>Dimension:</div>
+              {lines.map((line, i) => (
+                <div key={i} className={`truncate text-text-faint ${scale.size}`}>
+                  {line}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -101,10 +118,12 @@ function ContentSlide({
   chunk,
   layout,
   scale,
+  infoVisibility,
 }: {
   chunk: SlideDeckItem[];
   layout: { cols: number; rows: number; inner: "LR" | "TB" };
   scale: TextScale;
+  infoVisibility: InfoVisibility;
 }) {
   const slots = Array.from({ length: layout.cols * layout.rows });
   return (
@@ -117,7 +136,11 @@ function ContentSlide({
           style={{ gridTemplateColumns: `repeat(${layout.cols}, 1fr)`, gridTemplateRows: `repeat(${layout.rows}, 1fr)` }}
         >
           {slots.map((_, idx) =>
-            chunk[idx] ? <ProductCell key={chunk[idx].code} item={chunk[idx]} inner={layout.inner} scale={scale} /> : <div key={idx} />,
+            chunk[idx] ? (
+              <ProductCell key={chunk[idx].code} item={chunk[idx]} inner={layout.inner} scale={scale} infoVisibility={infoVisibility} />
+            ) : (
+              <div key={idx} />
+            ),
           )}
         </div>
       </div>
@@ -128,25 +151,25 @@ function ContentSlide({
 export interface CollectionSlideDeckProps {
   collectionName: string;
   customer: string;
-  note: string;
   date: string;
   items: SlideDeckItem[];
   perSlide: ProductsPerSlide;
   coverImage?: string;
   closingImage?: string;
   closingText: string;
+  infoVisibility: InfoVisibility;
 }
 
 export function CollectionSlideDeck({
   collectionName,
   customer,
-  note,
   date,
   items,
   perSlide,
   coverImage,
   closingImage,
   closingText,
+  infoVisibility,
 }: CollectionSlideDeckProps) {
   const layout = CONTENT_LAYOUTS[perSlide];
   const scale = TEXT_SCALE[perSlide];
@@ -161,13 +184,12 @@ export function CollectionSlideDeck({
         <h1 className="mt-[4%] max-w-[75%] text-3xl font-extrabold">{collectionName}</h1>
         <div className="mt-[3%] flex flex-col gap-1 text-sm">
           {customer && <p>Gửi: {customer}</p>}
-          {note.trim() && <p>{note}</p>}
           <p>{date}</p>
         </div>
       </BrandSlide>
 
       {chunks.map((chunk, i) => (
-        <ContentSlide key={i} chunk={chunk} layout={layout} scale={scale} />
+        <ContentSlide key={i} chunk={chunk} layout={layout} scale={scale} infoVisibility={infoVisibility} />
       ))}
 
       {chunks.length === 0 && (

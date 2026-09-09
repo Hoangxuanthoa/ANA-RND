@@ -12,7 +12,38 @@ import { CURRENT_USER_NAME, CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYY
 import { canManageCollections } from "@/lib/permissions";
 import { generateCollectionPptx, PRODUCTS_PER_SLIDE_OPTIONS, type ProductsPerSlide } from "@/lib/pptxExport";
 import { generateCollectionPdf } from "@/lib/pdfExport";
+import { ALL_INFO_VISIBLE, type InfoVisibility } from "@/lib/exportLayout";
 import { useSettings } from "@/components/SettingsProvider";
+
+const INFO_FIELD_OPTIONS: { key: keyof InfoVisibility; label: string }[] = [
+  { key: "code", label: "Item code" },
+  { key: "category", label: "Category" },
+  { key: "material", label: "Material" },
+  { key: "dimension", label: "Dimension" },
+];
+
+function CheckMark() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+function TogglePill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold ${
+        active ? "border-accent bg-accent-soft text-accent-soft-text" : "border-line text-text-faint"
+      }`}
+    >
+      {active && <CheckMark />}
+      {label}
+    </button>
+  );
+}
 
 // One line per size variant (e.g. "S: 40 x 40 x 45 cm") — feeds both the
 // PPTX's and the slide-deck preview/PDF's "Dimension:" rows, so the two
@@ -44,8 +75,21 @@ export default function CollectionExportPage() {
 
   const [included, setIncluded] = useState<Set<string>>(() => new Set(items.map((p) => p.code)));
   const [customer, setCustomer] = useState(CUSTOMERS[0]);
-  const [note, setNote] = useState("");
   const [perSlide, setPerSlide] = useState<ProductsPerSlide>(6);
+  const [infoVisibility, setInfoVisibility] = useState<InfoVisibility>(ALL_INFO_VISIBLE);
+  const allFieldsSelected = INFO_FIELD_OPTIONS.every(({ key }) => infoVisibility[key]);
+
+  function toggleAllFields() {
+    setInfoVisibility(
+      allFieldsSelected
+        ? { code: false, category: false, material: false, dimension: false }
+        : ALL_INFO_VISIBLE,
+    );
+  }
+
+  function toggleField(key: keyof InfoVisibility) {
+    setInfoVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
   const [logged, setLogged] = useState(false);
   const [pptxBusy, setPptxBusy] = useState(false);
   const [pptxError, setPptxError] = useState("");
@@ -86,7 +130,7 @@ export default function CollectionExportPage() {
 
   function ensureLogged() {
     if (!logged && collection) {
-      logPitch(collection.id, customer, userName, note);
+      logPitch(collection.id, customer, userName);
       setLogged(true);
     }
   }
@@ -98,7 +142,6 @@ export default function CollectionExportPage() {
       await generateCollectionPdf({
         collectionName: collection!.name,
         customer,
-        note,
         date: todayDDMMYYYY(),
         perSlide,
         items: deckItems,
@@ -107,6 +150,7 @@ export default function CollectionExportPage() {
           closingBackgroundImage: pptxTemplate.closingImage,
           closingText: pptxTemplate.closingText,
         },
+        infoVisibility,
       });
       ensureLogged();
     } catch {
@@ -123,7 +167,6 @@ export default function CollectionExportPage() {
       await generateCollectionPptx({
         collectionName: collection!.name,
         customer,
-        note,
         date: todayDDMMYYYY(),
         perSlide,
         items: deckItems,
@@ -132,6 +175,7 @@ export default function CollectionExportPage() {
           closingBackgroundImage: pptxTemplate.closingImage,
           closingText: pptxTemplate.closingText,
         },
+        infoVisibility,
       });
       ensureLogged();
     } catch {
@@ -179,7 +223,7 @@ export default function CollectionExportPage() {
 
         {/* Customize panel */}
         <div className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-[12.5px] font-semibold">Chào khách nào</span>
               <select
@@ -193,15 +237,6 @@ export default function CollectionExportPage() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[12.5px] font-semibold">Ghi chú (hiện trên file)</span>
-              <input
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="Không bắt buộc"
-                className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
-              />
             </label>
             <label className="flex flex-col gap-1.5">
               <span className="text-[12.5px] font-semibold">Số sản phẩm/trang</span>
@@ -220,30 +255,23 @@ export default function CollectionExportPage() {
           </div>
 
           <div className="flex flex-col gap-2">
+            <span className="text-[12.5px] font-semibold">Hiển thị thông tin sản phẩm</span>
+            <div className="flex flex-wrap gap-2">
+              <TogglePill label="Tất cả" active={allFieldsSelected} onClick={toggleAllFields} />
+              {INFO_FIELD_OPTIONS.map(({ key, label }) => (
+                <TogglePill key={key} label={label} active={infoVisibility[key]} onClick={() => toggleField(key)} />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
             <span className="text-[12.5px] font-semibold">
               Chọn sản phẩm đưa vào file ({selectedItems.length}/{items.length})
             </span>
             <div className="flex flex-wrap gap-2">
-              {items.map((p) => {
-                const active = included.has(p.code);
-                return (
-                  <button
-                    key={p.code}
-                    type="button"
-                    onClick={() => toggle(p.code)}
-                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold ${
-                      active ? "border-accent bg-accent-soft text-accent-soft-text" : "border-line text-text-faint"
-                    }`}
-                  >
-                    {active && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                    )}
-                    {p.code}
-                  </button>
-                );
-              })}
+              {items.map((p) => (
+                <TogglePill key={p.code} label={p.code} active={included.has(p.code)} onClick={() => toggle(p.code)} />
+              ))}
             </div>
           </div>
         </div>
@@ -251,13 +279,13 @@ export default function CollectionExportPage() {
         <CollectionSlideDeck
           collectionName={collection.name}
           customer={customer}
-          note={note}
           date={todayDDMMYYYY()}
           items={deckItems}
           perSlide={perSlide}
           coverImage={pptxTemplate.coverImage}
           closingImage={pptxTemplate.closingImage}
           closingText={pptxTemplate.closingText}
+          infoVisibility={infoVisibility}
         />
       </div>
     </div>

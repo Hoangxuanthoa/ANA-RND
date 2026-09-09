@@ -16,6 +16,7 @@ import {
   type LayoutConfig,
   type ExportItem,
   type CoverTemplate,
+  type InfoVisibility,
 } from "@/lib/exportLayout";
 
 export type { ProductsPerSlide, CoverTemplate };
@@ -27,21 +28,21 @@ const FONT = "Arial";
 export interface GeneratePptxOptions {
   collectionName: string;
   customer: string;
-  note?: string;
   date: string;
   items: PptxExportItem[];
   perSlide: ProductsPerSlide;
   template?: CoverTemplate;
+  infoVisibility: InfoVisibility;
 }
 
 export async function generateCollectionPptx({
   collectionName,
   customer,
-  note,
   date,
   items,
   perSlide,
   template,
+  infoVisibility,
 }: GeneratePptxOptions): Promise<void> {
   const PptxGenJS = (await import("pptxgenjs")).default;
   const pptx = new PptxGenJS();
@@ -64,7 +65,7 @@ export async function generateCollectionPptx({
     color: COLORS.white,
     fontFace: FONT,
   });
-  const subLines = [customer ? `Gửi: ${customer}` : "", note?.trim() ?? "", date].filter(Boolean);
+  const subLines = [customer ? `Gửi: ${customer}` : "", date].filter(Boolean);
   cover.addText(subLines.join("\n"), {
     x: 0.5,
     y: 3.35,
@@ -89,7 +90,7 @@ export async function generateCollectionPptx({
 
     chunk.forEach((item, idx) => {
       const cell = cellRect(idx, layout);
-      drawProductCell(slide, item, cell, layout.inner, layout.fontSizes);
+      drawProductCell(slide, item, cell, layout.inner, layout.fontSizes, infoVisibility);
     });
   }
 
@@ -118,8 +119,10 @@ function drawProductCell(
   cell: ReturnType<typeof cellRect>,
   inner: "LR" | "TB",
   fontSizes: LayoutConfig["fontSizes"],
+  infoVisibility: InfoVisibility,
 ) {
-  const { image, info } = innerRects(cell, inner);
+  const rows = buildInfoRows(item, fontSizes, infoVisibility);
+  const { image, info } = innerRects(cell, inner, rows.length > 0);
 
   if (item.mainImage) {
     safeAddImage(slide, { path: item.mainImage, ...image, sizing: { type: "cover", w: image.w, h: image.h } });
@@ -128,7 +131,7 @@ function drawProductCell(
   }
 
   let y = info.y;
-  for (const row of buildInfoRows(item, fontSizes)) {
+  for (const row of rows) {
     const h = row.size / 62 + 0.06;
     slide.addText(row.text, { x: info.x, y, w: info.w, h, fontSize: row.size, bold: row.bold, color: row.color, fontFace: FONT });
     y += h;

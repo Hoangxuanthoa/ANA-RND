@@ -25,6 +25,7 @@ import {
   type ExportItem,
   type CoverTemplate,
   type Rect,
+  type InfoVisibility,
 } from "@/lib/exportLayout";
 
 const DPI = 200; // rasterization density for embedded images (px per inch)
@@ -127,14 +128,15 @@ async function drawBackground(doc: import("jspdf").jsPDF, backgroundImage: strin
   doc.restoreGraphicsState();
 }
 
-async function drawProductCell(doc: import("jspdf").jsPDF, item: ExportItem, cell: Rect, inner: "LR" | "TB", fontSizes: { code: number; meta: number; size: number }) {
-  const { image, info } = innerRects(cell, inner);
+async function drawProductCell(doc: import("jspdf").jsPDF, item: ExportItem, cell: Rect, inner: "LR" | "TB", fontSizes: { code: number; meta: number; size: number }, infoVisibility: InfoVisibility) {
+  const rows = buildInfoRows(item, fontSizes, infoVisibility);
+  const { image, info } = innerRects(cell, inner, rows.length > 0);
 
   const placed = item.mainImage ? await safeAddImage(doc, item.mainImage, image) : false;
   if (!placed) drawFilledRect(doc, image, TINT_HEX[item.tint], 0.06);
 
   let y = info.y;
-  for (const row of buildInfoRows(item, fontSizes)) {
+  for (const row of rows) {
     setFont(doc, !!row.bold);
     doc.setFontSize(row.size);
     doc.setTextColor(...hex(row.color));
@@ -151,21 +153,21 @@ async function drawProductCell(doc: import("jspdf").jsPDF, item: ExportItem, cel
 export interface GeneratePdfOptions {
   collectionName: string;
   customer: string;
-  note?: string;
   date: string;
   items: ExportItem[];
   perSlide: ProductsPerSlide;
   template?: CoverTemplate;
+  infoVisibility: InfoVisibility;
 }
 
 export async function generateCollectionPdf({
   collectionName,
   customer,
-  note,
   date,
   items,
   perSlide,
   template,
+  infoVisibility,
 }: GeneratePdfOptions): Promise<void> {
   const [{ jsPDF }, regularFont, boldFont] = await Promise.all([
     import("jspdf"),
@@ -190,7 +192,7 @@ export async function generateCollectionPdf({
   doc.setTextColor(...hex(EXPORT_COLORS.white));
   doc.text(collectionName, 0.5, 2.4, { baseline: "top", maxWidth: 9 });
 
-  const subLines = [customer ? `Gửi: ${customer}` : "", note?.trim() ?? "", date].filter(Boolean);
+  const subLines = [customer ? `Gửi: ${customer}` : "", date].filter(Boolean);
   setFont(doc, false);
   doc.setFontSize(13);
   let subY = 3.35;
@@ -209,7 +211,7 @@ export async function generateCollectionPdf({
 
     for (let idx = 0; idx < chunk.length; idx++) {
       const cell = cellRect(idx, layout);
-      await drawProductCell(doc, chunk[idx], cell, layout.inner, layout.fontSizes);
+      await drawProductCell(doc, chunk[idx], cell, layout.inner, layout.fontSizes, infoVisibility);
     }
   }
 

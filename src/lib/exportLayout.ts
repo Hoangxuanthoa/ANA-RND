@@ -60,8 +60,13 @@ export function cellRect(index: number, layout: Pick<LayoutConfig, "cols" | "row
 }
 
 // Splits one product cell into its image box and info (text) box,
-// depending on the mode's inner layout.
-export function innerRects(cell: Rect, inner: "LR" | "TB"): { image: Rect; info: Rect } {
+// depending on the mode's inner layout. When the caller has no info rows
+// to show (all 4 fields toggled off), the image takes the whole cell
+// instead of leaving the info half blank.
+export function innerRects(cell: Rect, inner: "LR" | "TB", hasInfo = true): { image: Rect; info: Rect } {
+  if (!hasInfo) {
+    return { image: { ...cell }, info: { x: cell.x, y: cell.y, w: 0, h: 0 } };
+  }
   const gap = 0.12;
   const image: Rect =
     inner === "LR"
@@ -119,20 +124,41 @@ export interface InfoRow {
   color: string;
 }
 
+// Which of the 4 info fields to include — user-toggleable per export
+// (e.g. an image-only pitch doesn't need Category/Material/Dimension).
+export interface InfoVisibility {
+  code: boolean;
+  category: boolean;
+  material: boolean;
+  dimension: boolean;
+}
+
+export const ALL_INFO_VISIBLE: InfoVisibility = { code: true, category: true, material: true, dimension: true };
+
+export function hasVisibleInfo(visibility: InfoVisibility): boolean {
+  return visibility.code || visibility.category || visibility.material || visibility.dimension;
+}
+
 // Fixed labeled rows, one per line: Item code / Category / Material /
-// Dimension: (header) / one line per size variant (or "—" if none).
-export function buildInfoRows(item: ExportItem, fontSizes: LayoutConfig["fontSizes"]): InfoRow[] {
-  return [
-    { text: `Item code: ${item.code}`, size: fontSizes.code, bold: true, color: EXPORT_COLORS.text },
-    { text: `Category: ${item.category}`, size: fontSizes.meta, color: EXPORT_COLORS.textMuted },
-    { text: `Material: ${item.material}`, size: fontSizes.meta, color: EXPORT_COLORS.textMuted },
-    { text: "Dimension:", size: fontSizes.meta, color: EXPORT_COLORS.textMuted },
-    ...(item.sizeLines.length > 0 ? item.sizeLines : ["—"]).map((line) => ({
-      text: line,
-      size: fontSizes.size,
-      color: EXPORT_COLORS.textFaint,
-    })),
-  ];
+// Dimension: (header) / one line per size variant (or "—" if none) —
+// each gated by `visibility`, so a toggled-off field (and, for
+// Dimension, its size-variant lines) simply isn't included.
+export function buildInfoRows(item: ExportItem, fontSizes: LayoutConfig["fontSizes"], visibility: InfoVisibility): InfoRow[] {
+  const rows: InfoRow[] = [];
+  if (visibility.code) rows.push({ text: `Item code: ${item.code}`, size: fontSizes.code, bold: true, color: EXPORT_COLORS.text });
+  if (visibility.category) rows.push({ text: `Category: ${item.category}`, size: fontSizes.meta, color: EXPORT_COLORS.textMuted });
+  if (visibility.material) rows.push({ text: `Material: ${item.material}`, size: fontSizes.meta, color: EXPORT_COLORS.textMuted });
+  if (visibility.dimension) {
+    rows.push({ text: "Dimension:", size: fontSizes.meta, color: EXPORT_COLORS.textMuted });
+    rows.push(
+      ...(item.sizeLines.length > 0 ? item.sizeLines : ["—"]).map((line) => ({
+        text: line,
+        size: fontSizes.size,
+        color: EXPORT_COLORS.textFaint,
+      })),
+    );
+  }
+  return rows;
 }
 
 export function safeFileName(name: string): string {

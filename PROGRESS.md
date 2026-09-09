@@ -187,6 +187,23 @@ read it before changing any access-control logic. Highlights:
   everywhere `/logo.png` is referenced (TopNav, login, share page,
   CollectionSlideDeck, and the real .pptx via pptxExport.ts) for free.
 
+  **Per-field info toggles, note field dropped (2026-09-09):** the
+  cover-slide "Ghi chú (hiện trên file)" field was removed entirely (not
+  needed — a customer-facing pitch doesn't need a freeform note baked
+  into the file). In its place, each of the 4 per-product info rows
+  (Item code/Category/Material/Dimension) can now be toggled on/off per
+  export via pill buttons plus a "Tất cả" master toggle (standard
+  select-all behavior: toggling it sets all 4 at once; toggling any one
+  field off clears the master without touching the other 3).
+  `exportLayout.ts`'s `buildInfoRows()` takes an `InfoVisibility` object
+  and only emits the rows that are on (Dimension's header line and its
+  size-variant lines travel together as one unit); `innerRects()` grows
+  the image to fill the entire cell when no fields are selected at all,
+  instead of leaving the info half of the cell blank — useful for a
+  pitch that's meant to be pure moodboard/visual with no spec data. Wired
+  through all 3 consumers (PPTX, PDF, on-page preview) the same way the
+  5 layout modes already are, so none of them can drift out of sync.
+
   **PPTX template (2026-09-07):** content slides use 5 fixed, deliberately
   designed layouts (not a generic auto-grid) picked via "Số sản
   phẩm/trang" — `1|2|3|4|6` (`ProductsPerSlide` in pptxExport.ts,
