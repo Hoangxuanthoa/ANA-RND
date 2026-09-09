@@ -1,102 +1,28 @@
 // Client-side .pptx generation via pptxgenjs — no backend needed, same
-// spirit as the print-to-PDF export (use what's available in the browser
-// instead of standing up a server just to produce a file).
+// spirit as the PDF export (use what's available in the browser instead
+// of standing up a server just to produce a file).
 import type PptxGenJSType from "pptxgenjs";
+import {
+  LAYOUTS,
+  TINT_HEX,
+  EXPORT_COLORS as COLORS,
+  LOGO_PATH,
+  LOGO_ASPECT,
+  cellRect,
+  innerRects,
+  buildInfoRows,
+  safeFileName,
+  type ProductsPerSlide,
+  type LayoutConfig,
+  type ExportItem,
+  type CoverTemplate,
+} from "@/lib/exportLayout";
 
-export interface PptxExportItem {
-  code: string;
-  category: string;
-  material: string;
-  // One line per size variant (e.g. "S: 40 x 40 x 45 cm") — empty when the
-  // product has no size variants, rendered as a single "—" line instead.
-  sizeLines: string[];
-  mainImage?: string;
-  tint: "accent" | "blue" | "green" | "slate" | "amber";
-}
-
-// The 5 fixed content-slide layouts the user asked for — not a generic
-// auto-grid, each count has its own deliberate look:
-//   1 → one block filling the slide, image left / info right
-//   2 → 2 columns side by side, each block image top / info bottom
-//   3 → 3 columns side by side (1 row), each block image top / info bottom
-//   4 → 2x2 grid, each cell image left / info right
-//   6 → 2x3 grid (2 rows, 3 cols), each cell image left / info right
-export type ProductsPerSlide = 1 | 2 | 3 | 4 | 6;
-export const PRODUCTS_PER_SLIDE_OPTIONS: ProductsPerSlide[] = [1, 2, 3, 4, 6];
-
-// Rough hex equivalents of the app's oklch tint tokens (globals.css) —
-// pptxgenjs needs plain hex, no CSS custom properties.
-const TINT_HEX: Record<PptxExportItem["tint"], string> = {
-  accent: "E3F6E1",
-  green: "E3F6E1",
-  blue: "E3ECFB",
-  slate: "E9EAEE",
-  amber: "FBEEDB",
-};
-
-const COLORS = {
-  accent: "1C8F18",
-  white: "FFFFFF",
-  text: "1F1F1F",
-  textMuted: "6B6B6B",
-  textFaint: "9A9A9A",
-};
+export type { ProductsPerSlide, CoverTemplate };
+export { PRODUCTS_PER_SLIDE_OPTIONS, LAYOUTS as CONTENT_LAYOUTS } from "@/lib/exportLayout";
+export type PptxExportItem = ExportItem;
 
 const FONT = "Arial";
-const LOGO_PATH = "/logo.png";
-const LOGO_ASPECT = 210 / 738;
-
-// 10in x 5.625in slide (LAYOUT_16x9), minus header space for the logo —
-// content slides show just the logo (no collection name repeated on
-// every page, already on the cover), so the header band is short.
-const CONTENT_AREA = { x: 0.4, y: 0.75, w: 9.2, h: 4.55 };
-const GAP = 0.25;
-
-interface LayoutConfig {
-  cols: number;
-  rows: number;
-  inner: "LR" | "TB"; // per-cell layout: left-image/right-info, or top-image/bottom-info
-  fontSizes: { code: number; meta: number; size: number };
-}
-
-const LAYOUTS: Record<ProductsPerSlide, LayoutConfig> = {
-  1: { cols: 1, rows: 1, inner: "LR", fontSizes: { code: 20, meta: 14, size: 12 } },
-  2: { cols: 2, rows: 1, inner: "TB", fontSizes: { code: 16, meta: 12, size: 10.5 } },
-  3: { cols: 3, rows: 1, inner: "TB", fontSizes: { code: 14, meta: 11, size: 9.5 } },
-  4: { cols: 2, rows: 2, inner: "LR", fontSizes: { code: 13, meta: 10.5, size: 9 } },
-  6: { cols: 3, rows: 2, inner: "LR", fontSizes: { code: 11, meta: 9, size: 8.5 } },
-};
-
-// Exposed so the PDF export (an HTML/CSS mirror of these same slides,
-// see CollectionSlideDeck.tsx) uses the exact same cols/rows/inner
-// decision per mode instead of a second, potentially-drifting copy.
-export const CONTENT_LAYOUTS: Record<ProductsPerSlide, Pick<LayoutConfig, "cols" | "rows" | "inner">> = LAYOUTS;
-
-interface Rect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-function cellRect(index: number, layout: LayoutConfig): Rect {
-  const col = index % layout.cols;
-  const row = Math.floor(index / layout.cols);
-  const w = (CONTENT_AREA.w - GAP * (layout.cols - 1)) / layout.cols;
-  const h = (CONTENT_AREA.h - GAP * (layout.rows - 1)) / layout.rows;
-  return {
-    x: CONTENT_AREA.x + col * (w + GAP),
-    y: CONTENT_AREA.y + row * (h + GAP),
-    w,
-    h,
-  };
-}
-
-export interface CoverTemplate {
-  backgroundImage?: string;
-  closingBackgroundImage?: string;
-  closingText: string;
-}
 
 export interface GeneratePptxOptions {
   collectionName: string;
@@ -183,26 +109,17 @@ export async function generateCollectionPptx({
     fontFace: FONT,
   });
 
-  const safeName = collectionName.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "collection";
-  await pptx.writeFile({ fileName: `${safeName}.pptx` });
+  await pptx.writeFile({ fileName: `${safeFileName(collectionName)}.pptx` });
 }
 
 function drawProductCell(
   slide: PptxGenJSType.Slide,
-  item: PptxExportItem,
-  cell: Rect,
+  item: ExportItem,
+  cell: ReturnType<typeof cellRect>,
   inner: "LR" | "TB",
   fontSizes: LayoutConfig["fontSizes"],
 ) {
-  const gap = 0.12;
-  const image: Rect =
-    inner === "LR"
-      ? { x: cell.x, y: cell.y, w: cell.w * 0.42, h: cell.h }
-      : { x: cell.x, y: cell.y, w: cell.w, h: cell.h * 0.55 };
-  const info: Rect =
-    inner === "LR"
-      ? { x: cell.x + cell.w * 0.42 + gap, y: cell.y, w: cell.w * 0.58 - gap, h: cell.h }
-      : { x: cell.x, y: cell.y + cell.h * 0.55 + gap, w: cell.w, h: cell.h * 0.45 - gap };
+  const { image, info } = innerRects(cell, inner);
 
   if (item.mainImage) {
     safeAddImage(slide, { path: item.mainImage, ...image, sizing: { type: "cover", w: image.w, h: image.h } });
@@ -210,22 +127,8 @@ function drawProductCell(
     slide.addShape("roundRect", { ...image, fill: { color: TINT_HEX[item.tint] }, line: { color: TINT_HEX[item.tint] }, rectRadius: 0.06 });
   }
 
-  // Fixed labeled rows, one per line: Item code / Category / Material /
-  // Dimension: (header) / one line per size variant (or "—" if none).
-  const rows: { text: string; size: number; bold?: boolean; color: string }[] = [
-    { text: `Item code: ${item.code}`, size: fontSizes.code, bold: true, color: COLORS.text },
-    { text: `Category: ${item.category}`, size: fontSizes.meta, color: COLORS.textMuted },
-    { text: `Material: ${item.material}`, size: fontSizes.meta, color: COLORS.textMuted },
-    { text: "Dimension:", size: fontSizes.meta, color: COLORS.textMuted },
-    ...(item.sizeLines.length > 0 ? item.sizeLines : ["—"]).map((line) => ({
-      text: line,
-      size: fontSizes.size,
-      color: COLORS.textFaint,
-    })),
-  ];
-
   let y = info.y;
-  for (const row of rows) {
+  for (const row of buildInfoRows(item, fontSizes)) {
     const h = row.size / 62 + 0.06;
     slide.addText(row.text, { x: info.x, y, w: info.w, h, fontSize: row.size, bold: row.bold, color: row.color, fontFace: FONT });
     y += h;

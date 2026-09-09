@@ -1,24 +1,16 @@
 "use client";
 
-import { CONTENT_LAYOUTS, type ProductsPerSlide } from "@/lib/pptxExport";
+import { LAYOUTS as CONTENT_LAYOUTS, type ProductsPerSlide, type ExportItem } from "@/lib/exportLayout";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 
-// HTML/CSS mirror of pptxExport.ts's slides — same cols/rows/inner
-// layout decision per mode (imported from there, not re-decided here),
-// same labeled info rows. This is the export page's live preview, and
-// also what "Xuất PDF" captures (src/lib/pdfExport.ts screenshots each
-// `[data-pdf-slide]` element into one PDF page each via html2canvas +
-// jsPDF), so the PDF and PPTX exports look like the same deck instead of
-// two unrelated designs.
+// HTML/CSS mirror of the same layout geometry the real exports use
+// (src/lib/exportLayout.ts — same cols/rows/inner decision per mode,
+// same labeled info rows), so this preview always matches what "Xuất
+// PPTX"/"Xuất PDF" actually produce. Both of those now draw their own
+// output directly (pptxgenjs / jsPDF) rather than capturing this DOM, so
+// this component is purely the on-page preview.
 
-export interface SlideDeckItem {
-  code: string;
-  category: string;
-  material: string;
-  sizeLines: string[];
-  mainImage?: string;
-  tint: "accent" | "blue" | "green" | "slate" | "amber";
-}
+export type SlideDeckItem = ExportItem;
 
 interface TextScale {
   code: string;
@@ -42,7 +34,7 @@ function SlideFrame({
   className?: string;
 }) {
   return (
-    <div data-pdf-slide className={`relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-line ${className ?? ""}`}>
+    <div className={`relative aspect-[16/9] w-full overflow-hidden rounded-xl border border-line ${className ?? ""}`}>
       {children}
     </div>
   );

@@ -126,21 +126,53 @@ read it before changing any access-control logic. Highlights:
   visible below, and (2) "Xuất PDF" still opened the OS print dialog
   (`window.print()`), which isn't a real "click and get a file" export
   like PPTX. Fixed both: removed the Preview link entirely, and replaced
-  print-to-PDF with a direct download — `src/lib/pdfExport.ts` uses
-  `html2canvas-pro` (NOT the original `html2canvas`, which can't parse
-  this app's `oklch()` CSS colors — `-pro` is a maintained fork that
-  added support for modern color functions) to screenshot each
-  `[data-pdf-slide]` element, then `jspdf` assembles those images into a
-  landscape PDF (`doc.save(...)` triggers an automatic download, same as
-  `pptx.writeFile(...)`). Both are npm dependencies added out of
-  necessity — no browser-native way to get a directly-downloaded PDF
-  without a print dialog. Trade-off: the PDF's text is now a raster image
-  per slide, not selectable/searchable text (a real print dialog would
-  have kept it as real PDF text) — accepted since matching PPTX's export
-  flow (one click, no dialog) was the explicit ask. All print-specific
-  CSS (`print:*` Tailwind classes, `globals.css`'s `@page` rule) was
-  removed since nothing calls `window.print()` anywhere in the app
-  anymore.
+  print-to-PDF with a direct download using `html2canvas-pro` (NOT the
+  original `html2canvas`, which can't parse this app's `oklch()` CSS
+  colors) to screenshot each slide, then `jspdf` assembling those images
+  into a PDF. Trade-off at the time: the PDF's text was a raster image
+  per slide, not selectable/searchable — accepted temporarily since
+  matching PPTX's export flow (one click, no dialog) was the explicit
+  ask. All print-specific CSS (`print:*` Tailwind classes, `globals.css`'s
+  `@page` rule) was removed since nothing calls `window.print()` anywhere
+  in the app anymore. **This screenshot approach was replaced entirely
+  on 2026-09-09 — see below.**
+
+  **PDF rewritten to draw natively, no more screenshots (2026-09-09):**
+  user asked why the PDF couldn't have sharp text/images "như Pptx" instead
+  of a photo of the screen. Screenshotting was always a quality ceiling
+  (raster text, fixed resolution, larger files), so `src/lib/pdfExport.ts`
+  was rewritten from scratch to draw directly with `jsPDF` — real vector
+  text (`doc.text`) and real embedded images (`doc.addImage`), the same
+  spirit as `pptxExport.ts`, and `html2canvas-pro` was removed as a
+  dependency entirely (`npm uninstall html2canvas-pro`). To avoid the PPTX
+  and PDF (and the on-page preview) quietly drifting into 3 different
+  layouts over time, the shared geometry (cell/grid math, the 5 fixed
+  `ProductsPerSlide` layouts, per-product label rows, colors, logo
+  constants) was extracted into a new `src/lib/exportLayout.ts`, imported
+  by all three (`pptxExport.ts`, `pdfExport.ts`, `CollectionSlideDeck.tsx`
+  — the last is now purely the on-page preview, nothing captures its DOM
+  anymore). Two things jsPDF doesn't do natively that pptxgenjs does were
+  built by hand: (1) CSS `object-fit: cover` — `coverImageDataUrl()` crops
+  a source image to the target box's aspect ratio on an off-screen canvas
+  at 200 DPI before handing it to `addImage`, so product photos fill their
+  cell without stretching; (2) Vietnamese text — jsPDF's built-in fonts
+  (Helvetica/Times/Courier) don't cover Vietnamese diacritics, so a real
+  Unicode font is embedded at generation time via `addFileToVFS`/`addFont`,
+  fetched at runtime from `public/fonts/Lato-{Regular,Bold}.ttf` (Lato,
+  OFL-licensed — same family Google Fonts ships; license text alongside at
+  `public/fonts/Lato-OFL.txt`. Deliberately not the Arial.ttf already on
+  the machine, since that's Monotype-licensed and not freely
+  redistributable in a public `public/` folder). One bug caught during
+  verification: `doc.text(..., {maxWidth})` auto-wraps text that's too
+  wide for its column (e.g. mode 6's narrow info column wrapping "Item
+  code: RND-00125" to 2 lines) but the row-advance logic assumed exactly
+  one line per row, so the wrapped second line overlapped the next row —
+  fixed by measuring the real wrapped line count first via
+  `doc.splitTextToSize()` and advancing `y` by that many lines instead of
+  always 1. Verified by capturing the actual generated PDF blob out of the
+  running browser and inspecting it directly (not just checking for a
+  thrown error) — confirmed crisp, real, non-overlapping Vietnamese text
+  on cover/content/closing pages.
 
   **Fixed 2026-09-09:** `public/logo.png` used to have a fully opaque
   white background baked in (confirmed via canvas alpha readback — 255

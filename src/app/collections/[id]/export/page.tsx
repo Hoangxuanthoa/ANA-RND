@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
@@ -25,10 +25,6 @@ function sizeLines(sizeVariants?: { size: string; length?: number; width?: numbe
   });
 }
 
-function safeFileName(name: string): string {
-  return name.trim().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "collection";
-}
-
 export default function CollectionExportPage() {
   const params = useParams<{ id: string }>();
   const { role } = useRole();
@@ -37,7 +33,6 @@ export default function CollectionExportPage() {
   const { products } = useProducts();
   const { pptxTemplate } = useSettings();
   const collection = collections.find((c) => c.id === params.id);
-  const deckRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(
     () =>
@@ -97,11 +92,22 @@ export default function CollectionExportPage() {
   }
 
   async function handlePdf() {
-    if (!deckRef.current) return;
     setPdfError("");
     setPdfBusy(true);
     try {
-      await generateCollectionPdf(deckRef.current, `${safeFileName(collection!.name)}.pdf`);
+      await generateCollectionPdf({
+        collectionName: collection!.name,
+        customer,
+        note,
+        date: todayDDMMYYYY(),
+        perSlide,
+        items: deckItems,
+        template: {
+          backgroundImage: pptxTemplate.coverImage,
+          closingBackgroundImage: pptxTemplate.closingImage,
+          closingText: pptxTemplate.closingText,
+        },
+      });
       ensureLogged();
     } catch {
       setPdfError("Xuất PDF thất bại — thử lại hoặc bỏ bớt sản phẩm có ảnh lỗi.");
@@ -242,19 +248,17 @@ export default function CollectionExportPage() {
           </div>
         </div>
 
-        <div ref={deckRef}>
-          <CollectionSlideDeck
-            collectionName={collection.name}
-            customer={customer}
-            note={note}
-            date={todayDDMMYYYY()}
-            items={deckItems}
-            perSlide={perSlide}
-            coverImage={pptxTemplate.coverImage}
-            closingImage={pptxTemplate.closingImage}
-            closingText={pptxTemplate.closingText}
-          />
-        </div>
+        <CollectionSlideDeck
+          collectionName={collection.name}
+          customer={customer}
+          note={note}
+          date={todayDDMMYYYY()}
+          items={deckItems}
+          perSlide={perSlide}
+          coverImage={pptxTemplate.coverImage}
+          closingImage={pptxTemplate.closingImage}
+          closingText={pptxTemplate.closingText}
+        />
       </div>
     </div>
   );
