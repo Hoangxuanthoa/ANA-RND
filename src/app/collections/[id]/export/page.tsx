@@ -75,7 +75,7 @@ export default function CollectionExportPage() {
 
   const [included, setIncluded] = useState<Set<string>>(() => new Set(items.map((p) => p.code)));
   const [customer, setCustomer] = useState(CUSTOMERS[0]);
-  const [perSlide, setPerSlide] = useState<ProductsPerSlide>(6);
+  const [perSlide, setPerSlide] = useState<ProductsPerSlide>(2);
   const [infoVisibility, setInfoVisibility] = useState<InfoVisibility>(ALL_INFO_VISIBLE);
   const allFieldsSelected = INFO_FIELD_OPTIONS.every(({ key }) => infoVisibility[key]);
 
