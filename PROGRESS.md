@@ -220,6 +220,27 @@ read it before changing any access-control logic. Highlights:
   queue for `PENDING_REVIEW` products.
 - **Settings** (`/settings`) — Admin-only CRUD for Category/Material/Size/
   Color tags and staff/user roster (with role assignment).
+
+- **Header consistency pass (2026-09-09):** after a full honest review
+  (user asked for one, "công tâm khách quan") surfaced that the app
+  looked "half old, half new," went through every list page and dropped
+  `<h1>PageName</h1>` blocks that just repeated the already-highlighted
+  TopNav label. Projects and Collections got the fuller treatment first:
+  removed the h1+count-subtitle, moved "+ New Project"/"+ New Collection"
+  up inline with the My/All tabs, folded counts into each tab's own
+  label ("My Project (3)", "All Project (8)"), added a search box (left
+  of the "+ New" button — Projects matches name/code/customer, Collections
+  matches name only) and pagination (10/page, same Back/page-dropdown/Next
+  pattern as Library) since neither had a page cap before. Projects'
+  status filter chips (All/Created/Developing/Completed/Closed) also got
+  per-status counts, computed from scope+search but not from which chip
+  is currently selected (a new `searched` memo sits between the scope and
+  status filters for this). My Task/Review/Settings got the same h1
+  removal treatment — adapted since they have no tab/button row to fold a
+  count into: My Task and Review kept their count as a plain caption line
+  instead of a bold title; Settings dropped its subtitle entirely too
+  (it was prose restating the tab labels, not a count — and had gone
+  stale, never mentioning the later-added "Mẫu PPTX" tab).
 - **Notifications** — now a shared `NotificationsProvider` (placed above
   Projects/Products/Collections in layout.tsx) instead of living inside
   ProductsProvider, so all three can push into the same inbox. Real event
