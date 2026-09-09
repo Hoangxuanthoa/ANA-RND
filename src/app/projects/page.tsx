@@ -54,24 +54,37 @@ export default function ProjectsPage() {
   // role switches, since that's effectively "logging in as" someone else.
   const [scope, setScope] = useState<Scope>(role === "ADMIN" ? "all" : "mine");
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setScope(role === "ADMIN" ? "all" : "mine");
     setPage(1);
   }, [role]);
 
-  // Scoped by My/All (or Customer's own projects) but not yet by status —
-  // this is what the status chips' counts are based on, so switching
-  // scope updates the counts but picking a status chip doesn't (a chip's
-  // own count shouldn't change just because it's the one selected).
+  // Scoped by My/All (or Customer's own projects), then by search — but
+  // not yet by status — this is what the status chips' counts are based
+  // on, so switching scope/search updates the counts but picking a
+  // status chip doesn't (a chip's own count shouldn't change just
+  // because it's the one selected).
   const scoped = useMemo(() => {
     if (isCustomer) return projects.filter((p) => p.isMine);
     return scope === "mine" ? projects.filter((p) => isMyProject(role, userName, p)) : projects;
   }, [projects, isCustomer, scope, role, userName]);
 
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return scoped;
+    return scoped.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.code.toLowerCase().includes(q) ||
+        (p.customer ?? "").toLowerCase().includes(q),
+    );
+  }, [scoped, query]);
+
   const filtered = useMemo(
-    () => (status === "ALL" ? scoped : scoped.filter((p) => p.status === status)),
-    [scoped, status],
+    () => (status === "ALL" ? searched : searched.filter((p) => p.status === status)),
+    [searched, status],
   );
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -132,22 +145,47 @@ export default function ProjectsPage() {
               </button>
             </div>
           )}
-          {canCreateProject(role) && (
-            <button
-              onClick={() => setNewProjectOpen(true)}
-              className="mb-2 inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                <path d="M12 5v14M5 12h14" />
+          <div className="mb-2 flex items-center gap-2">
+            <div className="relative">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--text-faint)"
+                strokeWidth="2"
+                className="absolute top-1/2 left-2.5 -translate-y-1/2"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
               </svg>
-              New Project
-            </button>
-          )}
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Tìm theo tên, mã, khách hàng…"
+                className="h-[34px] w-56 rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+              />
+            </div>
+            {canCreateProject(role) && (
+              <button
+                onClick={() => setNewProjectOpen(true)}
+                className="inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                New Project
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((s) => {
-            const count = s.key === "ALL" ? scoped.length : scoped.filter((p) => p.status === s.key).length;
+            const count = s.key === "ALL" ? searched.length : searched.filter((p) => p.status === s.key).length;
             return (
               <Chip
                 key={s.key}

@@ -23,16 +23,21 @@ export default function CollectionsPage() {
   // the Projects tab.
   const [scope, setScope] = useState<Scope>(role === "ADMIN" ? "all" : "mine");
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setScope(role === "ADMIN" ? "all" : "mine");
     setPage(1);
   }, [role]);
 
-  const filtered = useMemo(
+  const scoped = useMemo(
     () => (scope === "mine" ? collections.filter((c) => isMyCollection(userName, c)) : collections),
     [collections, scope, userName],
   );
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? scoped.filter((c) => c.name.toLowerCase().includes(q)) : scoped;
+  }, [scoped, query]);
   const myCount = useMemo(() => collections.filter((c) => isMyCollection(userName, c)).length, [collections, userName]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -124,15 +129,40 @@ export default function CollectionsPage() {
               All Collection ({collections.length})
             </button>
           </div>
-          <button
-            onClick={() => setCreating(true)}
-            className="mb-2 inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            New Collection
-          </button>
+          <div className="mb-2 flex items-center gap-2">
+            <div className="relative">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--text-faint)"
+                strokeWidth="2"
+                className="absolute top-1/2 left-2.5 -translate-y-1/2"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="M21 21l-4.3-4.3" />
+              </svg>
+              <input
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Tìm theo tên collection…"
+                className="h-[34px] w-56 rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+              />
+            </div>
+            <button
+              onClick={() => setCreating(true)}
+              className="inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New Collection
+            </button>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-line bg-surface">
