@@ -8,6 +8,7 @@ import {
   usageBadge,
   projectProductStatusBadge,
   customerApprovalBadge,
+  reusePermissionBadge,
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
@@ -17,8 +18,15 @@ interface ProjectProductQuickViewProps {
   item: ProjectProductItem;
   product: Product;
   isClosed: boolean;
+  canReviewHere: boolean;
+  canResubmit: boolean;
+  canRelease: boolean;
+  showExclusiveToggle: boolean;
   onApprove: () => void;
   onRequestChange: (reason: string) => void;
+  onResubmit: () => void;
+  onRelease: () => void;
+  onToggleExclusive: () => void;
   onClose: () => void;
 }
 
@@ -26,8 +34,15 @@ export function ProjectProductQuickView({
   item,
   product,
   isClosed,
+  canReviewHere,
+  canResubmit,
+  canRelease,
+  showExclusiveToggle,
   onApprove,
   onRequestChange,
+  onResubmit,
+  onRelease,
+  onToggleExclusive,
   onClose,
 }: ProjectProductQuickViewProps) {
   const { role } = useRole();
@@ -39,10 +54,16 @@ export function ProjectProductQuickView({
   const usage = usageBadge(item.usage);
   const status = projectProductStatusBadge(item.status);
   const approval = customerApprovalBadge(item.approval);
+  const reuse = reusePermissionBadge(product.reuse);
   const showCustomerActions =
     !isClosed && customer && item.approval === "PENDING" && item.status === "CUSTOMER_REVIEW";
   const showWatchOnly =
     !isClosed && !customer && item.approval === "PENDING" && item.status === "CUSTOMER_REVIEW";
+  // Creator review (Sales stage) and customer review both resolve to the
+  // same action — approve or request a change — just at different stages
+  // of the pipeline, so they share this one inline block instead of two
+  // separate reject dialogs.
+  const showReviewActions = showCustomerActions || canReviewHere;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
@@ -67,9 +88,10 @@ export function ProjectProductQuickView({
             <div>
               <h2 className="text-[15px] font-extrabold">{product.name}</h2>
               <div className="mt-0.5 text-xs font-semibold text-text-faint">{product.code}</div>
-              <div className="mt-2 flex gap-1.5">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 <span className={usage.className}>{usage.label}</span>
                 <span className={status.className}>{status.label}</span>
+                <span className={reuse.className}>{reuse.label}</span>
               </div>
             </div>
           </div>
@@ -83,12 +105,34 @@ export function ProjectProductQuickView({
           </button>
         </div>
 
+        {canRelease && (
+          <div className="flex items-center justify-between gap-3 border-b border-line bg-green-soft px-5 py-3">
+            <span className="text-[12.5px] font-bold text-green">Đã duyệt xong — sẵn sàng đưa vào Design Library.</span>
+            <button
+              onClick={onRelease}
+              className="h-8 flex-shrink-0 rounded-md bg-green px-3 text-[12px] font-bold text-white hover:opacity-90"
+            >
+              Release to Library
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-4 p-5">
           {item.note && <p className="text-[12.5px] leading-relaxed text-text-muted">{item.note}</p>}
 
           {item.status === "DEVELOPING" && item.lastRejectionReason && (
             <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-3">
-              <div className="text-[12px] font-bold text-red">Cần chỉnh sửa</div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[12px] font-bold text-red">Cần chỉnh sửa</div>
+                {canResubmit && (
+                  <button
+                    onClick={onResubmit}
+                    className="h-7 flex-shrink-0 rounded-md border border-red/30 bg-white px-2.5 text-[11px] font-bold text-red hover:bg-red-soft"
+                  >
+                    Gửi lại duyệt
+                  </button>
+                )}
+              </div>
               <p className="mt-1 text-[12.5px] leading-relaxed text-text">{item.lastRejectionReason}</p>
             </div>
           )}
@@ -97,17 +141,29 @@ export function ProjectProductQuickView({
             Phụ trách: <span className="font-semibold text-text">{item.assigneeName ?? "Chưa gán"}</span>
           </div>
 
+          {showExclusiveToggle && (
+            <div className="flex items-center justify-between rounded-lg bg-bg px-3.5 py-2.5">
+              <span className="text-[12px] text-text-muted">Quyền tái sử dụng</span>
+              <button
+                onClick={onToggleExclusive}
+                className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-white"
+              >
+                {product.reuse === "EXCLUSIVE" ? "Bỏ Exclusive" : "Gắn Exclusive"}
+              </button>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2.5 rounded-lg bg-bg px-3.5 py-2.5">
             <div className="flex items-center justify-between">
               <span className={approval.className}>{approval.label}</span>
               <div className="flex gap-2">
-                {showCustomerActions && !requestingChange && (
+                {showReviewActions && !requestingChange && (
                   <>
                     <button
                       onClick={() => setRequestingChange(true)}
                       className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-white"
                     >
-                      Request Change
+                      Yêu cầu chỉnh sửa
                     </button>
                     <button
                       onClick={onApprove}
@@ -128,7 +184,7 @@ export function ProjectProductQuickView({
                 )}
               </div>
             </div>
-            {showCustomerActions && requestingChange && (
+            {showReviewActions && requestingChange && (
               <div className="flex flex-col gap-2">
                 <textarea
                   value={changeReason}

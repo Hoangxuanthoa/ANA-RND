@@ -11,14 +11,12 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
-import { RejectProjectProductModal } from "@/components/RejectProjectProductModal";
-import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY, type ProjectProductItem } from "@/lib/mock-data";
+import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
   projectStatusBadge,
   projectTypeBadge,
   usageBadge,
   projectProductStatusBadge,
-  customerApprovalBadge,
   reusePermissionBadge,
   TINT_BG,
   TINT_FG,
@@ -68,7 +66,6 @@ export default function ProjectDetailPage() {
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [newDesignOpen, setNewDesignOpen] = useState(false);
-  const [rejectTarget, setRejectTarget] = useState<ProjectProductItem | null>(null);
 
   if (!project) return notFound();
 
@@ -87,6 +84,20 @@ export default function ProjectDetailPage() {
   const items = projectProducts.filter((pp) => pp.projectCode === project.code);
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
+  const quickViewCanRelease =
+    !!(quickViewItem && quickViewProduct) &&
+    canReleaseToLibrary(role, userName, project) &&
+    quickViewItem!.status === "APPROVED" &&
+    quickViewProduct!.status === "DRAFT";
+  const quickViewCanReviewHere =
+    !!quickViewItem && !isClosed && quickViewItem.status === "SALES_REVIEW" && canReviewAsCreator(role, userName, project);
+  const quickViewCanResubmit =
+    !!quickViewItem &&
+    !isClosed &&
+    quickViewItem.status === "DEVELOPING" &&
+    quickViewItem.approval === "CHANGE_REQUESTED" &&
+    isAssignedRndOwner(role, userName, project);
+  const quickViewShowExclusiveToggle = !!quickViewItem && canSetExclusive(role) && !isClosed && quickViewItem.usage === "NEW";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -223,132 +234,67 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
-            {items.map((i) => {
-              const product = products.find((p) => p.code === i.productCode);
-              if (!product) return null;
-              const usage = usageBadge(i.usage);
-              const s = projectProductStatusBadge(i.status);
-              const approval = customerApprovalBadge(i.approval);
-              const reuse = reusePermissionBadge(product.reuse);
-              const needsAttention =
-                !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
-              const canRelease =
-                canReleaseToLibrary(role, userName, project) && i.status === "APPROVED" && product.status === "DRAFT";
-              const canReviewHere = !isClosed && i.status === "SALES_REVIEW" && canReviewAsCreator(role, userName, project);
-              const canResubmit =
-                !isClosed &&
-                i.status === "DEVELOPING" &&
-                i.approval === "CHANGE_REQUESTED" &&
-                isAssignedRndOwner(role, userName, project);
+            <div className="grid grid-cols-3 gap-4">
+              {items.map((i) => {
+                const product = products.find((p) => p.code === i.productCode);
+                if (!product) return null;
+                const usage = usageBadge(i.usage);
+                const s = projectProductStatusBadge(i.status);
+                const reuse = reusePermissionBadge(product.reuse);
+                const needsAttention =
+                  !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
 
-              return (
-                <div key={i.productCode} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
+                return (
                   <button
+                    key={i.productCode}
                     onClick={() => setQuickViewCode(i.productCode)}
-                    className={`flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${
-                      product.mainImage ? "" : TINT_BG[product.tint]
-                    }`}
+                    className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface text-left hover:border-accent/40"
                   >
-                    {product.mainImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.mainImage} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
-                        <path d="M21 8l-9-5-9 5 9 5 9-5z" />
-                        <path d="M3 8v8l9 5 9-5V8" />
-                        <path d="M12 13v8" />
-                      </svg>
-                    )}
-                  </button>
-                  <div className="flex flex-1 flex-col gap-2">
-                    <div className="flex justify-between gap-2.5">
-                      <button onClick={() => setQuickViewCode(i.productCode)} className="text-left">
-                        <div className="text-sm font-bold">{product.name}</div>
-                        <div className="mt-0.5 text-xs font-semibold text-text-faint">{product.code}</div>
-                      </button>
-                      <div className="flex flex-shrink-0 flex-wrap justify-end gap-1.5">
+                    <div
+                      className={`relative flex h-40 items-center justify-center overflow-hidden ${
+                        product.mainImage ? "" : TINT_BG[product.tint]
+                      }`}
+                    >
+                      {product.mainImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={product.mainImage} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.4">
+                          <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+                          <path d="M3 8v8l9 5 9-5V8" />
+                          <path d="M12 13v8" />
+                        </svg>
+                      )}
+                      {needsAttention && (
+                        <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-amber px-2 py-1 text-[10.5px] font-bold text-white">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                          Cần duyệt
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-2 p-3.5">
+                      <div>
+                        <div className="truncate text-[13px] font-bold">{product.name}</div>
+                        <div className="mt-0.5 text-[11px] font-semibold text-text-faint">{product.code}</div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
                         <span className={usage.className}>{usage.label}</span>
                         <span className={s.className}>{s.label}</span>
                         <span className={reuse.className}>{reuse.label}</span>
                       </div>
-                    </div>
-                    {i.note && <p className="text-[12.5px] leading-relaxed text-text-muted">{i.note}</p>}
-                    {i.status === "DEVELOPING" && i.lastRejectionReason && (
-                      <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-2.5">
-                        <div className="text-[11.5px] font-bold text-red">Cần chỉnh sửa</div>
-                        <p className="mt-0.5 text-[12.5px] leading-relaxed text-text">{i.lastRejectionReason}</p>
-                      </div>
-                    )}
-                    <div className="text-[11.5px] text-text-faint">
-                      Phụ trách: <span className="font-semibold text-text-muted">{i.assigneeName ?? "Chưa gán"}</span>
-                    </div>
-                    <div className="flex items-center justify-between border-t border-line pt-2">
-                      <span className={approval.className}>{approval.label}</span>
-                      <div className="flex flex-wrap items-center justify-end gap-2.5">
-                        <span className="text-[11.5px] font-semibold text-text-faint">
-                          Feedback ({i.feedback.length})
-                        </span>
-                        {needsAttention && (
-                          <span className="inline-flex items-center gap-1.5 text-[11.5px] font-bold text-amber">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-                              <circle cx="12" cy="12" r="3" />
-                            </svg>
-                            Cần duyệt
-                          </span>
-                        )}
-                        {canSetExclusive(role) && !isClosed && i.usage === "NEW" && (
-                          <button
-                            onClick={() =>
-                              setReusePermission(
-                                product.code,
-                                product.reuse === "EXCLUSIVE" ? "REUSABLE" : "EXCLUSIVE",
-                                userName,
-                              )
-                            }
-                            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-bg"
-                          >
-                            {product.reuse === "EXCLUSIVE" ? "Bỏ Exclusive" : "Gắn Exclusive"}
-                          </button>
-                        )}
-                        {canResubmit && (
-                          <button
-                            onClick={() => resubmitProjectProduct(project.code, i.productCode)}
-                            className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-bg"
-                          >
-                            Gửi lại duyệt
-                          </button>
-                        )}
-                        {canReviewHere && (
-                          <>
-                            <button
-                              onClick={() => setRejectTarget(i)}
-                              className="h-7 rounded-md border border-line bg-surface px-2.5 text-[11px] font-bold hover:bg-red-soft hover:text-red"
-                            >
-                              Yêu cầu chỉnh sửa
-                            </button>
-                            <button
-                              onClick={() => approveProjectProduct(project.code, i.productCode)}
-                              className="h-7 rounded-md bg-green px-2.5 text-[11px] font-bold text-white hover:opacity-90"
-                            >
-                              Approve
-                            </button>
-                          </>
-                        )}
-                        {canRelease && (
-                          <button
-                            onClick={() => releaseToLibrary(product.code, project.name)}
-                            className="h-7 rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover"
-                          >
-                            Release to Library
-                          </button>
-                        )}
+                      {i.note && <p className="truncate text-[11.5px] text-text-muted">{i.note}</p>}
+                      <div className="mt-auto flex items-center justify-between border-t border-line pt-2 text-[11px] text-text-faint">
+                        <span className="truncate">{i.assigneeName ?? "Chưa gán"}</span>
+                        <span className="flex-shrink-0">Feedback ({i.feedback.length})</span>
                       </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
 
             {items.length === 0 && (
               <div className="py-10 text-center text-sm text-text-faint">Chưa có sản phẩm nào trong dự án này.</div>
@@ -456,22 +402,22 @@ export default function ProjectDetailPage() {
           item={quickViewItem}
           product={quickViewProduct}
           isClosed={isClosed}
+          canReviewHere={quickViewCanReviewHere}
+          canResubmit={quickViewCanResubmit}
+          canRelease={quickViewCanRelease}
+          showExclusiveToggle={quickViewShowExclusiveToggle}
           onApprove={() => approveProjectProduct(project.code, quickViewItem.productCode)}
           onRequestChange={(reason) => rejectProjectProduct(project.code, quickViewItem.productCode, reason)}
+          onResubmit={() => resubmitProjectProduct(project.code, quickViewItem.productCode)}
+          onRelease={() => releaseToLibrary(quickViewProduct.code, project.name)}
+          onToggleExclusive={() =>
+            setReusePermission(
+              quickViewProduct.code,
+              quickViewProduct.reuse === "EXCLUSIVE" ? "REUSABLE" : "EXCLUSIVE",
+              userName,
+            )
+          }
           onClose={() => setQuickViewCode(null)}
-        />
-      )}
-
-      {rejectTarget && (
-        <RejectProjectProductModal
-          open
-          productName={products.find((p) => p.code === rejectTarget.productCode)?.name ?? rejectTarget.productCode}
-          productCode={rejectTarget.productCode}
-          onCancel={() => setRejectTarget(null)}
-          onConfirm={(reason) => {
-            rejectProjectProduct(project.code, rejectTarget.productCode, reason);
-            setRejectTarget(null);
-          }}
         />
       )}
 

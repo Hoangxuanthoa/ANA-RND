@@ -9,6 +9,7 @@ import { useCollections } from "@/components/CollectionsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogPitchModal } from "@/components/LogPitchModal";
+import { ProductQuickView } from "@/components/ProductQuickView";
 import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections, canEditCollection } from "@/lib/permissions";
@@ -29,6 +30,7 @@ export default function CollectionDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Product | null>(null);
   const [notice, setNotice] = useState<React.ReactNode | null>(null);
+  const [quickView, setQuickView] = useState<Product | null>(null);
 
   if (!canManageCollections(role)) {
     return (
@@ -197,7 +199,10 @@ export default function CollectionDetailPage() {
         <div className="grid grid-cols-3 gap-4">
           {items.map((p) => (
             <div key={p.code} className="overflow-hidden rounded-xl border border-line bg-surface">
-              <div className={`relative flex h-32 items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+              <div
+                onClick={() => setQuickView(p)}
+                className={`relative flex h-32 cursor-pointer items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}
+              >
                 {p.mainImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
@@ -210,7 +215,10 @@ export default function CollectionDetailPage() {
                 )}
                 {editable && (
                   <button
-                    onClick={() => setRemoveTarget(p)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRemoveTarget(p);
+                    }}
                     title="Bỏ khỏi collection"
                     className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-text-faint hover:text-red"
                   >
@@ -221,9 +229,9 @@ export default function CollectionDetailPage() {
                 )}
               </div>
               <div className="flex flex-col gap-1 p-3">
-                <Link href={`/library/${p.code}`} className="truncate text-[12.5px] font-bold hover:text-accent">
+                <button onClick={() => setQuickView(p)} className="truncate text-left text-[12.5px] font-bold hover:text-accent">
                   {p.name}
-                </Link>
+                </button>
                 <div className="text-[11px] font-semibold text-text-faint">{p.code}</div>
                 <div className="truncate text-[11px] text-text-muted">
                   {p.category} · {p.material}
@@ -270,6 +278,8 @@ export default function CollectionDetailPage() {
           )}
         </div>
       </div>
+
+      {quickView && <ProductQuickView product={quickView} onClose={() => setQuickView(null)} />}
 
       <LogPitchModal
         open={linkModalOpen}

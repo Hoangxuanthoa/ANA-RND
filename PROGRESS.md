@@ -82,13 +82,36 @@ read it before changing any access-control logic. Highlights:
   chosen Sales rep becomes its real owner (`createdByName`) from creation,
   not the customer. EditProjectModal can now also assign/reassign a
   project's `rndOwner` after creation (didn't exist before at all).
+
+  **Product Development tab redone as a grid (2026-09-10):** was a
+  vertical list of full-width rows with every status/action inline;
+  changed to an image-forward grid (3 cols, matching Collections/Library)
+  so it visually matches the rest of the app. Each row carried far more
+  state than a Collection/Library card has room for (usage/status/reuse
+  badges, needs-attention flag, rejection reason, assignee, customer
+  approval, feedback count, and action buttons for Set Exclusive/Resubmit/
+  internal review/Release to Library), so the card face keeps only what's
+  needed to scan a project at a glance (image, name, code, the 3 badges,
+  a "Cần duyệt" flag when something needs action, a truncated note
+  preview, assignee + feedback count) — everything else moved into
+  `ProjectProductQuickView` (opened by clicking the card), which grew
+  from "customer-approval + feedback only" into the one place for all of
+  it. Along the way, the internal/creator review stage (Sales approving
+  before it goes to the customer) was merged into the same inline
+  approve/request-change block the customer stage already used — both
+  ultimately call the same `rejectProjectProduct`/`approveProjectProduct`,
+  they just gate on a different status — so `RejectProjectProductModal`
+  (a separate reason-entry dialog, only used for the creator stage) was
+  deleted as redundant. `src/app/my-tasks/page.tsx` also renders this
+  same quick view (its own list layout is untouched — that page is a
+  separate, paused feature) and picked up the same new props.
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
   real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it
   led to a page offering both PPTX and PDF — the old name stopped making
   sense) goes to `/collections/[id]/export`, where you pick which
-  products to include (checkboxes, all on by default), a customer, an
-  optional note, and a "Số sản phẩm/trang" mode, then either "Xuất PPTX"
+  products to include (checkboxes, all on by default), a customer, and a
+  "Số sản phẩm/trang" mode, then either "Xuất PPTX"
   (real .pptx via `pptxgenjs`, `src/lib/pptxExport.ts` — added as an npm
   dependency since there's no browser-native way to produce PowerPoint)
   or "Xuất PDF" (`window.print()` — browsers already do PDF well, no
@@ -203,6 +226,14 @@ read it before changing any access-control logic. Highlights:
   pitch that's meant to be pure moodboard/visual with no spec data. Wired
   through all 3 consumers (PPTX, PDF, on-page preview) the same way the
   5 layout modes already are, so none of them can drift out of sync.
+
+  **Quick view on the collection detail page (2026-09-10):** clicking a
+  product used to navigate straight to `/library/[code]`, leaving the
+  collection — now it opens `ProductQuickView` (the same modal already
+  used on Design Library and the Review page) in place, so you can check
+  whether a design still belongs in the collection without losing your
+  spot. The remove ("X") button on the thumbnail still works the same as
+  before, just with `stopPropagation` so it doesn't also open the modal.
 
   **PPTX template (2026-09-07):** content slides use 5 fixed, deliberately
   designed layouts (not a generic auto-grid) picked via "Số sản
