@@ -188,11 +188,19 @@ read it before changing any access-control logic. Highlights:
   collection on every click. Then routes straight to its
   `/collections/[id]/export` page. Eligibility
   (`isProjectProductExportable` in `permissions.ts`) is intentionally
-  looser than release-readiness: cleared creator/Sales review and not
-  an incomplete bulk-upload placeholder, same as the user asked ("sales
-  approve, hoặc người tạo project approve, và dự án Completed") — it
-  doesn't care about the product's Library/DRAFT status the way release
-  does, since exporting a pitch deck never touches the Library.
+  looser than release-readiness: just cleared creator/Sales review,
+  same as the user asked ("sales approve, hoặc người tạo project
+  approve, và dự án Completed") — it doesn't care about the product's
+  Library/DRAFT status the way release does, since exporting a pitch
+  deck never touches the Library. **Bulk-upload placeholders count too
+  (2026-09-10 follow-up):** initially excluded incomplete items on the
+  assumption a customer shouldn't see a product with no real category/
+  material — but the user pointed out a pitch sometimes only needs the
+  photo (that's exactly what the export page's per-field "Hiển thị
+  thông tin" toggles already support: untick Item code/Category/
+  Material/Dimension and the image fills the whole cell). So
+  `isProjectProductExportable` no longer checks `incomplete` at all —
+  only `Release`/`Release tất cả` still do.
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
   real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it
