@@ -10,6 +10,7 @@ import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProductModal } from "@/components/NewProductModal";
+import { BulkUploadModal } from "@/components/BulkUploadModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
 import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
@@ -18,6 +19,7 @@ import {
   usageBadge,
   projectProductStatusBadge,
   reusePermissionBadge,
+  incompleteInfoBadge,
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
@@ -54,11 +56,12 @@ export default function ProjectDetailPage() {
     updateProject,
     addProjectFeedback,
     addProductToProject,
+    addProductsToProjectBulk,
     approveProjectProduct,
     rejectProjectProduct,
     resubmitProjectProduct,
   } = useProjects();
-  const { products, releaseToLibrary, setReusePermission } = useProducts();
+  const { products, releaseToLibrary, setReusePermission, createProductsBulk } = useProducts();
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
@@ -68,6 +71,7 @@ export default function ProjectDetailPage() {
   const [editProductCode, setEditProductCode] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [newDesignOpen, setNewDesignOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
   if (!project) return notFound();
 
@@ -105,7 +109,10 @@ export default function ProjectDetailPage() {
     isAssignedRndOwner(role, userName, project);
   const quickViewShowExclusiveToggle = !!quickViewItem && canSetExclusive(role) && !isClosed && quickViewItem.usage === "NEW";
   const quickViewCanEditProduct =
-    !!quickViewItem && !!quickViewProduct && quickViewItem.status === "DEVELOPING" && canEditProduct(role, userName, quickViewProduct);
+    !!quickViewItem &&
+    !!quickViewProduct &&
+    (quickViewItem.status === "DEVELOPING" || !!quickViewProduct.incomplete) &&
+    canEditProduct(role, userName, quickViewProduct);
   const editProductTarget = editProductCode ? products.find((p) => p.code === editProductCode) : undefined;
 
   return (
@@ -231,6 +238,20 @@ export default function ProjectDetailPage() {
               <div className="flex justify-end gap-2">
                 {canCreateProduct(role) && (
                   <button
+                    onClick={() => setBulkUploadOpen(true)}
+                    className="inline-flex h-[38px] items-center gap-1.5 rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" />
+                      <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
+                    Up hàng loạt
+                  </button>
+                )}
+                {canCreateProduct(role) && (
+                  <button
                     onClick={() => setNewDesignOpen(true)}
                     className="inline-flex h-[38px] items-center gap-1.5 rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg"
                   >
@@ -262,6 +283,7 @@ export default function ProjectDetailPage() {
                 const usage = usageBadge(i.usage);
                 const s = projectProductStatusBadge(i.status);
                 const reuse = reusePermissionBadge(product.reuse);
+                const incomplete = incompleteInfoBadge();
                 const needsAttention =
                   !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
                 const canRelease = releasableItems.includes(i);
@@ -310,6 +332,7 @@ export default function ProjectDetailPage() {
                           <span className={usage.className}>{usage.label}</span>
                           <span className={s.className}>{s.label}</span>
                           <span className={reuse.className}>{reuse.label}</span>
+                          {product.incomplete && <span className={incomplete.className}>{incomplete.label}</span>}
                         </div>
                         {canRelease && (
                           <button
@@ -486,6 +509,16 @@ export default function ProjectDetailPage() {
           onCreate={() => setEditProductCode(null)}
         />
       )}
+
+      <BulkUploadModal
+        open={bulkUploadOpen}
+        onCancel={() => setBulkUploadOpen(false)}
+        onConfirm={(items) => {
+          const codes = createProductsBulk(items, project.customer);
+          addProductsToProjectBulk(project.code, codes, "NEW", role === "RND" ? userName : undefined);
+          setBulkUploadOpen(false);
+        }}
+      />
     </div>
   );
 }

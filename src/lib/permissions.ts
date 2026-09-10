@@ -148,7 +148,7 @@ export function canReleaseToLibrary(role: Role, userName: string, project: Proje
 // CUSTOMER_REVIEW and lets a customer approve it later if they do show
 // up, this just doesn't gate release on it.
 export function isProjectProductReadyToRelease(item: ProjectProductItem, product: Product) {
-  return (item.status === "CUSTOMER_REVIEW" || item.status === "APPROVED") && product.status === "DRAFT";
+  return (item.status === "CUSTOMER_REVIEW" || item.status === "APPROVED") && product.status === "DRAFT" && !product.incomplete;
 }
 
 export function canReleaseProjectProduct(role: Role, userName: string, project: Project, item: ProjectProductItem, product: Product) {

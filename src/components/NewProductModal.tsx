@@ -131,7 +131,9 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
       images,
     };
     if (product) {
-      updateProduct(product.code, fields);
+      // A saved edit is what clears a bulk-upload placeholder's "Thiếu
+      // thông tin" flag — see isProjectProductReadyToRelease.
+      updateProduct(product.code, { ...fields, incomplete: false });
       onCreate(product.code);
     } else {
       const code = createProduct({ ...fields, originCustomer: projectCustomer }, { autoSubmit });

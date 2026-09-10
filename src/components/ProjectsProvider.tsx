@@ -32,6 +32,11 @@ interface ProjectsContextValue {
   // "Developing" stage — that status is only ever re-entered after a
   // rejection sends something back for rework).
   addProductToProject: (projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) => void;
+  // Same as addProductToProject but for a whole batch at once (bulk image
+  // upload) — one state update and one notification instead of one of
+  // each per product, so the creator doesn't get N separate pings for a
+  // single upload action.
+  addProductsToProjectBulk: (projectCode: string, productCodes: string[], usage: UsageType, assigneeName?: string) => void;
   addProjectFeedback: (projectCode: string, content: string) => void;
   addProjectProductFeedback: (projectCode: string, productCode: string, content: string) => void;
   // Advances one item through its project's internal review: from the
@@ -183,6 +188,41 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function addProductsToProjectBulk(projectCode: string, productCodes: string[], usage: UsageType, assigneeName?: string) {
+    setProjectProducts((prev) => {
+      const existing = new Set(prev.filter((pp) => pp.projectCode === projectCode).map((pp) => pp.productCode));
+      const additions = productCodes
+        .filter((code) => !existing.has(code))
+        .map(
+          (productCode): ProjectProductItem => ({
+            projectCode,
+            productCode,
+            usage,
+            status: "SALES_REVIEW",
+            approval: "PENDING",
+            note: "",
+            assigneeName,
+            feedback: [],
+          }),
+        );
+      return [...prev, ...additions];
+    });
+    setProjects((prev) =>
+      prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)),
+    );
+    const project = projects.find((p) => p.code === projectCode);
+    const actorName = CURRENT_USER_NAME[role];
+    if (project && project.createdByName !== actorName && productCodes.length > 0) {
+      addNotification({
+        type: "PROJECT_ITEM_NEEDS_REVIEW",
+        title: "Có sản phẩm mới cần bạn duyệt",
+        message: `${productCodes.length} sản phẩm mới trong dự án ${project.name}`,
+        link: `/projects/${projectCode}`,
+        recipientName: project.createdByName,
+      });
+    }
+  }
+
   function approveProjectProduct(projectCode: string, productCode: string) {
     const project = projects.find((p) => p.code === projectCode);
     const creatorRole = project ? projectCreatorRole(project) : undefined;
@@ -281,6 +321,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         deleteProject,
         createProject,
         addProductToProject,
+        addProductsToProjectBulk,
         addProjectFeedback,
         addProjectProductFeedback,
         approveProjectProduct,

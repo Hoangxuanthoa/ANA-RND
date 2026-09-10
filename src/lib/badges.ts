@@ -59,6 +59,12 @@ export function usageBadge(usage: UsageType) {
     : { className: `${BADGE_BASE} bg-slate-soft text-slate-text`, label: "New" };
 }
 
+// A bulk-uploaded placeholder product that still needs its real name/
+// category/material filled in before it can be released.
+export function incompleteInfoBadge() {
+  return { className: `${BADGE_BASE} bg-amber-soft text-amber`, label: "Thiếu thông tin" };
+}
+
 export function projectProductStatusBadge(status: ProjectProductStatus) {
   const map: Record<ProjectProductStatus, { cls: string; label: string }> = {
     DEVELOPING: { cls: "bg-blue-soft text-blue", label: "Developing" },

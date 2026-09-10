@@ -150,6 +150,12 @@ export interface Product {
   sourceProjectName?: string;
   submittedAt?: string;
   lastRejectionReason?: string;
+  // Set by bulk image upload — a placeholder record with an auto-cropped
+  // image and no real name/category/material yet. Cleared the first time
+  // someone saves an edit via NewProductModal. Blocks Release (see
+  // isProjectProductReadyToRelease in permissions.ts) but not the review
+  // pipeline itself — Sales/Customer can still review it mid-flight.
+  incomplete?: boolean;
 }
 
 export const PRODUCTS: Product[] = [

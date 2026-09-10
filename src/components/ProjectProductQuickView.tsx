@@ -9,6 +9,7 @@ import {
   projectProductStatusBadge,
   customerApprovalBadge,
   reusePermissionBadge,
+  incompleteInfoBadge,
   TINT_BG,
   TINT_FG,
 } from "@/lib/badges";
@@ -59,6 +60,7 @@ export function ProjectProductQuickView({
   const status = projectProductStatusBadge(item.status);
   const approval = customerApprovalBadge(item.approval);
   const reuse = reusePermissionBadge(product.reuse);
+  const incomplete = incompleteInfoBadge();
   const showCustomerActions =
     !isClosed && customer && item.approval === "PENDING" && item.status === "CUSTOMER_REVIEW";
   const showWatchOnly =
@@ -96,6 +98,7 @@ export function ProjectProductQuickView({
                 <span className={usage.className}>{usage.label}</span>
                 <span className={status.className}>{status.label}</span>
                 <span className={reuse.className}>{reuse.label}</span>
+                {product.incomplete && <span className={incomplete.className}>{incomplete.label}</span>}
               </div>
             </div>
           </div>
@@ -118,6 +121,22 @@ export function ProjectProductQuickView({
             >
               Release to Library
             </button>
+          </div>
+        )}
+
+        {product.incomplete && (
+          <div className="flex items-center justify-between gap-3 border-b border-line bg-amber-soft px-5 py-3">
+            <span className="text-[12.5px] font-bold text-amber">
+              Sản phẩm up hàng loạt — cần cập nhật đầy đủ thông tin trước khi release.
+            </span>
+            {canEditProduct && (
+              <button
+                onClick={onEditProduct}
+                className="h-8 flex-shrink-0 rounded-md border border-amber/30 bg-white px-3 text-[12px] font-bold text-amber hover:bg-amber-soft"
+              >
+                Sửa thông tin sản phẩm
+              </button>
+            )}
           </div>
         )}
 

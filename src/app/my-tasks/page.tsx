@@ -63,7 +63,10 @@ export default function MyTasksPage() {
     isAssignedRndOwner(role, userName, quickViewProject!);
   const quickViewShowExclusiveToggle = !!quickViewItem && canSetExclusive(role) && !quickViewIsClosed && quickViewItem.usage === "NEW";
   const quickViewCanEditProduct =
-    !!quickViewItem && !!quickViewProduct && quickViewItem.status === "DEVELOPING" && canEditProduct(role, userName, quickViewProduct);
+    !!quickViewItem &&
+    !!quickViewProduct &&
+    (quickViewItem.status === "DEVELOPING" || !!quickViewProduct.incomplete) &&
+    canEditProduct(role, userName, quickViewProduct);
   const editProductTarget = editProductCode ? products.find((p) => p.code === editProductCode) : undefined;
 
   return (

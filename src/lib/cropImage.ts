@@ -19,6 +19,17 @@ function loadImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
+// Auto center-crop to a square — used by bulk upload, where there's no
+// per-image interactive crop step (see ImageCropModal for the manual
+// version used everywhere else a single image is uploaded).
+export async function autoSquareCropUrl(imageSrc: string): Promise<string> {
+  const image = await loadImage(imageSrc);
+  const size = Math.min(image.naturalWidth, image.naturalHeight);
+  const x = (image.naturalWidth - size) / 2;
+  const y = (image.naturalHeight - size) / 2;
+  return getCroppedImageUrl(imageSrc, { x, y, width: size, height: size });
+}
+
 export async function getCroppedImageUrl(imageSrc: string, crop: PixelCrop): Promise<string> {
   const image = await loadImage(imageSrc);
   const canvas = document.createElement("canvas");

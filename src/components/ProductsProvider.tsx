@@ -61,6 +61,8 @@ interface ProductsContextValue {
     },
     options?: { autoSubmit?: boolean },
   ) => string;
+  // Bulk intake — one placeholder product per image, see createProductsBulk.
+  createProductsBulk: (images: { name: string; mainImage: string }[], originCustomer?: string) => string[];
   updateProduct: (code: string, patch: Partial<Product>) => void;
   archiveProduct: (code: string) => void;
   deleteProduct: (code: string) => void;
@@ -294,6 +296,41 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
     return code;
   }
 
+  // Bulk intake for a rush project — one image in, one placeholder
+  // product out, `incomplete: true` so it can move through review but
+  // can't be Released until someone fills in the real name/category/
+  // material (see isProjectProductReadyToRelease). Codes are assigned
+  // sequentially off one `products` snapshot (not looped calls to
+  // createProduct, which would all compute the same "next" code since
+  // none of the intermediate setProducts calls would have landed yet).
+  function createProductsBulk(images: { name: string; mainImage: string }[], originCustomer?: string): string[] {
+    let pool = products;
+    const newProducts: Product[] = images.map((img) => {
+      const code = nextProductCode(pool);
+      const product: Product = {
+        code,
+        name: img.name,
+        category: categoryField.items[0] ?? "",
+        material: materialField.items[0] ?? "",
+        designer: CURRENT_USER_NAME[role],
+        originCustomer: originCustomer?.trim() || "—",
+        status: "DRAFT",
+        reuse: "REUSABLE",
+        favorites: 0,
+        tint: "blue",
+        createdAt: todayDDMMYYYY(),
+        sizeVariants: [],
+        color: colorField.items[0] ?? "",
+        mainImage: img.mainImage,
+        incomplete: true,
+      };
+      pool = [...pool, product];
+      return product;
+    });
+    setProducts((prev) => [...newProducts, ...prev]);
+    return newProducts.map((p) => p.code);
+  }
+
   function updateProduct(code: string, patch: Partial<Product>) {
     setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, ...patch } : p)));
   }
@@ -329,6 +366,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         addProductFeedback,
         addProductVersion,
         createProduct,
+        createProductsBulk,
         updateProduct,
         archiveProduct,
         deleteProduct,

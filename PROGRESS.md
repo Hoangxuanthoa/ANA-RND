@@ -146,6 +146,33 @@ read it before changing any access-control logic. Highlights:
     calls `releaseToLibrary` for every release-eligible item at once.
     Reuse items (already-released library products picked into the
     project) are never included, since they don't need releasing.
+
+  **Bulk image upload for rush projects (2026-09-10):** uploading many
+  designs one at a time (open form, fill every field, submit, repeat)
+  was too slow when a project is under time pressure. Added "Up hàng
+  loạt" next to "Thiết kế mới"/"Pick Product" — `BulkUploadModal.tsx`
+  takes a pile of images at once, auto-crops each to a square (no
+  per-image manual crop step, that would defeat the point) via a new
+  `autoSquareCropUrl` in `cropImage.ts`, and uses the file name (minus
+  extension) as a starting product name. Each image becomes its own
+  placeholder `Product` with `incomplete: true` — real category/
+  material/kích thước aren't filled in yet, so it's flagged with a
+  "Thiếu thông tin" badge (card face, quick view header, and a
+  dedicated amber banner in the quick view with a "Sửa thông tin sản
+  phẩm" button) and, critically, `isProjectProductReadyToRelease` in
+  `permissions.ts` now also requires `!product.incomplete` — an
+  incomplete item can move through the whole Sales/Customer review
+  pipeline same as any other, it just can't be Released (individually
+  or via "Release tất cả") until someone opens it and saves real info
+  (`NewProductModal`'s edit-mode save clears the flag). Two new
+  provider functions do the actual bulk writes in one state update each
+  instead of looping the single-item ones: `createProductsBulk` (assigns
+  all N codes off one `products` snapshot — looping `createProduct`
+  instead would have every iteration compute the same "next" code,
+  since none of the intermediate `setProducts` calls land before the
+  next `nextProductCode` call reads the still-stale array) and
+  `addProductsToProjectBulk` (also collapses what would otherwise be N
+  separate "sản phẩm mới cần bạn duyệt" notifications into one).
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
   real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it
