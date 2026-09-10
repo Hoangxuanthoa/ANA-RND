@@ -105,6 +105,40 @@ read it before changing any access-control logic. Highlights:
   deleted as redundant. `src/app/my-tasks/page.tsx` also renders this
   same quick view (its own list layout is untouched — that page is a
   separate, paused feature) and picked up the same new props.
+
+  **Follow-up fixes (2026-09-10):**
+  - **Release no longer waits on customer approval:** the gate used to be
+    Sales approves → Customer approves → project Completed. The user
+    doesn't yet expect customers to actually log in and act here (that's
+    a real future goal, not today), so requiring their approval blocked
+    release on a step nobody performs. `permissions.ts` now has
+    `isProjectProductReadyToRelease`/`canReleaseProjectProduct` — release
+    only needs the item to have cleared the creator/Sales review stage
+    (status `CUSTOMER_REVIEW` or `APPROVED`) plus project `COMPLETED`;
+    the `CUSTOMER_REVIEW` step and its "Đang chờ khách duyệt" indicator
+    still exist and still work if a customer does show up, they just
+    don't block release anymore. Both `projects/[code]/page.tsx` and
+    `my-tasks/page.tsx` were using their own duplicated inline version of
+    this condition — consolidated into the one shared permissions
+    function instead of fixing it in two places.
+  - **R&D can now edit a rejected item's info, not just resubmit:** the
+    quick view only offered "Gửi lại duyệt" after a change request, with
+    no way to actually change anything first — pointed out as illogical.
+    Added a "Sửa thông tin sản phẩm" button next to it (shown whenever
+    the item is `DEVELOPING` and the viewer can edit that product) that
+    reuses the existing `NewProductModal` in its established edit mode
+    (same one Library's product detail page already uses) — closes the
+    quick view first rather than stacking a second modal on top.
+  - **Release button moved onto the grid card itself:** previously only
+    reachable inside the quick view; now shows directly in the card's
+    badge row (right-aligned, short label "Release") whenever that item
+    is release-eligible, so it's a one-click action instead of
+    click-to-open-modal-then-click. Required switching the card from a
+    `<button>` wrapper to a `<div role="button">` (a real button can't
+    contain another button) — kept keyboard support (`tabIndex`, Enter
+    key) and used `stopPropagation` on the Release button so it doesn't
+    also trigger the card's own click-to-open-quick-view, same pattern
+    already used for the remove button on Collection cards.
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
   real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it

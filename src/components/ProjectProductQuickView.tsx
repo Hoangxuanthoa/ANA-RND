@@ -22,11 +22,13 @@ interface ProjectProductQuickViewProps {
   canResubmit: boolean;
   canRelease: boolean;
   showExclusiveToggle: boolean;
+  canEditProduct: boolean;
   onApprove: () => void;
   onRequestChange: (reason: string) => void;
   onResubmit: () => void;
   onRelease: () => void;
   onToggleExclusive: () => void;
+  onEditProduct: () => void;
   onClose: () => void;
 }
 
@@ -38,11 +40,13 @@ export function ProjectProductQuickView({
   canResubmit,
   canRelease,
   showExclusiveToggle,
+  canEditProduct,
   onApprove,
   onRequestChange,
   onResubmit,
   onRelease,
   onToggleExclusive,
+  onEditProduct,
   onClose,
 }: ProjectProductQuickViewProps) {
   const { role } = useRole();
@@ -124,14 +128,24 @@ export function ProjectProductQuickView({
             <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-[12px] font-bold text-red">Cần chỉnh sửa</div>
-                {canResubmit && (
-                  <button
-                    onClick={onResubmit}
-                    className="h-7 flex-shrink-0 rounded-md border border-red/30 bg-white px-2.5 text-[11px] font-bold text-red hover:bg-red-soft"
-                  >
-                    Gửi lại duyệt
-                  </button>
-                )}
+                <div className="flex flex-shrink-0 gap-2">
+                  {canEditProduct && (
+                    <button
+                      onClick={onEditProduct}
+                      className="h-7 rounded-md border border-red/30 bg-white px-2.5 text-[11px] font-bold text-red hover:bg-red-soft"
+                    >
+                      Sửa thông tin sản phẩm
+                    </button>
+                  )}
+                  {canResubmit && (
+                    <button
+                      onClick={onResubmit}
+                      className="h-7 rounded-md border border-red/30 bg-white px-2.5 text-[11px] font-bold text-red hover:bg-red-soft"
+                    >
+                      Gửi lại duyệt
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="mt-1 text-[12.5px] leading-relaxed text-text">{item.lastRejectionReason}</p>
             </div>

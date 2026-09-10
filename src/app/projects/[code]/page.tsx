@@ -24,10 +24,11 @@ import {
 import {
   canPickProduct,
   canCreateProduct,
+  canEditProduct,
   canEditProject,
   canHardDeleteProject,
   canMarkCompleted,
-  canReleaseToLibrary,
+  canReleaseProjectProduct,
   canSetExclusive,
   canReviewAsCreator,
   isAssignedRndOwner,
@@ -64,6 +65,7 @@ export default function ProjectDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
+  const [editProductCode, setEditProductCode] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [newDesignOpen, setNewDesignOpen] = useState(false);
 
@@ -85,10 +87,7 @@ export default function ProjectDetailPage() {
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
   const quickViewCanRelease =
-    !!(quickViewItem && quickViewProduct) &&
-    canReleaseToLibrary(role, userName, project) &&
-    quickViewItem!.status === "APPROVED" &&
-    quickViewProduct!.status === "DRAFT";
+    !!(quickViewItem && quickViewProduct) && canReleaseProjectProduct(role, userName, project, quickViewItem, quickViewProduct);
   const quickViewCanReviewHere =
     !!quickViewItem && !isClosed && quickViewItem.status === "SALES_REVIEW" && canReviewAsCreator(role, userName, project);
   const quickViewCanResubmit =
@@ -98,6 +97,9 @@ export default function ProjectDetailPage() {
     quickViewItem.approval === "CHANGE_REQUESTED" &&
     isAssignedRndOwner(role, userName, project);
   const quickViewShowExclusiveToggle = !!quickViewItem && canSetExclusive(role) && !isClosed && quickViewItem.usage === "NEW";
+  const quickViewCanEditProduct =
+    !!quickViewItem && !!quickViewProduct && quickViewItem.status === "DEVELOPING" && canEditProduct(role, userName, quickViewProduct);
+  const editProductTarget = editProductCode ? products.find((p) => p.code === editProductCode) : undefined;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -243,12 +245,16 @@ export default function ProjectDetailPage() {
                 const reuse = reusePermissionBadge(product.reuse);
                 const needsAttention =
                   !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
+                const canRelease = canReleaseProjectProduct(role, userName, project, i, product);
 
                 return (
-                  <button
+                  <div
                     key={i.productCode}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setQuickViewCode(i.productCode)}
-                    className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface text-left hover:border-accent/40"
+                    onKeyDown={(e) => e.key === "Enter" && setQuickViewCode(i.productCode)}
+                    className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent/40"
                   >
                     <div
                       className={`relative flex h-40 items-center justify-center overflow-hidden ${
@@ -280,10 +286,23 @@ export default function ProjectDetailPage() {
                         <div className="truncate text-[13px] font-bold">{product.name}</div>
                         <div className="mt-0.5 text-[11px] font-semibold text-text-faint">{product.code}</div>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <span className={usage.className}>{usage.label}</span>
-                        <span className={s.className}>{s.label}</span>
-                        <span className={reuse.className}>{reuse.label}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          <span className={usage.className}>{usage.label}</span>
+                          <span className={s.className}>{s.label}</span>
+                          <span className={reuse.className}>{reuse.label}</span>
+                        </div>
+                        {canRelease && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              releaseToLibrary(product.code, project.name);
+                            }}
+                            className="h-7 flex-shrink-0 rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover"
+                          >
+                            Release
+                          </button>
+                        )}
                       </div>
                       {i.note && <p className="truncate text-[11.5px] text-text-muted">{i.note}</p>}
                       <div className="mt-auto flex items-center justify-between border-t border-line pt-2 text-[11px] text-text-faint">
@@ -291,7 +310,7 @@ export default function ProjectDetailPage() {
                         <span className="flex-shrink-0">Feedback ({i.feedback.length})</span>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -406,6 +425,7 @@ export default function ProjectDetailPage() {
           canResubmit={quickViewCanResubmit}
           canRelease={quickViewCanRelease}
           showExclusiveToggle={quickViewShowExclusiveToggle}
+          canEditProduct={quickViewCanEditProduct}
           onApprove={() => approveProjectProduct(project.code, quickViewItem.productCode)}
           onRequestChange={(reason) => rejectProjectProduct(project.code, quickViewItem.productCode, reason)}
           onResubmit={() => resubmitProjectProduct(project.code, quickViewItem.productCode)}
@@ -417,6 +437,10 @@ export default function ProjectDetailPage() {
               userName,
             )
           }
+          onEditProduct={() => {
+            setEditProductCode(quickViewItem.productCode);
+            setQuickViewCode(null);
+          }}
           onClose={() => setQuickViewCode(null)}
         />
       )}
@@ -431,6 +455,16 @@ export default function ProjectDetailPage() {
             addProductToProject(project.code, code, "NEW", role === "RND" ? userName : undefined);
             setNewDesignOpen(false);
           }}
+        />
+      )}
+
+      {editProductTarget && (
+        <NewProductModal
+          open
+          title="Sửa sản phẩm"
+          product={editProductTarget}
+          onCancel={() => setEditProductCode(null)}
+          onCreate={() => setEditProductCode(null)}
         />
       )}
     </div>

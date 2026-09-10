@@ -7,9 +7,10 @@ import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
+import { NewProductModal } from "@/components/NewProductModal";
 import { CURRENT_USER_NAME } from "@/lib/mock-data";
 import { usageBadge, projectProductStatusBadge, customerApprovalBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canViewMyTasks, canReleaseToLibrary, canSetExclusive, canReviewAsCreator, isAssignedRndOwner } from "@/lib/permissions";
+import { canViewMyTasks, canReleaseProjectProduct, canEditProduct, canSetExclusive, canReviewAsCreator, isAssignedRndOwner } from "@/lib/permissions";
 
 export default function MyTasksPage() {
   const { role } = useRole();
@@ -17,6 +18,7 @@ export default function MyTasksPage() {
   const { projects, projectProducts, approveProjectProduct, rejectProjectProduct, resubmitProjectProduct } = useProjects();
   const { products, releaseToLibrary, setReusePermission } = useProducts();
   const [quickView, setQuickView] = useState<{ projectCode: string; productCode: string } | null>(null);
+  const [editProductCode, setEditProductCode] = useState<string | null>(null);
 
   if (!canViewMyTasks(role)) {
     return (
@@ -47,9 +49,7 @@ export default function MyTasksPage() {
   const quickViewIsClosed = quickViewProject?.status === "CLOSED";
   const quickViewCanRelease =
     !!(quickViewItem && quickViewProduct && quickViewProject) &&
-    canReleaseToLibrary(role, userName, quickViewProject!) &&
-    quickViewItem!.status === "APPROVED" &&
-    quickViewProduct!.status === "DRAFT";
+    canReleaseProjectProduct(role, userName, quickViewProject!, quickViewItem!, quickViewProduct!);
   const quickViewCanReviewHere =
     !!(quickViewItem && quickViewProject) &&
     !quickViewIsClosed &&
@@ -62,6 +62,9 @@ export default function MyTasksPage() {
     quickViewItem.approval === "CHANGE_REQUESTED" &&
     isAssignedRndOwner(role, userName, quickViewProject!);
   const quickViewShowExclusiveToggle = !!quickViewItem && canSetExclusive(role) && !quickViewIsClosed && quickViewItem.usage === "NEW";
+  const quickViewCanEditProduct =
+    !!quickViewItem && !!quickViewProduct && quickViewItem.status === "DEVELOPING" && canEditProduct(role, userName, quickViewProduct);
+  const editProductTarget = editProductCode ? products.find((p) => p.code === editProductCode) : undefined;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -138,6 +141,7 @@ export default function MyTasksPage() {
           canResubmit={quickViewCanResubmit}
           canRelease={quickViewCanRelease}
           showExclusiveToggle={quickViewShowExclusiveToggle}
+          canEditProduct={quickViewCanEditProduct}
           onApprove={() => approveProjectProduct(quickViewItem.projectCode, quickViewItem.productCode)}
           onRequestChange={(reason) => rejectProjectProduct(quickViewItem.projectCode, quickViewItem.productCode, reason)}
           onResubmit={() => resubmitProjectProduct(quickViewItem.projectCode, quickViewItem.productCode)}
@@ -149,7 +153,21 @@ export default function MyTasksPage() {
               userName,
             )
           }
+          onEditProduct={() => {
+            setEditProductCode(quickViewItem.productCode);
+            setQuickView(null);
+          }}
           onClose={() => setQuickView(null)}
+        />
+      )}
+
+      {editProductTarget && (
+        <NewProductModal
+          open
+          title="Sửa sản phẩm"
+          product={editProductTarget}
+          onCancel={() => setEditProductCode(null)}
+          onCreate={() => setEditProductCode(null)}
         />
       )}
     </div>

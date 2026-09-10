@@ -1,4 +1,4 @@
-import { STAFF, type Role, type Project, type ProjectType, type Product, type Collection } from "@/lib/mock-data";
+import { STAFF, type Role, type Project, type ProjectType, type Product, type Collection, type ProjectProductItem } from "@/lib/mock-data";
 
 export const canViewLibrary = (role: Role) => role !== "CUSTOMER";
 export const canCreateProduct = (role: Role) => role === "RND" || role === "ADMIN";
@@ -137,6 +137,22 @@ export function isAssignedRndOwner(role: Role, userName: string, project: Projec
 // else. Release happens before the project is Closed, not after.
 export function canReleaseToLibrary(role: Role, userName: string, project: Project) {
   return project.status === "COMPLETED" && isAssignedRndOwner(role, userName, project);
+}
+
+// A project product is ready to release once it's cleared the project
+// creator's own review (Sales/Admin/Marketing) — it does not need to
+// have separately cleared the follow-on Customer review too. Customers
+// aren't yet expected to actually log in and act on this, so requiring
+// their approval would block release on a step nobody performs; the
+// approveProjectProduct state machine still moves items into
+// CUSTOMER_REVIEW and lets a customer approve it later if they do show
+// up, this just doesn't gate release on it.
+export function isProjectProductReadyToRelease(item: ProjectProductItem, product: Product) {
+  return (item.status === "CUSTOMER_REVIEW" || item.status === "APPROVED") && product.status === "DRAFT";
+}
+
+export function canReleaseProjectProduct(role: Role, userName: string, project: Project, item: ProjectProductItem, product: Product) {
+  return canReleaseToLibrary(role, userName, project) && isProjectProductReadyToRelease(item, product);
 }
 
 // Who created a project, by role — looked up from the staff roster since
