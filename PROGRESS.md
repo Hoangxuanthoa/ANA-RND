@@ -139,6 +139,13 @@ read it before changing any access-control logic. Highlights:
     key) and used `stopPropagation` on the Release button so it doesn't
     also trigger the card's own click-to-open-quick-view, same pattern
     already used for the remove button on Collection cards.
+  - **"Release tất cả" bulk action:** releasing each eligible NEW design
+    one at a time was tedious once a Completed project had several ready
+    — added a button in the "Dự án đã hoàn thành" banner (right-aligned,
+    shows the count, only rendered when at least one item qualifies) that
+    calls `releaseToLibrary` for every release-eligible item at once.
+    Reuse items (already-released library products picked into the
+    project) are never included, since they don't need releasing.
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
   real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it

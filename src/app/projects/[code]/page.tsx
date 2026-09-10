@@ -84,6 +84,13 @@ export default function ProjectDetailPage() {
   // Approved (Completed) or the project has been Closed.
   const canModifyProducts = project.status === "CREATED" || project.status === "DEVELOPING";
   const items = projectProducts.filter((pp) => pp.projectCode === project.code);
+  // "Reuse" items are already-released library products picked into this
+  // project — never release-eligible, only a NEW design uploaded here can
+  // be. Used both for the per-item Release button and this bulk action.
+  const releasableItems = items.filter((i) => {
+    const p = products.find((prod) => prod.code === i.productCode);
+    return !!p && canReleaseProjectProduct(role, userName, project, i, p);
+  });
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
   const quickViewCanRelease =
@@ -204,8 +211,20 @@ export default function ProjectDetailPage() {
               </div>
             )}
             {isCompleted && (
-              <div className="rounded-lg border border-line bg-bg px-4 py-2.5 text-[12.5px] font-semibold text-text-faint">
-                Dự án đã hoàn thành — R&amp;D phụ trách có thể Release to Library cho các thiết kế mới, rồi đóng dự án.
+              <div className="flex items-center justify-between gap-3 rounded-lg border border-line bg-bg px-4 py-2.5">
+                <span className="text-[12.5px] font-semibold text-text-faint">
+                  Dự án đã hoàn thành — R&amp;D phụ trách có thể Release to Library cho các thiết kế mới, rồi đóng dự án.
+                </span>
+                {releasableItems.length > 0 && (
+                  <button
+                    onClick={() => {
+                      releasableItems.forEach((i) => releaseToLibrary(i.productCode, project.name));
+                    }}
+                    className="h-8 flex-shrink-0 rounded-md bg-accent px-3 text-[12px] font-bold text-white hover:bg-accent-hover"
+                  >
+                    Release tất cả ({releasableItems.length})
+                  </button>
+                )}
               </div>
             )}
             {canModifyProducts && (canPickProduct(role) || canCreateProduct(role)) && (
@@ -245,7 +264,7 @@ export default function ProjectDetailPage() {
                 const reuse = reusePermissionBadge(product.reuse);
                 const needsAttention =
                   !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
-                const canRelease = canReleaseProjectProduct(role, userName, project, i, product);
+                const canRelease = releasableItems.includes(i);
 
                 return (
                   <div
