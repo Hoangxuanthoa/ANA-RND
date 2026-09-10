@@ -173,6 +173,26 @@ read it before changing any access-control logic. Highlights:
   next `nextProductCode` call reads the still-stale array) and
   `addProductsToProjectBulk` (also collapses what would otherwise be N
   separate "sản phẩm mới cần bạn duyệt" notifications into one).
+
+  **"Xuất Collection" straight from a completed Project (2026-09-10):**
+  previously the only way to pitch a project's approved designs was to
+  manually build a Collection from the Library one product at a time.
+  Added a "Xuất Collection" button next to "Release tất cả" in the "Dự
+  án đã hoàn thành" banner — click it and it reuses 100% of the existing
+  Collection export machinery (no new export code at all): it either
+  creates a new `Collection` seeded with the project's exportable
+  product codes and `sourceProjectCode` set to this project, or — if
+  one linked to this project already exists — tops it up with any
+  newly-eligible codes (never removing ones already there, in case
+  someone deliberately took one out) instead of spawning a duplicate
+  collection on every click. Then routes straight to its
+  `/collections/[id]/export` page. Eligibility
+  (`isProjectProductExportable` in `permissions.ts`) is intentionally
+  looser than release-readiness: cleared creator/Sales review and not
+  an incomplete bulk-upload placeholder, same as the user asked ("sales
+  approve, hoặc người tạo project approve, và dự án Completed") — it
+  doesn't care about the product's Library/DRAFT status the way release
+  does, since exporting a pitch deck never touches the Library.
 - **Collections** (`/collections`, `/collections/[id]`) — build a shareable
   set of designs, pitch log (who was pitched what, when). Export is now
   real, not simulated: "Xuất Collection" (renamed from "Xuất PDF" once it

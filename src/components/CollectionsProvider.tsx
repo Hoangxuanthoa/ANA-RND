@@ -6,7 +6,7 @@ import { useNotifications } from "@/components/NotificationsProvider";
 
 interface CollectionsContextValue {
   collections: Collection[];
-  createCollection: (name: string, createdByName: string) => string;
+  createCollection: (name: string, createdByName: string, productCodes?: string[], sourceProjectCode?: string) => string;
   renameCollection: (id: string, name: string) => void;
   deleteCollection: (id: string) => void;
   addProductToCollection: (id: string, productCode: string) => void;
@@ -23,7 +23,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   const { addNotification } = useNotifications();
   const [collections, setCollections] = useState<Collection[]>(INITIAL_COLLECTIONS);
 
-  function createCollection(name: string, createdByName: string) {
+  function createCollection(name: string, createdByName: string, productCodes: string[] = [], sourceProjectCode?: string) {
     const id = `col-${Date.now()}`;
     setCollections((prev) => [
       {
@@ -32,8 +32,9 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
         createdByName,
         createdAt: "Vừa xong",
         status: "DRAFT",
-        productCodes: [],
+        productCodes,
         pitches: [],
+        sourceProjectCode,
       },
       ...prev,
     ]);

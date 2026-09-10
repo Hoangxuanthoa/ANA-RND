@@ -7,6 +7,7 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { useProducts } from "@/components/ProductsProvider";
+import { useCollections } from "@/components/CollectionsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProductModal } from "@/components/NewProductModal";
@@ -29,8 +30,10 @@ import {
   canEditProduct,
   canEditProject,
   canHardDeleteProject,
+  canManageCollections,
   canMarkCompleted,
   canReleaseProjectProduct,
+  isProjectProductExportable,
   canSetExclusive,
   canReviewAsCreator,
   isAssignedRndOwner,
@@ -62,6 +65,7 @@ export default function ProjectDetailPage() {
     resubmitProjectProduct,
   } = useProjects();
   const { products, releaseToLibrary, setReusePermission, createProductsBulk } = useProducts();
+  const { collections, createCollection, addProductToCollection } = useCollections();
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
@@ -95,6 +99,14 @@ export default function ProjectDetailPage() {
     const p = products.find((prod) => prod.code === i.productCode);
     return !!p && canReleaseProjectProduct(role, userName, project, i, p);
   });
+  // Which items are ready to go into a "Xuất Collection" pitch deck —
+  // cleared creator/Sales review, not a bulk-upload placeholder. Doesn't
+  // care about Library status, so Reuse items and already-released NEW
+  // ones both count (unlike releasableItems).
+  const exportableItems = items.filter((i) => {
+    const p = products.find((prod) => prod.code === i.productCode);
+    return !!p && isProjectProductExportable(i, p);
+  });
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
   const quickViewCanRelease =
@@ -114,6 +126,24 @@ export default function ProjectDetailPage() {
     (quickViewItem.status === "DEVELOPING" || !!quickViewProduct.incomplete) &&
     canEditProduct(role, userName, quickViewProduct);
   const editProductTarget = editProductCode ? products.find((p) => p.code === editProductCode) : undefined;
+
+  // Reuses an existing auto-created collection for this project (topping
+  // it up with any newly-eligible codes, never removing ones already
+  // there in case someone deliberately took one out) instead of spawning
+  // a duplicate collection on every click.
+  function handleExportCollection() {
+    const exportableCodes = exportableItems.map((i) => i.productCode);
+    const existing = collections.find((c) => c.sourceProjectCode === project!.code);
+    if (existing) {
+      exportableCodes.forEach((code) => {
+        if (!existing.productCodes.includes(code)) addProductToCollection(existing.id, code);
+      });
+      router.push(`/collections/${existing.id}/export`);
+    } else {
+      const id = createCollection(project!.name, userName, exportableCodes, project!.code);
+      router.push(`/collections/${id}/export`);
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -222,16 +252,26 @@ export default function ProjectDetailPage() {
                 <span className="text-[12.5px] font-semibold text-text-faint">
                   Dự án đã hoàn thành — R&amp;D phụ trách có thể Release to Library cho các thiết kế mới, rồi đóng dự án.
                 </span>
-                {releasableItems.length > 0 && (
-                  <button
-                    onClick={() => {
-                      releasableItems.forEach((i) => releaseToLibrary(i.productCode, project.name));
-                    }}
-                    className="h-8 flex-shrink-0 rounded-md bg-accent px-3 text-[12px] font-bold text-white hover:bg-accent-hover"
-                  >
-                    Release tất cả ({releasableItems.length})
-                  </button>
-                )}
+                <div className="flex flex-shrink-0 gap-2">
+                  {exportableItems.length > 0 && canManageCollections(role) && (
+                    <button
+                      onClick={handleExportCollection}
+                      className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-white"
+                    >
+                      Xuất Collection
+                    </button>
+                  )}
+                  {releasableItems.length > 0 && (
+                    <button
+                      onClick={() => {
+                        releasableItems.forEach((i) => releaseToLibrary(i.productCode, project.name));
+                      }}
+                      className="h-8 rounded-md bg-accent px-3 text-[12px] font-bold text-white hover:bg-accent-hover"
+                    >
+                      Release tất cả ({releasableItems.length})
+                    </button>
+                  )}
+                </div>
               </div>
             )}
             {canModifyProducts && (canPickProduct(role) || canCreateProduct(role)) && (

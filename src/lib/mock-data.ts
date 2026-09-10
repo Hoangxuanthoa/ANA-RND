@@ -802,6 +802,10 @@ export interface Collection {
   status: CollectionStatus;
   productCodes: string[];
   pitches: CollectionPitch[];
+  // Set when this collection was auto-created via a completed Project's
+  // "Xuất Collection" button — lets a repeat click reuse/top up the same
+  // collection instead of spawning a duplicate one each time.
+  sourceProjectCode?: string;
 }
 
 export const COLLECTIONS: Collection[] = [

@@ -151,6 +151,18 @@ export function isProjectProductReadyToRelease(item: ProjectProductItem, product
   return (item.status === "CUSTOMER_REVIEW" || item.status === "APPROVED") && product.status === "DRAFT" && !product.incomplete;
 }
 
+// Which project items belong in a "Xuất Collection" pitch deck built
+// straight from a completed project: cleared the creator/Sales review
+// stage (same bar as release-readiness) and not a bulk-upload
+// placeholder still missing real info. Unlike release-readiness, the
+// product's Library status doesn't matter here — an already-released
+// design is still fine to include, since this never touches the
+// Library at all, just assembles a Collection from what the project
+// approved.
+export function isProjectProductExportable(item: ProjectProductItem, product: Product) {
+  return (item.status === "CUSTOMER_REVIEW" || item.status === "APPROVED") && !product.incomplete;
+}
+
 export function canReleaseProjectProduct(role: Role, userName: string, project: Project, item: ProjectProductItem, product: Product) {
   return canReleaseToLibrary(role, userName, project) && isProjectProductReadyToRelease(item, product);
 }
