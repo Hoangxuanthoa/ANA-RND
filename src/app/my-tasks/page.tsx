@@ -8,6 +8,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { useRndTasks } from "@/components/RndTasksProvider";
 import { AddRndTaskModal } from "@/components/AddRndTaskModal";
 import { DateInput } from "@/components/DateInput";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   CURRENT_USER_NAME,
   STAFF,
@@ -122,6 +123,62 @@ function StagedTextCell({
   );
 }
 
+// "⋯" menu for an ad-hoc task row — Chỉnh sửa toggles that row's inline
+// edit fields on/off (see isEditing in the table below); Xóa asks the
+// caller to confirm before deleting. Closes on outside click, same
+// pattern as TopNav's bell/account dropdowns.
+function RowActionsMenu({ isEditing, onToggleEdit, onDelete }: { isEditing: boolean; onToggleEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="Tùy chọn"
+        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="5" cy="12" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="19" cy="12" r="1.8" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-8 right-0 z-20 w-36 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-md">
+          <button
+            onClick={() => {
+              onToggleEdit();
+              setOpen(false);
+            }}
+            className="flex w-full items-center px-3 py-2 text-left text-[12.5px] font-semibold hover:bg-bg"
+          >
+            {isEditing ? "Xong" : "Chỉnh sửa"}
+          </button>
+          <button
+            onClick={() => {
+              onDelete();
+              setOpen(false);
+            }}
+            className="flex w-full items-center px-3 py-2 text-left text-[12.5px] font-semibold text-red hover:bg-red-soft"
+          >
+            Xóa
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MyTasksPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
@@ -140,6 +197,8 @@ export default function MyTasksPage() {
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("deadline");
   const [page, setPage] = useState(1);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   if (!canViewMyTasks(role)) {
     return (
@@ -311,7 +370,7 @@ export default function MyTasksPage() {
 
         {tab === "todo" && (
           <>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Chip
                 active={statusFilter === "ALL"}
                 onClick={() => {
@@ -339,10 +398,7 @@ export default function MyTasksPage() {
               >
                 Hoàn thành ({statusCounts.DONE})
               </Chip>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <div className="relative ml-1">
                 <svg
                   width="14"
                   height="14"
@@ -361,8 +417,8 @@ export default function MyTasksPage() {
                     setQuery(e.target.value);
                     setPage(1);
                   }}
-                  placeholder="Tìm theo tên công việc…"
-                  className="h-9 w-56 rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+                  placeholder="Tìm tên công việc…"
+                  className="h-9 w-48 rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
                 />
               </div>
               <select
@@ -371,9 +427,9 @@ export default function MyTasksPage() {
                   setCategoryFilter(e.target.value as TaskCategory | "ALL");
                   setPage(1);
                 }}
-                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+                className="h-9 rounded-lg border border-line bg-surface px-2 text-[12.5px] focus:border-accent focus:outline-none"
               >
-                <option value="ALL">Tất cả phân loại</option>
+                <option value="ALL">Phân loại</option>
                 {TASK_CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -386,9 +442,9 @@ export default function MyTasksPage() {
                   setPriorityFilter(e.target.value as TaskPriority | "ALL");
                   setPage(1);
                 }}
-                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+                className="h-9 rounded-lg border border-line bg-surface px-2 text-[12.5px] focus:border-accent focus:outline-none"
               >
-                <option value="ALL">Tất cả mức độ</option>
+                <option value="ALL">Mức độ</option>
                 {TASK_PRIORITIES.map((p) => (
                   <option key={p} value={p}>
                     {p}
@@ -401,24 +457,21 @@ export default function MyTasksPage() {
                   setSourceFilter(e.target.value as SourceFilter);
                   setPage(1);
                 }}
-                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+                className="h-9 rounded-lg border border-line bg-surface px-2 text-[12.5px] focus:border-accent focus:outline-none"
               >
-                <option value="ALL">Tất cả nguồn</option>
+                <option value="ALL">Nguồn</option>
                 <option value="project">Từ Project</option>
                 <option value="task">Tự thêm</option>
               </select>
-              <div className="ml-auto flex items-center gap-2">
-                <span className="text-[12px] font-semibold text-text-faint">Sắp xếp</span>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortKey)}
-                  className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
-                >
-                  <option value="deadline">Deadline gần nhất</option>
-                  <option value="priority">Mức độ cao trước</option>
-                  <option value="name">Tên A-Z</option>
-                </select>
-              </div>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortKey)}
+                className="ml-auto h-9 rounded-lg border border-line bg-surface px-2 text-[12.5px] focus:border-accent focus:outline-none"
+              >
+                <option value="deadline">Sắp xếp: Deadline gần nhất</option>
+                <option value="priority">Sắp xếp: Mức độ cao trước</option>
+                <option value="name">Sắp xếp: Tên A-Z</option>
+              </select>
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-line bg-surface">
@@ -440,6 +493,7 @@ export default function MyTasksPage() {
               {pageRows.map((row, i) => {
                 const status = taskStatusBadge(row.isDone);
                 const left = daysLeftLabel(row);
+                const isEditing = row.kind === "task" && editingTaskId === row.taskId;
                 return (
                   <div key={row.key} className={`grid ${gridCols} min-w-fit items-center gap-2 border-t border-line px-4 py-2.5 text-[13px]`}>
                     <span className="text-text-faint">{(currentPage - 1) * PAGE_SIZE + i + 1}</span>
@@ -447,10 +501,12 @@ export default function MyTasksPage() {
                       <Link href={row.href} className="truncate font-bold text-accent hover:text-accent-hover">
                         {row.title}
                       </Link>
-                    ) : (
+                    ) : isEditing ? (
                       <StagedTextCell value={row.title} onSave={(v) => updateTask(row.taskId!, { title: v })} bold />
+                    ) : (
+                      <span className="truncate font-bold">{row.title}</span>
                     )}
-                    {row.kind === "task" ? (
+                    {isEditing ? (
                       <select
                         value={row.category}
                         onChange={(e) => updateTask(row.taskId!, { category: e.target.value as TaskCategory })}
@@ -478,7 +534,7 @@ export default function MyTasksPage() {
                     </select>
                     <span className={status.className}>{status.label}</span>
                     <span className={left.className}>{left.text}</span>
-                    {row.kind === "task" ? (
+                    {isEditing ? (
                       <select
                         value={row.requester}
                         onChange={(e) => updateTask(row.taskId!, { requester: e.target.value })}
@@ -493,7 +549,7 @@ export default function MyTasksPage() {
                     ) : (
                       <span className="truncate text-text-muted">{row.requester}</span>
                     )}
-                    {row.kind === "task" ? (
+                    {isEditing ? (
                       <DateInput
                         value={row.startDate}
                         onChange={(v) => updateTask(row.taskId!, { startDate: v })}
@@ -502,7 +558,7 @@ export default function MyTasksPage() {
                     ) : (
                       <span className="text-text-muted">{row.startDate}</span>
                     )}
-                    {row.kind === "task" ? (
+                    {isEditing ? (
                       <DateInput
                         value={row.deadline}
                         onChange={(v) => updateTask(row.taskId!, { deadline: v })}
@@ -511,7 +567,7 @@ export default function MyTasksPage() {
                     ) : (
                       <span className="text-text-muted">{row.deadline}</span>
                     )}
-                    {row.kind === "task" ? (
+                    {isEditing ? (
                       <input
                         type="text"
                         defaultValue={row.completedAt ?? ""}
@@ -532,15 +588,11 @@ export default function MyTasksPage() {
                       keepEmpty
                     />
                     {row.kind === "task" ? (
-                      <button
-                        onClick={() => deleteTask(row.taskId!)}
-                        title="Xóa"
-                        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
-                      </button>
+                      <RowActionsMenu
+                        isEditing={isEditing}
+                        onToggleEdit={() => setEditingTaskId(isEditing ? null : row.taskId!)}
+                        onDelete={() => setDeleteTarget({ id: row.taskId!, title: row.title })}
+                      />
                     ) : (
                       <span />
                     )}
@@ -640,6 +692,19 @@ export default function MyTasksPage() {
         onCreate={(input) => {
           addTask({ ...input, ownerName: userName });
           setAddOpen(false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        danger
+        title="Xóa công việc?"
+        description={deleteTarget ? `"${deleteTarget.title}" sẽ bị xóa hoàn toàn, không khôi phục được.` : ""}
+        confirmLabel="Xóa"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) deleteTask(deleteTarget.id);
+          setDeleteTarget(null);
         }}
       />
     </div>

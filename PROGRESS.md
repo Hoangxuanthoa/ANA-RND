@@ -618,7 +618,29 @@ their Tên/Người yêu cầu/Ngày bắt đầu/Deadline still come straight f
 `Project` and are edited via the project's own Edit modal, not from
 My Task.
 
-## Workflow
+**Follow-up same day — compact toolbar, unified row look, explicit edit
+mode:** the status chips + filter/search/sort had been two stacked rows
+and felt heavy; collapsed to one `flex-wrap` row (chips, search, the
+three filter `<select>`s, and Sắp xếp pushed right via `ml-auto`), and
+shortened each filter's resting label to just the field name ("Phân
+loại" instead of "Tất cả phân loại") so it reads like a placeholder
+and takes less width.
+
+The inline-editable fields added above (Tên/Phân loại/Người yêu
+cầu/Ngày bắt đầu/Deadline/Hoàn thành) had made ad-hoc task rows look
+like a form next to a project row's plain text — the user asked for
+them to look the same at rest. Introduced a per-row `editingTaskId`
+state: a task row now renders identically to a project row (plain
+text, no borders) until its own "⋯" menu → "Chỉnh sửa" is clicked,
+which is when those six fields switch to their editable controls; the
+same menu item becomes "Xong" while editing and switches it back.
+Fields aren't gated behind edit mode though — Mức độ (the colored
+`<select>` pill) and Cần hỗ trợ were already shown identically for
+both row kinds and stay always-interactive, since those are meant to
+be one-click actions, not something that needs an explicit edit step.
+The "⋯" (`RowActionsMenu`, task rows only) also holds "Xóa", which now
+opens a `ConfirmDialog` instead of deleting immediately — matching how
+every other delete in the app works.
 
 - After finishing a meaningful chunk of work: update this file's "Feature
   status" / "Next candidates" sections, then commit with a **detailed**
