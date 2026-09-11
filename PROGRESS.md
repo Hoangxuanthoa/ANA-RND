@@ -638,9 +638,40 @@ Fields aren't gated behind edit mode though — Mức độ (the colored
 `<select>` pill) and Cần hỗ trợ were already shown identically for
 both row kinds and stay always-interactive, since those are meant to
 be one-click actions, not something that needs an explicit edit step.
-The "⋯" (`RowActionsMenu`, task rows only) also holds "Xóa", which now
-opens a `ConfirmDialog` instead of deleting immediately — matching how
-every other delete in the app works.
+A "⋯" menu (task rows only) held "Chỉnh sửa"/"Xóa" — **superseded by
+the next entry below**, which replaced the icon with clicking the task
+name itself. "Xóa" opens a `ConfirmDialog` instead of deleting
+immediately, matching how every other delete in the app works — that
+part is unchanged.
+
+**Follow-up again same day — click the name instead of a "⋯" icon,
+Enter to finish editing:** the user found the "⋯" column fiddly.
+Replaced `RowActionsMenu` with `TaskNameMenu`: clicking a task's name
+(only when the row isn't already being edited — while editing, that
+slot is the real text input) opens the same Chỉnh sửa/Xóa dropdown
+right under the name, closing on outside click same as before. This
+also let the trailing action column be dropped entirely, one less
+`gridCols` track.
+
+Exiting edit mode now has two paths: click anywhere outside the row
+(a `onBlur` on the row's wrapping `<div>` that checks
+`!e.currentTarget.contains(e.relatedTarget)` — native `focusout`
+bubbles, so this catches focus leaving the whole row regardless of
+which field had it), or press Enter — which the user specifically
+asked for. Enter turned out to need its own explicit path rather than
+reusing the blur mechanism: `StagedTextCell`'s Enter handler calls
+`.blur()` on itself to save, but that's a DOM call made from inside
+this same keydown dispatch, and the resulting native `focusout` didn't
+reliably re-enter React's event handling for the row's own `onBlur` —
+confirmed by testing (`document.addEventListener("keydown", ..., true)`
+in the live page) that the row-level exit genuinely didn't fire on
+Enter even though it fired correctly for a real mouse click elsewhere.
+Fixed by giving `StagedTextCell` an `onEnter` callback that the title
+field wires directly to `setEditingTaskId(null)` — an explicit state
+update instead of depending on event bubbling — and adding the same
+direct call to the "Hoàn thành" field's own Enter handler.
+
+## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
   status" / "Next candidates" sections, then commit with a **detailed**

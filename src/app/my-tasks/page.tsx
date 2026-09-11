@@ -62,7 +62,7 @@ interface TodoRow {
 }
 
 const gridCols =
-  "grid-cols-[36px_240px_130px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px_44px]";
+  "grid-cols-[36px_240px_130px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px]";
 
 function daysLeftLabel(row: TodoRow): { text: string; className: string } {
   if (row.isDone) return { text: "—", className: "text-text-faint" };
@@ -93,18 +93,31 @@ function StagedTextCell({
   placeholder,
   bold,
   keepEmpty,
+  autoFocus,
+  onEnter,
 }: {
   value: string;
   onSave: (v: string) => void;
   placeholder?: string;
   bold?: boolean;
   keepEmpty?: boolean;
+  autoFocus?: boolean;
+  // Called on Enter, in addition to (not instead of) the usual save-on-
+  // blur — for the To Do List title field, this is what exits row edit
+  // mode. Calling `.blur()` alone isn't reliable here: it's invoked from
+  // inside this same keydown handler, and a nested/synchronous native
+  // event fired mid-dispatch doesn't reliably re-enter React's own event
+  // handling, so the row wrapper's own onBlur (which normally detects
+  // "focus left the row" for outside clicks) can't be trusted to also
+  // fire here — this callback makes Enter exit explicitly instead.
+  onEnter?: () => void;
 }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
     <input
       value={draft}
+      autoFocus={autoFocus}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
         const trimmed = draft.trim();
@@ -115,7 +128,10 @@ function StagedTextCell({
         if (trimmed !== value) onSave(trimmed);
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        if (e.key === "Enter") {
+          onEnter?.();
+          (e.target as HTMLInputElement).blur();
+        }
       }}
       placeholder={placeholder}
       className={`h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none ${bold ? "font-bold text-[13px]" : ""}`}
@@ -123,11 +139,12 @@ function StagedTextCell({
   );
 }
 
-// "⋯" menu for an ad-hoc task row — Chỉnh sửa toggles that row's inline
-// edit fields on/off (see isEditing in the table below); Xóa asks the
-// caller to confirm before deleting. Closes on outside click, same
-// pattern as TopNav's bell/account dropdowns.
-function RowActionsMenu({ isEditing, onToggleEdit, onDelete }: { isEditing: boolean; onToggleEdit: () => void; onDelete: () => void }) {
+// Clicking an ad-hoc task's name (instead of a separate "⋯" icon column)
+// reveals Chỉnh sửa/Xóa — closes on outside click, same pattern as
+// TopNav's bell/account dropdowns. Only rendered while the row isn't
+// already in edit mode (once editing, that slot is the actual text
+// input — see isEditing in the table below).
+function TaskNameMenu({ title, onEdit, onDelete }: { title: string; onEdit: () => void; onDelete: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -142,27 +159,19 @@ function RowActionsMenu({ isEditing, onToggleEdit, onDelete }: { isEditing: bool
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        title="Tùy chọn"
-        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-          <circle cx="5" cy="12" r="1.8" />
-          <circle cx="12" cy="12" r="1.8" />
-          <circle cx="19" cy="12" r="1.8" />
-        </svg>
+      <button onClick={() => setOpen((v) => !v)} className="w-full truncate text-left font-bold hover:text-accent">
+        {title}
       </button>
       {open && (
-        <div className="absolute top-8 right-0 z-20 w-36 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-md">
+        <div className="absolute top-7 left-0 z-20 w-36 overflow-hidden rounded-lg border border-line bg-surface py-1 shadow-md">
           <button
             onClick={() => {
-              onToggleEdit();
+              onEdit();
               setOpen(false);
             }}
             className="flex w-full items-center px-3 py-2 text-left text-[12.5px] font-semibold hover:bg-bg"
           >
-            {isEditing ? "Xong" : "Chỉnh sửa"}
+            Chỉnh sửa
           </button>
           <button
             onClick={() => {
@@ -488,23 +497,38 @@ export default function MyTasksPage() {
                 <span>Hoàn thành</span>
                 <span>Lưu ý quan trọng</span>
                 <span>Cần hỗ trợ</span>
-                <span />
               </div>
               {pageRows.map((row, i) => {
                 const status = taskStatusBadge(row.isDone);
                 const left = daysLeftLabel(row);
                 const isEditing = row.kind === "task" && editingTaskId === row.taskId;
                 return (
-                  <div key={row.key} className={`grid ${gridCols} min-w-fit items-center gap-2 border-t border-line px-4 py-2.5 text-[13px]`}>
+                  <div
+                    key={row.key}
+                    className={`grid ${gridCols} min-w-fit items-center gap-2 border-t border-line px-4 py-2.5 text-[13px]`}
+                    onBlur={(e) => {
+                      if (isEditing && !e.currentTarget.contains(e.relatedTarget as Node)) setEditingTaskId(null);
+                    }}
+                  >
                     <span className="text-text-faint">{(currentPage - 1) * PAGE_SIZE + i + 1}</span>
                     {row.href ? (
                       <Link href={row.href} className="truncate font-bold text-accent hover:text-accent-hover">
                         {row.title}
                       </Link>
                     ) : isEditing ? (
-                      <StagedTextCell value={row.title} onSave={(v) => updateTask(row.taskId!, { title: v })} bold />
+                      <StagedTextCell
+                        value={row.title}
+                        onSave={(v) => updateTask(row.taskId!, { title: v })}
+                        onEnter={() => setEditingTaskId(null)}
+                        bold
+                        autoFocus
+                      />
                     ) : (
-                      <span className="truncate font-bold">{row.title}</span>
+                      <TaskNameMenu
+                        title={row.title}
+                        onEdit={() => setEditingTaskId(row.taskId!)}
+                        onDelete={() => setDeleteTarget({ id: row.taskId!, title: row.title })}
+                      />
                     )}
                     {isEditing ? (
                       <select
@@ -572,6 +596,12 @@ export default function MyTasksPage() {
                         type="text"
                         defaultValue={row.completedAt ?? ""}
                         onBlur={(e) => updateTask(row.taskId!, { completedAt: e.target.value.trim() || undefined })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            setEditingTaskId(null);
+                            (e.target as HTMLInputElement).blur();
+                          }
+                        }}
                         placeholder="dd/mm/yyyy"
                         className="h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none"
                       />
@@ -587,15 +617,6 @@ export default function MyTasksPage() {
                       placeholder="Cần hỗ trợ gì?"
                       keepEmpty
                     />
-                    {row.kind === "task" ? (
-                      <RowActionsMenu
-                        isEditing={isEditing}
-                        onToggleEdit={() => setEditingTaskId(isEditing ? null : row.taskId!)}
-                        onDelete={() => setDeleteTarget({ id: row.taskId!, title: row.title })}
-                      />
-                    ) : (
-                      <span />
-                    )}
                   </div>
                 );
               })}
