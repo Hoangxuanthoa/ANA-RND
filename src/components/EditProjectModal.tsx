@@ -13,7 +13,9 @@ interface EditProjectModalProps {
 }
 
 export function EditProjectModal({ open, project, onSave, onCancel }: EditProjectModalProps) {
-  const rndStaff = STAFF.filter((s) => s.role === "RND");
+  // Admin also does hands-on R&D work, not just oversight, so counts as
+  // a pickable owner here too — not only "RND" role staff.
+  const rndStaff = STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN");
   const [name, setName] = useState(project.name);
   const [rndOwner, setRndOwner] = useState(project.rndOwner ?? "");
   const [deadline, setDeadline] = useState(project.deadline === "—" ? "" : project.deadline);

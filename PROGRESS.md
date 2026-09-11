@@ -671,6 +671,37 @@ field wires directly to `setEditingTaskId(null)` — an explicit state
 update instead of depending on event bubbling — and adding the same
 direct call to the "Hoàn thành" field's own Enter handler.
 
+**Admin's To Do List now aggregates everyone's work (2026-09-11):**
+Admin could already add ad-hoc tasks (no code change needed — "Thêm công
+việc" was already gated on `canViewMyTasks`, which covers both `RND` and
+`ADMIN`). What Admin didn't have was visibility into R&D's work: their To
+Do List showed only their own rows, same as an R&D person. Since Admin
+oversees R&D day-to-day, their To Do List tab now aggregates **every**
+project row that has an `rndOwner` set (not just Admin's own) and
+**every** ad-hoc task from anyone, alongside their own — a new `doer`
+field on the unified `TodoRow` (`project.rndOwner` or `task.ownerName`)
+renders as a "Người làm" column, shown only when `role === "ADMIN"`. R&D
+users are unaffected: their filter (`p.rndOwner === userName`) and column
+set are unchanged, still their own work only.
+
+Also fixed `NewProjectModal`/`EditProjectModal`'s R&D-owner picker to
+include Admin as a selectable option (`STAFF.filter(s => s.role ===
+"RND" || s.role === "ADMIN")`, was RND-only) — the user pointed out Admin
+does hands-on R&D work too, not just oversight, so should be assignable
+like any other R&D staff member.
+
+**Recurring bug class worth remembering:** Tailwind's JIT content
+scanner only detects an arbitrary-value class (e.g. `grid-cols-[...]`)
+when it appears as a **complete literal string** in source. The first
+attempt at an Admin-conditional grid (interpolating an extra column width
+into a template literal, e.g. `` `grid-cols-[36px_${extra}...]` ``)
+silently produced no CSS at all — the class had zero effect, and the
+whole grid collapsed into stacked block rows (confirmed via screenshot:
+data was correct, layout was not). Fixed by defining two full literal
+constants (`GRID_COLS_ADMIN`, `GRID_COLS_DEFAULT`) and picking between
+them with a plain ternary — never build a Tailwind arbitrary-value class
+by interpolation, even inside a helper function.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature

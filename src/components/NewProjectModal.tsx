@@ -37,7 +37,9 @@ interface NewProjectModalProps {
 export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectModalProps) {
   const types = creatableProjectTypes(role);
   const salesStaff = STAFF.filter((s) => s.role === "SALES");
-  const rndStaff = STAFF.filter((s) => s.role === "RND");
+  // Admin also does hands-on R&D work, not just oversight, so counts as
+  // a pickable owner here too — not only "RND" role staff.
+  const rndStaff = STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN");
 
   const isCustomer = role === "CUSTOMER";
   const [name, setName] = useState("");

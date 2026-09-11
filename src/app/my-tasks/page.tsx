@@ -47,6 +47,7 @@ interface TodoRow {
   kind: "project" | "task";
   title: string;
   href?: string;
+  doer: string;
   category: string;
   priority: TaskPriority;
   isDone: boolean;
@@ -61,8 +62,19 @@ interface TodoRow {
   taskId?: string;
 }
 
-const gridCols =
-  "grid-cols-[36px_240px_130px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px]";
+// Admin's To Do List aggregates every R&D person's work plus their own
+// (see the isAdmin branch below), so it needs a "Người làm" column to
+// tell rows apart — R&D's own view is just their own work, where
+// repeating their own name on every row would be pointless. Two full
+// literal class strings on purpose, not one built with interpolation —
+// Tailwind's JIT scanner only picks up arbitrary-value classes (like
+// grid-cols-[...]) that appear complete in the source, so constructing
+// this dynamically would silently produce an unstyled class at runtime.
+const GRID_COLS_ADMIN = "grid-cols-[36px_220px_100px_130px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px]";
+const GRID_COLS_DEFAULT = "grid-cols-[36px_240px_130px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px]";
+function gridColsFor(isAdmin: boolean): string {
+  return isAdmin ? GRID_COLS_ADMIN : GRID_COLS_DEFAULT;
+}
 
 function daysLeftLabel(row: TodoRow): { text: string; className: string } {
   if (row.isDone) return { text: "—", className: "text-text-faint" };
@@ -229,13 +241,21 @@ export default function MyTasksPage() {
     );
   }
 
+  // Admin's To Do List is an oversight view — every project with an
+  // R&D owner (R&D's own or Admin's own, now that Admin can be picked as
+  // rndOwner too) and every ad-hoc task from anyone, not just their own.
+  // R&D still only ever sees their own work.
+  const isAdmin = role === "ADMIN";
+  const gridCols = gridColsFor(isAdmin);
+
   const projectRows: TodoRow[] = projects
-    .filter((p) => p.rndOwner === userName)
+    .filter((p) => (isAdmin ? !!p.rndOwner : p.rndOwner === userName))
     .map((p) => ({
       key: `project-${p.code}`,
       kind: "project",
       title: p.name,
       href: `/projects/${p.code}`,
+      doer: p.rndOwner ?? "—",
       category: "Thiết kế 3D",
       priority: p.rndPriority ?? "Trung bình",
       isDone: p.status === "COMPLETED",
@@ -250,11 +270,12 @@ export default function MyTasksPage() {
     }));
 
   const taskRows: TodoRow[] = rndTasks
-    .filter((t) => t.ownerName === userName)
+    .filter((t) => (isAdmin ? true : t.ownerName === userName))
     .map((t) => ({
       key: `task-${t.id}`,
       kind: "task",
       title: t.title,
+      doer: t.ownerName,
       category: t.category,
       priority: t.priority,
       isDone: !!(t.completedAt && parseDDMMYYYY(t.completedAt)),
@@ -487,6 +508,7 @@ export default function MyTasksPage() {
               <div className={`grid ${gridCols} min-w-fit items-center gap-2 bg-bg px-4 py-3 text-[11px] font-bold tracking-wide text-text-faint uppercase`}>
                 <span>STT</span>
                 <span>Tên công việc</span>
+                {isAdmin && <span>Người làm</span>}
                 <span>Phân loại</span>
                 <span>Mức độ</span>
                 <span>Trạng thái</span>
@@ -530,6 +552,7 @@ export default function MyTasksPage() {
                         onDelete={() => setDeleteTarget({ id: row.taskId!, title: row.title })}
                       />
                     )}
+                    {isAdmin && <span className="truncate text-text-muted">{row.doer}</span>}
                     {isEditing ? (
                       <select
                         value={row.category}
