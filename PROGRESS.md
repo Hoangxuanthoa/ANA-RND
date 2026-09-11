@@ -582,6 +582,42 @@ PNG — Vietnamese text and the app's oklch-based badge colors both
 render correctly (confirming `-pro`, not vanilla html2canvas, was the
 right call — same finding as before).
 
+**To Do List follow-up — filters/sort/pagination, a 4th priority tier,
+inline-editable ad-hoc fields (2026-09-11):** added a status-chip row
+(Tất cả/Đang làm/Hoàn thành, counts computed from every other active
+filter except status itself — same convention as the Projects list
+page) plus a filter/search/sort toolbar (Phân loại, Mức độ, Nguồn —
+Từ Project vs Tự thêm — dropdowns; a name search box; a "Sắp xếp"
+dropdown for Deadline gần nhất/Mức độ cao trước/Tên A-Z) and pagination
+(`PAGE_SIZE = 12`, same Back/page-dropdown/Next pattern lifted directly
+from `projects/page.tsx`). All of this is scoped to the To Do List tab
+only — Check-in stays a single unpaginated "Đang làm" snapshot on
+purpose, since it's meant to be captured whole as one check-in image.
+
+`TaskPriority` gained a 4th, higher tier: `"Trọng tâm" | "Cao" |
+"Trung bình" | "Thấp"`. Its badge is solid `bg-red text-white` (vs.
+"Cao"'s `bg-red-soft text-red`) so the two read as genuinely different
+severities, not near-duplicates.
+
+Ad-hoc tasks (not project rows) picked up inline editing for the fields
+that were previously stuck at their created value — Tên công việc
+(`StagedTextCell`, generalized from the old `NeedsSupportCell` to cover
+both), Người yêu cầu (a `<select>` over `STAFF`), Ngày bắt đầu and
+Deadline (both `DateInput`, the same calendar-dropdown component
+`EditProjectModal` already uses for Project deadlines). This was in
+response to the user directly asking whether ad-hoc tasks needed their
+own detail page — recommended against it: everything about a task is
+already a handful of flat fields fully visible in its row, so a detail
+modal would just be the same fields behind an extra click, and it'd cut
+against "Thêm công việc" being deliberately fast/low-friction. Closing
+the actual gap (you couldn't fix a typo without deleting and re-adding
+the task) by making more cells inline-editable, the same way Phân
+loại/Mức độ/Ngày hoàn thành thực tế already were, fixes the real
+problem without adding a new surface. Project rows are unaffected —
+their Tên/Người yêu cầu/Ngày bắt đầu/Deadline still come straight from
+`Project` and are edited via the project's own Edit modal, not from
+My Task.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature

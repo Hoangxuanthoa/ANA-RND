@@ -115,8 +115,8 @@ export type CustomerApproval = "PENDING" | "CHANGE_REQUESTED" | "APPROVED";
 // work outside any project). See my-tasks/page.tsx.
 export type TaskCategory = "Thiết kế 3D" | "Bản vẽ" | "Hỗ trợ tính giá" | "Khác";
 export const TASK_CATEGORIES: TaskCategory[] = ["Thiết kế 3D", "Bản vẽ", "Hỗ trợ tính giá", "Khác"];
-export type TaskPriority = "Cao" | "Trung bình" | "Thấp";
-export const TASK_PRIORITIES: TaskPriority[] = ["Cao", "Trung bình", "Thấp"];
+export type TaskPriority = "Trọng tâm" | "Cao" | "Trung bình" | "Thấp";
+export const TASK_PRIORITIES: TaskPriority[] = ["Trọng tâm", "Cao", "Trung bình", "Thấp"];
 
 // An ad-hoc task R&D added themselves via "Thêm công việc" — not tied to
 // any project. Trạng thái is deliberately not a stored field: it's

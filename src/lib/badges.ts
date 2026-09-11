@@ -77,6 +77,7 @@ export function taskStatusBadge(isDone: boolean) {
 
 export function taskPriorityBadge(priority: TaskPriority) {
   const map: Record<TaskPriority, { cls: string; label: string }> = {
+    "Trọng tâm": { cls: "bg-red text-white", label: "Trọng tâm" },
     Cao: { cls: "bg-red-soft text-red", label: "Cao" },
     "Trung bình": { cls: "bg-amber-soft text-amber", label: "Trung bình" },
     Thấp: { cls: "bg-slate-soft text-slate-text", label: "Thấp" },

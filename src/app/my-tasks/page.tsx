@@ -7,8 +7,10 @@ import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { useRndTasks } from "@/components/RndTasksProvider";
 import { AddRndTaskModal } from "@/components/AddRndTaskModal";
+import { DateInput } from "@/components/DateInput";
 import {
   CURRENT_USER_NAME,
+  STAFF,
   daysUntil,
   parseDDMMYYYY,
   todayDDMMYYYY,
@@ -24,6 +26,13 @@ const TABS = [
   { key: "todo", label: "To do list" },
   { key: "checkin", label: "Check-in" },
 ] as const;
+
+const PAGE_SIZE = 12;
+const PRIORITY_RANK: Record<TaskPriority, number> = { "Trọng tâm": 0, Cao: 1, "Trung bình": 2, Thấp: 3 };
+
+type StatusFilter = "ALL" | "TODO" | "DONE";
+type SourceFilter = "ALL" | "project" | "task";
+type SortKey = "deadline" | "priority" | "name";
 
 // Unified shape for a To Do List row — a project the viewer owns
 // (rndOwner), one row per project, or an ad-hoc task they added
@@ -52,7 +61,7 @@ interface TodoRow {
 }
 
 const gridCols =
-  "grid-cols-[36px_240px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px_44px]";
+  "grid-cols-[36px_240px_130px_130px_110px_100px_90px_110px_100px_100px_130px_180px_200px_44px]";
 
 function daysLeftLabel(row: TodoRow): { text: string; className: string } {
   if (row.isDone) return { text: "—", className: "text-text-faint" };
@@ -61,10 +70,35 @@ function daysLeftLabel(row: TodoRow): { text: string; className: string } {
   return { text: `${row.daysLeft} ngày`, className: "text-text-muted" };
 }
 
-// Staged local text so a keystroke doesn't fire a save (and notification)
-// on every character — only on blur / Enter, once the value actually
-// changed.
-function NeedsSupportCell({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`h-[30px] rounded-full border px-3.5 text-[12.5px] font-semibold ${
+        active ? "border-text bg-text text-white" : "border-line bg-surface text-text-muted hover:border-text-faint hover:text-text"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Staged local text so a keystroke doesn't fire a save (and, for "Cần hỗ
+// trợ", a notification) on every character — only on blur / Enter, once
+// the value actually changed.
+function StagedTextCell({
+  value,
+  onSave,
+  placeholder,
+  bold,
+  keepEmpty,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  bold?: boolean;
+  keepEmpty?: boolean;
+}) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
@@ -72,13 +106,18 @@ function NeedsSupportCell({ value, onSave }: { value: string; onSave: (v: string
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
-        if (draft !== value) onSave(draft);
+        const trimmed = draft.trim();
+        if (!trimmed && !keepEmpty) {
+          setDraft(value);
+          return;
+        }
+        if (trimmed !== value) onSave(trimmed);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
       }}
-      placeholder="Cần hỗ trợ gì?"
-      className="h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none"
+      placeholder={placeholder}
+      className={`h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none ${bold ? "font-bold text-[13px]" : ""}`}
     />
   );
 }
@@ -93,6 +132,14 @@ export default function MyTasksPage() {
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState<string | null>(null);
   const checkinRef = useRef<HTMLDivElement>(null);
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [categoryFilter, setCategoryFilter] = useState<TaskCategory | "ALL">("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "ALL">("ALL");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("ALL");
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("deadline");
+  const [page, setPage] = useState(1);
 
   if (!canViewMyTasks(role)) {
     return (
@@ -155,12 +202,44 @@ export default function MyTasksPage() {
 
   // Đang làm first (most urgent deadline first within that group) — a
   // long-finished item's old deadline shouldn't float it above active
-  // work just because its raw date is further in the past.
+  // work just because its raw date is further in the past. This is the
+  // base order Check-in uses as-is; the To Do List tab re-sorts a
+  // filtered copy of it per sortBy below.
   const allRows = [...projectRows, ...taskRows].sort((a, b) => {
     if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
     return (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity);
   });
-  const rows = tab === "todo" ? allRows : allRows.filter((r) => !r.isDone);
+  const checkinRows = allRows.filter((r) => !r.isDone);
+
+  // Status-chip counts reflect every other active filter except status
+  // itself (so switching status doesn't change what the other chips'
+  // counts mean) — same convention as the Projects list page.
+  const preStatusFiltered = allRows.filter((r) => {
+    if (categoryFilter !== "ALL" && r.category !== categoryFilter) return false;
+    if (priorityFilter !== "ALL" && r.priority !== priorityFilter) return false;
+    if (sourceFilter !== "ALL" && r.kind !== sourceFilter) return false;
+    if (query.trim() && !r.title.toLowerCase().includes(query.trim().toLowerCase())) return false;
+    return true;
+  });
+  const statusCounts = {
+    ALL: preStatusFiltered.length,
+    TODO: preStatusFiltered.filter((r) => !r.isDone).length,
+    DONE: preStatusFiltered.filter((r) => r.isDone).length,
+  };
+  const todoFiltered = preStatusFiltered.filter((r) => {
+    if (statusFilter === "TODO") return !r.isDone;
+    if (statusFilter === "DONE") return r.isDone;
+    return true;
+  });
+  const todoSorted = [...todoFiltered].sort((a, b) => {
+    if (sortBy === "name") return a.title.localeCompare(b.title, "vi");
+    if (a.isDone !== b.isDone) return a.isDone ? 1 : -1;
+    if (sortBy === "priority") return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+    return (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity);
+  });
+  const totalPages = Math.max(1, Math.ceil(todoSorted.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = todoSorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   function handleNeedsSupport(row: TodoRow, value: string) {
     if (row.kind === "project" && row.projectCode) setProjectNeedsSupport(row.projectCode, value);
@@ -231,114 +310,291 @@ export default function MyTasksPage() {
         </div>
 
         {tab === "todo" && (
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <div className={`grid ${gridCols} min-w-fit items-center gap-2 bg-bg px-4 py-3 text-[11px] font-bold tracking-wide text-text-faint uppercase`}>
-              <span>STT</span>
-              <span>Tên công việc</span>
-              <span>Phân loại</span>
-              <span>Mức độ</span>
-              <span>Trạng thái</span>
-              <span>Còn lại</span>
-              <span>Người yêu cầu</span>
-              <span>Bắt đầu</span>
-              <span>Deadline</span>
-              <span>Hoàn thành</span>
-              <span>Lưu ý quan trọng</span>
-              <span>Cần hỗ trợ</span>
-              <span />
+          <>
+            <div className="flex flex-wrap gap-2">
+              <Chip
+                active={statusFilter === "ALL"}
+                onClick={() => {
+                  setStatusFilter("ALL");
+                  setPage(1);
+                }}
+              >
+                Tất cả ({statusCounts.ALL})
+              </Chip>
+              <Chip
+                active={statusFilter === "TODO"}
+                onClick={() => {
+                  setStatusFilter("TODO");
+                  setPage(1);
+                }}
+              >
+                Đang làm ({statusCounts.TODO})
+              </Chip>
+              <Chip
+                active={statusFilter === "DONE"}
+                onClick={() => {
+                  setStatusFilter("DONE");
+                  setPage(1);
+                }}
+              >
+                Hoàn thành ({statusCounts.DONE})
+              </Chip>
             </div>
-            {rows.map((row, i) => {
-              const status = taskStatusBadge(row.isDone);
-              const left = daysLeftLabel(row);
-              return (
-                <div key={row.key} className={`grid ${gridCols} min-w-fit items-center gap-2 border-t border-line px-4 py-2.5 text-[13px]`}>
-                  <span className="text-text-faint">{i + 1}</span>
-                  {row.href ? (
-                    <Link href={row.href} className="truncate font-bold text-accent hover:text-accent-hover">
-                      {row.title}
-                    </Link>
-                  ) : (
-                    <span className="truncate font-bold">{row.title}</span>
-                  )}
-                  {row.kind === "task" ? (
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="var(--text-faint)"
+                  strokeWidth="2"
+                  className="absolute top-1/2 left-2.5 -translate-y-1/2"
+                >
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M21 21l-4.3-4.3" />
+                </svg>
+                <input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setPage(1);
+                  }}
+                  placeholder="Tìm theo tên công việc…"
+                  className="h-9 w-56 rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+                />
+              </div>
+              <select
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value as TaskCategory | "ALL");
+                  setPage(1);
+                }}
+                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+              >
+                <option value="ALL">Tất cả phân loại</option>
+                {TASK_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => {
+                  setPriorityFilter(e.target.value as TaskPriority | "ALL");
+                  setPage(1);
+                }}
+                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+              >
+                <option value="ALL">Tất cả mức độ</option>
+                {TASK_PRIORITIES.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={sourceFilter}
+                onChange={(e) => {
+                  setSourceFilter(e.target.value as SourceFilter);
+                  setPage(1);
+                }}
+                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+              >
+                <option value="ALL">Tất cả nguồn</option>
+                <option value="project">Từ Project</option>
+                <option value="task">Tự thêm</option>
+              </select>
+              <div className="ml-auto flex items-center gap-2">
+                <span className="text-[12px] font-semibold text-text-faint">Sắp xếp</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortKey)}
+                  className="h-9 rounded-lg border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+                >
+                  <option value="deadline">Deadline gần nhất</option>
+                  <option value="priority">Mức độ cao trước</option>
+                  <option value="name">Tên A-Z</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+              <div className={`grid ${gridCols} min-w-fit items-center gap-2 bg-bg px-4 py-3 text-[11px] font-bold tracking-wide text-text-faint uppercase`}>
+                <span>STT</span>
+                <span>Tên công việc</span>
+                <span>Phân loại</span>
+                <span>Mức độ</span>
+                <span>Trạng thái</span>
+                <span>Còn lại</span>
+                <span>Người yêu cầu</span>
+                <span>Bắt đầu</span>
+                <span>Deadline</span>
+                <span>Hoàn thành</span>
+                <span>Lưu ý quan trọng</span>
+                <span>Cần hỗ trợ</span>
+                <span />
+              </div>
+              {pageRows.map((row, i) => {
+                const status = taskStatusBadge(row.isDone);
+                const left = daysLeftLabel(row);
+                return (
+                  <div key={row.key} className={`grid ${gridCols} min-w-fit items-center gap-2 border-t border-line px-4 py-2.5 text-[13px]`}>
+                    <span className="text-text-faint">{(currentPage - 1) * PAGE_SIZE + i + 1}</span>
+                    {row.href ? (
+                      <Link href={row.href} className="truncate font-bold text-accent hover:text-accent-hover">
+                        {row.title}
+                      </Link>
+                    ) : (
+                      <StagedTextCell value={row.title} onSave={(v) => updateTask(row.taskId!, { title: v })} bold />
+                    )}
+                    {row.kind === "task" ? (
+                      <select
+                        value={row.category}
+                        onChange={(e) => updateTask(row.taskId!, { category: e.target.value as TaskCategory })}
+                        className="h-8 rounded-md border border-line bg-surface px-1.5 text-[12px] focus:border-accent focus:outline-none"
+                      >
+                        {TASK_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-text-muted">{row.category}</span>
+                    )}
                     <select
-                      value={row.category}
-                      onChange={(e) => updateTask(row.taskId!, { category: e.target.value as TaskCategory })}
-                      className="h-8 rounded-md border border-line bg-surface px-1.5 text-[12px] focus:border-accent focus:outline-none"
+                      value={row.priority}
+                      onChange={(e) => handlePriority(row, e.target.value as TaskPriority)}
+                      className={`h-7 rounded-full border-0 px-2 text-[11px] font-bold focus:outline-none ${taskPriorityBadge(row.priority).className}`}
                     >
-                      {TASK_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
+                      {TASK_PRIORITIES.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
                         </option>
                       ))}
                     </select>
-                  ) : (
-                    <span className="text-text-muted">{row.category}</span>
-                  )}
-                  <select
-                    value={row.priority}
-                    onChange={(e) => handlePriority(row, e.target.value as TaskPriority)}
-                    className={`h-7 rounded-full border-0 px-2 text-[11px] font-bold focus:outline-none ${taskPriorityBadge(row.priority).className}`}
-                  >
-                    {TASK_PRIORITIES.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
-                  <span className={status.className}>{status.label}</span>
-                  <span className={left.className}>{left.text}</span>
-                  <span className="truncate text-text-muted">{row.requester}</span>
-                  <span className="text-text-muted">{row.startDate}</span>
-                  <span className="text-text-muted">{row.deadline}</span>
-                  {row.kind === "task" ? (
-                    <input
-                      type="text"
-                      defaultValue={row.completedAt ?? ""}
-                      onBlur={(e) => updateTask(row.taskId!, { completedAt: e.target.value.trim() || undefined })}
-                      placeholder="dd/mm/yyyy"
-                      className="h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none"
+                    <span className={status.className}>{status.label}</span>
+                    <span className={left.className}>{left.text}</span>
+                    {row.kind === "task" ? (
+                      <select
+                        value={row.requester}
+                        onChange={(e) => updateTask(row.taskId!, { requester: e.target.value })}
+                        className="h-8 rounded-md border border-line bg-surface px-1.5 text-[12px] focus:border-accent focus:outline-none"
+                      >
+                        {STAFF.map((s) => (
+                          <option key={s.id} value={s.name}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="truncate text-text-muted">{row.requester}</span>
+                    )}
+                    {row.kind === "task" ? (
+                      <DateInput
+                        value={row.startDate}
+                        onChange={(v) => updateTask(row.taskId!, { startDate: v })}
+                        className="h-8 rounded-md border border-line px-1.5 text-[12px] focus:border-accent focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-text-muted">{row.startDate}</span>
+                    )}
+                    {row.kind === "task" ? (
+                      <DateInput
+                        value={row.deadline}
+                        onChange={(v) => updateTask(row.taskId!, { deadline: v })}
+                        className="h-8 rounded-md border border-line px-1.5 text-[12px] focus:border-accent focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-text-muted">{row.deadline}</span>
+                    )}
+                    {row.kind === "task" ? (
+                      <input
+                        type="text"
+                        defaultValue={row.completedAt ?? ""}
+                        onBlur={(e) => updateTask(row.taskId!, { completedAt: e.target.value.trim() || undefined })}
+                        placeholder="dd/mm/yyyy"
+                        className="h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-text-muted">{row.completedAt ?? "—"}</span>
+                    )}
+                    <span className="truncate text-text-muted" title={row.importantNote}>
+                      {row.importantNote ?? "—"}
+                    </span>
+                    <StagedTextCell
+                      value={row.needsSupport ?? ""}
+                      onSave={(v) => handleNeedsSupport(row, v)}
+                      placeholder="Cần hỗ trợ gì?"
+                      keepEmpty
                     />
-                  ) : (
-                    <span className="text-text-muted">{row.completedAt ?? "—"}</span>
-                  )}
-                  <span className="truncate text-text-muted" title={row.importantNote}>
-                    {row.importantNote ?? "—"}
-                  </span>
-                  <NeedsSupportCell value={row.needsSupport ?? ""} onSave={(v) => handleNeedsSupport(row, v)} />
-                  {row.kind === "task" ? (
-                    <button
-                      onClick={() => deleteTask(row.taskId!)}
-                      title="Xóa"
-                      className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
-                    >
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                      </svg>
-                    </button>
-                  ) : (
-                    <span />
-                  )}
-                </div>
-              );
-            })}
-            {rows.length === 0 && (
-              <div className="py-16 text-center text-sm text-text-faint">Chưa có công việc nào.</div>
+                    {row.kind === "task" ? (
+                      <button
+                        onClick={() => deleteTask(row.taskId!)}
+                        title="Xóa"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                );
+              })}
+              {pageRows.length === 0 && (
+                <div className="py-16 text-center text-sm text-text-faint">Không có công việc nào khớp bộ lọc.</div>
+              )}
+            </div>
+
+            {todoSorted.length > 0 && (
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <button
+                  disabled={currentPage <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+                >
+                  ← Back
+                </button>
+                <select
+                  value={currentPage}
+                  onChange={(e) => setPage(Number(e.target.value))}
+                  className="h-9 rounded-lg border border-line bg-surface px-3 text-[13px] font-bold focus:border-accent focus:outline-none"
+                >
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                    <option key={n} value={n}>
+                      Trang {n}/{totalPages}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-40"
+                >
+                  Next →
+                </button>
+              </div>
             )}
-          </div>
+          </>
         )}
 
         {tab === "checkin" && (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-[12.5px] text-text-muted">
-                {rows.length} việc đang làm — xuất ảnh để dán vào nhóm check-in.
+                {checkinRows.length} việc đang làm — xuất ảnh để dán vào nhóm check-in.
               </p>
               <div className="flex items-center gap-3">
                 {exportMsg && <span className="text-[12px] font-semibold text-accent">{exportMsg}</span>}
                 <button
                   onClick={handleExportImage}
-                  disabled={exporting || rows.length === 0}
+                  disabled={exporting || checkinRows.length === 0}
                   className="inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
                 >
                   {exporting ? "Đang xuất…" : "Xuất ảnh"}
@@ -357,7 +613,7 @@ export default function MyTasksPage() {
                 <span>Mức độ</span>
                 <span>Deadline</span>
               </div>
-              {rows.map((row, i) => {
+              {checkinRows.map((row, i) => {
                 const priority = taskPriorityBadge(row.priority);
                 return (
                   <div
@@ -372,7 +628,7 @@ export default function MyTasksPage() {
                   </div>
                 );
               })}
-              {rows.length === 0 && <p className="py-8 text-center text-sm text-text-faint">Không có việc nào đang làm.</p>}
+              {checkinRows.length === 0 && <p className="py-8 text-center text-sm text-text-faint">Không có việc nào đang làm.</p>}
             </div>
           </div>
         )}
