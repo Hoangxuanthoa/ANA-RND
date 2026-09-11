@@ -7,6 +7,8 @@ import {
   PROJECT_FEEDBACK as INITIAL_PROJECT_FEEDBACK,
   feedbackIdentity,
   CURRENT_USER_NAME,
+  STAFF,
+  todayDDMMYYYY,
   type Project,
   type ProjectProductItem,
   type ProjectFeedbackItem,
@@ -53,6 +55,11 @@ interface ProjectsContextValue {
   // stage — always the creator's, even if it was a Customer rejection —
   // so the creator sees the fix before it goes to the customer again.
   resubmitProjectProduct: (projectCode: string, productCode: string) => void;
+  // R&D flagging "cần hỗ trợ" on their My Task To Do List row for this
+  // project — patches the note and pings Admin, same pattern as the
+  // other notification-raising actions above (plain updateProject has no
+  // side effects, so this is deliberately its own function).
+  setProjectNeedsSupport: (code: string, note: string) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
@@ -87,7 +94,23 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   }
 
   function markCompleted(code: string) {
-    updateProject(code, { status: "COMPLETED" });
+    updateProject(code, { status: "COMPLETED", completedAt: todayDDMMYYYY() });
+  }
+
+  function setProjectNeedsSupport(code: string, note: string) {
+    updateProject(code, { rndNeedsSupport: note });
+    const trimmed = note.trim();
+    if (!trimmed) return;
+    const project = projects.find((p) => p.code === code);
+    const admin = STAFF.find((s) => s.role === "ADMIN");
+    if (!project || !admin) return;
+    addNotification({
+      type: "RND_NEEDS_SUPPORT",
+      title: `${project.name} cần hỗ trợ`,
+      message: trimmed,
+      link: `/projects/${code}`,
+      recipientName: admin.name,
+    });
   }
 
   function deleteProject(code: string) {
@@ -327,6 +350,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         approveProjectProduct,
         rejectProjectProduct,
         resubmitProjectProduct,
+        setProjectNeedsSupport,
       }}
     >
       {children}

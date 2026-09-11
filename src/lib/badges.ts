@@ -6,6 +6,7 @@ import type {
   ProjectProductStatus,
   CustomerApproval,
   Role,
+  TaskPriority,
 } from "@/lib/mock-data";
 
 const BADGE_BASE =
@@ -63,6 +64,25 @@ export function usageBadge(usage: UsageType) {
 // category/material filled in before it can be released.
 export function incompleteInfoBadge() {
   return { className: `${BADGE_BASE} bg-amber-soft text-amber`, label: "Thiếu thông tin" };
+}
+
+// R&D My Task To Do List — Trạng thái is always derived, never a stored
+// toggle (see RndTask/Project.completedAt in mock-data.ts), so this just
+// renders whichever of the two states was already computed.
+export function taskStatusBadge(isDone: boolean) {
+  return isDone
+    ? { className: `${BADGE_BASE} bg-green-soft text-green`, label: "Hoàn thành" }
+    : { className: `${BADGE_BASE} bg-blue-soft text-blue`, label: "Đang làm" };
+}
+
+export function taskPriorityBadge(priority: TaskPriority) {
+  const map: Record<TaskPriority, { cls: string; label: string }> = {
+    Cao: { cls: "bg-red-soft text-red", label: "Cao" },
+    "Trung bình": { cls: "bg-amber-soft text-amber", label: "Trung bình" },
+    Thấp: { cls: "bg-slate-soft text-slate-text", label: "Thấp" },
+  };
+  const m = map[priority];
+  return { className: `${BADGE_BASE} ${m.cls}`, label: m.label };
 }
 
 export function projectProductStatusBadge(status: ProjectProductStatus) {

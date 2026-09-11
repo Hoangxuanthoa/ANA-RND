@@ -394,8 +394,12 @@ read it before changing any access-control logic. Highlights:
   a text list) do the actual adding. If a real product search UI is ever
   wanted directly from these pages, it should reuse Library's own
   filter/search, not a second parallel picker.
-- **My Task** (`/my-tasks`) — R&D personal queue, quick-view with
-  approve/request-change actions.
+- **My Task** (`/my-tasks`) — a personal work hub for R&D and Admin (see
+  the dated entry below for the 2026-09-11 rebuild): To do list (every
+  project you're rndOwner of, one row each, plus ad-hoc tasks you add
+  yourself), Check-in (today's "Đang làm" items + an image export to
+  paste into a chat group), and "Thêm công việc" to add an ad-hoc task.
+  "Đăng ký KPI"/"Kết quả KPI" are planned tabs, not built yet.
 - **Review** (`/review`, "Duyệt sản phẩm") — Admin-only catalog approval
   queue for `PENDING_REVIEW` products.
 - **Settings** (`/settings`) — Admin-only CRUD for Category/Material/Size/
@@ -505,6 +509,78 @@ close.
    wordmark instead of the logo file, since the logo's own green/brown
    wordmark wouldn't read against a green background. `layout.tsx`
    metadata title/description updated to the real brand too.
+
+**My Task rebuilt as an R&D/Admin work hub (2026-09-11):** the old page
+was a flat queue of individually-assigned `ProjectProductItem`s, R&D-only.
+Replaced with tabs — To do list / Check-in / Thêm công việc ("Đăng ký
+KPI"/"Kết quả KPI" are agreed future tabs, deliberately not built or even
+shown yet) — and opened up to Admin too (`canViewMyTasks` now allows
+`RND || ADMIN`), each person seeing only their own work.
+
+Two sources feed one unified To Do List table: **projects** you're
+`rndOwner` of (one row per project — deliberately NOT one row per
+assigned product, after the user pointed out that would just repeat the
+project name; click the name to go straight to `/projects/[code]`) and
+**ad-hoc tasks** (`RndTask`, a new type/provider — `RndTasksProvider`,
+self-added via "Thêm công việc", never notifying anyone since it's your
+own list). Columns: STT / Tên công việc / Phân loại / Mức độ (added
+during the design discussion — the user's spec had it on Check-in but
+not the To Do List column list, clearly an oversight since Check-in just
+filters the same rows) / Trạng thái / Còn lại / Người yêu cầu / Ngày bắt
+đầu / Deadline / Ngày hoàn thành thực tế / Lưu ý quan trọng / Cần hỗ trợ.
+
+**Trạng thái is never a stored toggle — always derived, and the two
+sources derive it differently by design:**
+- Project rows: `project.status === "COMPLETED"`, nothing else. The user
+  was explicit that this should be true even if every individual item is
+  already approved — until Sales/PM actually closes the project out, the
+  task stays "Đang làm", which is meant to nudge R&D to go push for that
+  ("tăng tính chủ động, phối hợp"). `markCompleted` now also stamps
+  `Project.completedAt` (via `todayDDMMYYYY()`) so "Ngày hoàn thành thực
+  tế" shows the real day this happened instead of recomputing "today" on
+  every render.
+- Ad-hoc task rows: derived from whether `completedAt` holds a real
+  parseable date (`parseDDMMYYYY(...) !== null`, not just truthiness —
+  a partially-typed garbage string would otherwise flip the status
+  mid-keystroke). The user flipped the causality from my first draft:
+  R&D doesn't toggle a status dropdown, they type/pick the actual
+  completion date, and *that* is what marks it done.
+
+"Ngày còn lại" is `daysUntil()` (new helper next to `parseDDMMYYYY` in
+mock-data.ts) — deadline minus **today**, not minus start date (the
+literal wording in the request would have given a fixed planned
+duration, not a real "how many days left"; confirmed this with the user
+before building it). Negative values render as "Trễ N ngày" in red.
+
+"Lưu ý quan trọng" is Admin-writable by design but has **no input UI
+yet** — the user explicitly deferred the Admin cross-employee view
+("trang riêng cho Admin, xây sau khi xong r&d") to a later phase, so for
+now the column just exists on `Project`/`RndTask` and renders "—" for
+everyone. "Cần hỗ trợ" is the opposite — R&D-writable right in the row
+(`NeedsSupportCell`, a small local component that stages the text
+locally and only calls the save function on blur/Enter, so a
+notification doesn't fire on every keystroke) — saving a non-empty value
+pings Admin (`setProjectNeedsSupport`/`setTaskNeedsSupport`, new
+functions on Projects/RndTasksProvider respectively, both following the
+existing "dedicated function, not a bare patch, because this one has a
+side effect" pattern already used elsewhere in these providers). Added
+`RND_NEEDS_SUPPORT` to `NotificationType`.
+
+**Check-in** filters the same rows to "Đang làm" only, with a narrower
+column set, plus an "Xuất ảnh" button — re-added `html2canvas-pro` as a
+dependency (removed earlier from the PDF export for a completely
+different reason: rasterizing customer-facing PDF text was a quality
+regression there. Here the target format genuinely is an image — R&D
+wants to paste it straight into the company's Zalo/chat check-in group —
+so a DOM screenshot is the right tool, not a compromise). Tries
+`navigator.clipboard.write` with a `ClipboardItem` first so the whole
+flow is "click Xuất ảnh, Ctrl+V in the chat app"; falls back to a plain
+file download if the browser doesn't support clipboard images. Verified
+by capturing the actual blob via a patched `clipboard.write` in the
+running browser, reconstructing it from base64, and viewing the real
+PNG — Vietnamese text and the app's oklch-based badge colors both
+render correctly (confirming `-pro`, not vanilla html2canvas, was the
+right call — same finding as before).
 
 ## Workflow
 

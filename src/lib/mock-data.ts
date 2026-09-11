@@ -110,6 +110,36 @@ export type ProjectProductStatus =
   | "COMPLETED";
 export type CustomerApproval = "PENDING" | "CHANGE_REQUESTED" | "APPROVED";
 
+// R&D "My Task" To Do List — shared between a Project's own rnd* fields
+// (one row per project the viewer owns) and RndTask (ad-hoc, self-added
+// work outside any project). See my-tasks/page.tsx.
+export type TaskCategory = "Thiết kế 3D" | "Bản vẽ" | "Hỗ trợ tính giá" | "Khác";
+export const TASK_CATEGORIES: TaskCategory[] = ["Thiết kế 3D", "Bản vẽ", "Hỗ trợ tính giá", "Khác"];
+export type TaskPriority = "Cao" | "Trung bình" | "Thấp";
+export const TASK_PRIORITIES: TaskPriority[] = ["Cao", "Trung bình", "Thấp"];
+
+// An ad-hoc task R&D added themselves via "Thêm công việc" — not tied to
+// any project. Trạng thái is deliberately not a stored field: it's
+// derived as "Hoàn thành" once completedAt is filled in, "Đang làm"
+// otherwise (see my-tasks/page.tsx) — filling in the completion date is
+// what marks it done, not a separate status toggle.
+export interface RndTask {
+  id: string;
+  ownerName: string;
+  title: string;
+  category: TaskCategory;
+  priority: TaskPriority;
+  requester: string;
+  startDate: string;
+  deadline: string;
+  completedAt?: string;
+  needsSupport?: string;
+  // Admin-writable, same as Project.rndImportantNote — no UI to set this
+  // yet (the Admin cross-employee view is a later phase), field exists
+  // so the To Do List column has something to show once that lands.
+  importantNote?: string;
+}
+
 // A product can come in several sizes (e.g. S/M/L), each with its own
 // dimensions — not one fixed size per design.
 export interface ProductSizeVariant {
@@ -509,6 +539,19 @@ export interface Project {
   brief: string;
   isMine: boolean;
   attachments: string[];
+  // Stamped by markCompleted — feeds "Ngày hoàn thành thực tế" on the
+  // R&D To Do List (see RndTask / my-tasks page), which needs the real
+  // day this happened rather than recomputing "today" on every render.
+  completedAt?: string;
+  // The rest of these back the R&D "My Task" To Do List entry for this
+  // project (one row per project the viewer is rndOwner of, not one per
+  // ProjectProductItem — see my-tasks/page.tsx). rndPriority defaults to
+  // "Trung bình" when absent; rndImportantNote is Admin-writable (no UI
+  // for that yet — the Admin cross-employee view is a later phase);
+  // rndNeedsSupport is R&D-writable and notifies Admin when set.
+  rndPriority?: TaskPriority;
+  rndImportantNote?: string;
+  rndNeedsSupport?: string;
 }
 
 export const PROJECTS: Project[] = [
@@ -630,6 +673,29 @@ export const PROJECTS: Project[] = [
   },
 ];
 
+export const INITIAL_RND_TASKS: RndTask[] = [
+  {
+    id: "task-1",
+    ownerName: "An",
+    title: "Hỗ trợ Sales tính giá bộ ghế mây cho khách lẻ",
+    category: "Hỗ trợ tính giá",
+    priority: "Trung bình",
+    requester: "Hà",
+    startDate: "08/09/2026",
+    deadline: "15/09/2026",
+  },
+  {
+    id: "task-2",
+    ownerName: "An",
+    title: "Vẽ lại bản vẽ kỹ thuật khung kệ tre theo yêu cầu xưởng",
+    category: "Bản vẽ",
+    priority: "Cao",
+    requester: "Minh",
+    startDate: "01/09/2026",
+    deadline: "10/09/2026",
+  },
+];
+
 // PROJECT_PRODUCTS is global (spans every project), keyed by
 // (projectCode, productCode) — NOT a per-project copy. This is what lets
 // "Used in Projects" on a product page, the Reused count, and a
@@ -740,6 +806,18 @@ export function parseDDMMYYYY(value: string): Date | null {
   const [dd, mm, yyyy] = value.split("/").map(Number);
   if (!dd || !mm || !yyyy) return null;
   return new Date(yyyy, mm - 1, dd);
+}
+
+// "Ngày còn lại" on the R&D To Do List — deadline minus today, in whole
+// days (negative once overdue). Both sides are floored to midnight first
+// so it's a clean day count, not skewed by the current time of day.
+export function daysUntil(deadline: string): number | null {
+  const d = parseDDMMYYYY(deadline);
+  if (!d) return null;
+  const today = new Date();
+  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const deadlineMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return Math.round((deadlineMidnight.getTime() - todayMidnight.getTime()) / 86400000);
 }
 
 // Generates the next code for a new project, scoped by type — matches
@@ -942,7 +1020,8 @@ export type NotificationType =
   | "NEW_FEEDBACK"
   | "NEW_PITCH"
   | "PROJECT_REQUESTED_BY_CUSTOMER"
-  | "PROJECT_ASSIGNED";
+  | "PROJECT_ASSIGNED"
+  | "RND_NEEDS_SUPPORT";
 
 export interface NotificationItem {
   id: string;

@@ -103,10 +103,7 @@ export default function ProjectDetailPage() {
   // cleared creator/Sales review, not a bulk-upload placeholder. Doesn't
   // care about Library status, so Reuse items and already-released NEW
   // ones both count (unlike releasableItems).
-  const exportableItems = items.filter((i) => {
-    const p = products.find((prod) => prod.code === i.productCode);
-    return !!p && isProjectProductExportable(i, p);
-  });
+  const exportableItems = items.filter((i) => isProjectProductExportable(i));
   const quickViewItem = items.find((i) => i.productCode === quickViewCode) ?? null;
   const quickViewProduct = quickViewItem ? products.find((p) => p.code === quickViewItem.productCode) : undefined;
   const quickViewCanRelease =

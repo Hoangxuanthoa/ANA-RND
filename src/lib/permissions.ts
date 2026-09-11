@@ -7,9 +7,10 @@ export const canPickProduct = (role: Role) => role !== "CUSTOMER";
 export const isCustomer = (role: Role) => role === "CUSTOMER";
 export const canReviewProducts = (role: Role) => role === "ADMIN";
 
-// "Việc của tôi" — a personal queue of ProjectProduct items assigned to
-// this specific R&D person, distinct from the project's overall rndOwner.
-export const canViewMyTasks = (role: Role) => role === "RND";
+// "My Task" — a personal work hub for whoever actually does R&D-style
+// work: R&D themselves, and Admin (trưởng phòng) tracking their own
+// tasks the same way. Sales/Marketing/Customer never see it.
+export const canViewMyTasks = (role: Role) => role === "RND" || role === "ADMIN";
 
 export const canManageSettings = (role: Role) => role === "ADMIN";
 // Collections are for assembling a set of designs to share — R&D included,
@@ -160,7 +161,7 @@ export function isProjectProductReadyToRelease(item: ProjectProductItem, product
 // page's per-field toggles let those blank fields be hidden), and an
 // already-released design is fine too, since this never touches the
 // Library, just assembles a Collection from what the project approved.
-export function isProjectProductExportable(item: ProjectProductItem, product: Product) {
+export function isProjectProductExportable(item: ProjectProductItem) {
   return item.status === "CUSTOMER_REVIEW" || item.status === "APPROVED";
 }
 
