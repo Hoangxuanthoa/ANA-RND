@@ -470,6 +470,39 @@ supports typing the date by hand. If you add another form with meaningful
 user input, match this pattern rather than reintroducing outside-click-to-
 close.
 
+**My Task consulted + 3 improvements shipped for department coordination
+(2026-09-13):** user asked for an objective review of My Task now that
+employees use it daily — confirmed 1 project always has exactly 1 R&D
+owner (no multi-assignee case to design for). Gave 4 concrete suggestions;
+user approved 1/2/4 and explicitly deferred 3 ("khó cập nhật theo từng
+trạng thái lắm, tạm thời để như thế" — per-project x/y-products-approved
+progress display, skipped for now):
+- **Admin can now filter the To Do List by person** — a "Người làm"
+  `<select>` in the toolbar (Admin-only), same options as the R&D-owner
+  picker elsewhere (`STAFF` filtered to RND/ADMIN).
+- **"Tổng quan phòng" overview block** (Admin-only, To Do List tab only,
+  above the filter row) — clickable per-person cards showing đang làm/trễ
+  hạn/cần hỗ trợ counts, sourced from `allRows` (ignores the table's own
+  active filters, so the numbers stay a stable "true total"), sorted
+  overdue-first so whoever needs attention surfaces without scanning the
+  whole table. Clicking a card toggles the same `doerFilter` state as the
+  dropdown above (`toggleDoerFilter`) — clicking the active one clears it.
+- **"Lưu ý quan trọng" is now a real one-way channel, Admin → assignee**:
+  editable only when `isAdmin` (via the same `StagedTextCell` pattern as
+  "Cần hỗ trợ", save-on-blur/Enter); R&D still only ever sees it as
+  read-only text, never gets edit UI — this was a deliberate design
+  constraint from the user ("chỉ anh được điền, ae không được điền hay
+  chỉnh sửa"), not a placeholder oversight. New provider functions
+  `setProjectImportantNote`/`setTaskImportantNote` (mirroring
+  `setProjectNeedsSupport`/`setTaskNeedsSupport` but notifying the
+  opposite direction) fire a new `ADMIN_IMPORTANT_NOTE` notification to
+  the row's owner. `RndTask.importantNote`'s "no UI yet" code comment is
+  now stale/resolved.
+
+Verified live in the browser: Admin sets a note on an R&D person's ad-hoc
+task, switching to that R&D's own role view shows it as read-only text and
+a real notification with the note's content in their bell inbox.
+
 ## Next candidates (discussed with user, going one at a time)
 
 1. ~~Product Versions were fake (one global list shared by every product)~~
@@ -485,12 +518,16 @@ close.
    memory. Big, separate-scope effort — do not start opportunistically.
    **Next candidate**, but confirm with the user first — nothing else from
    this list is currently blocking it.
-5. Possible future feature (not yet requested, just noted while working on
-   the above): there's still no way to assign/reassign an R&D person to a
-   specific *product* inside a project (`ProjectProductItem.assigneeName`)
-   — only the project-level `rndOwner` can be assigned now. If a real
-   per-product "assign to teammate" flow gets built later, pair it with a
-   notification the same way `PROJECT_ASSIGNED` was just added.
+5. ~~Possible future feature: per-product (not just per-project) R&D
+   assignment~~ — **ruled out 2026-09-13**. User confirmed the real
+   workflow is always 1 project → 1 R&D owner; no need to build a
+   per-product assignee flow. Don't revisit unless the user says this has
+   changed.
+7. Per-project product-approval progress (e.g. "3/5 sản phẩm đã duyệt" on
+   a My Task project row) — suggested during the 2026-09-13 My Task
+   consult, user deferred it ("khó cập nhật theo từng trạng thái lắm, tạm
+   thời để như thế"). Data for it already exists via `projectProducts`;
+   revisit only if the user brings it up again, don't build proactively.
 6. ~~Branding pass using the real company logo~~ — **done**. User supplied
    the "Artex Nam An" logo (`public/logo.png`, full lockup) and said the
    brand colors are "xanh lá cây + nâu đất" (green + earthy brown).

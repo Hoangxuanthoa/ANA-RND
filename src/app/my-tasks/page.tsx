@@ -34,6 +34,7 @@ const PRIORITY_RANK: Record<TaskPriority, number> = { "Trọng tâm": 0, Cao: 1,
 type StatusFilter = "ALL" | "TODO" | "DONE";
 type SourceFilter = "ALL" | "project" | "task";
 type SortKey = "deadline" | "priority" | "name";
+const DOER_FILTER_ALL = "ALL";
 
 // Unified shape for a To Do List row — a project the viewer owns
 // (rndOwner), one row per project, or an ad-hoc task they added
@@ -203,8 +204,8 @@ function TaskNameMenu({ title, onEdit, onDelete }: { title: string; onEdit: () =
 export default function MyTasksPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
-  const { projects, updateProject, setProjectNeedsSupport } = useProjects();
-  const { rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport } = useRndTasks();
+  const { projects, updateProject, setProjectNeedsSupport, setProjectImportantNote } = useProjects();
+  const { rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport, setTaskImportantNote } = useRndTasks();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("todo");
   const [addOpen, setAddOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -215,6 +216,7 @@ export default function MyTasksPage() {
   const [categoryFilter, setCategoryFilter] = useState<TaskCategory | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority | "ALL">("ALL");
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("ALL");
+  const [doerFilter, setDoerFilter] = useState<string>(DOER_FILTER_ALL);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("deadline");
   const [page, setPage] = useState(1);
@@ -300,6 +302,34 @@ export default function MyTasksPage() {
   });
   const checkinRows = allRows.filter((r) => !r.isDone);
 
+  // Admin's department overview — deliberately computed off allRows (every
+  // filter ignored) rather than preStatusFiltered, so the per-person
+  // numbers stay a stable "true total" even while Admin has some other
+  // filter active on the table below. Sorted so whoever needs attention
+  // (overdue, then pending support requests) surfaces first — this is an
+  // at-a-glance triage view, not an alphabetical roster.
+  const overviewPeople = isAdmin
+    ? STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN")
+        .map((s) => {
+          const rows = allRows.filter((r) => r.doer === s.name);
+          return {
+            name: s.name,
+            active: rows.filter((r) => !r.isDone).length,
+            overdue: rows.filter((r) => !r.isDone && r.daysLeft !== null && r.daysLeft < 0).length,
+            needsSupport: rows.filter((r) => !r.isDone && r.needsSupport?.trim()).length,
+          };
+        })
+        .sort((a, b) => b.overdue - a.overdue || b.needsSupport - a.needsSupport || b.active - a.active)
+    : [];
+  const overviewTotals = overviewPeople.reduce(
+    (acc, p) => ({
+      active: acc.active + p.active,
+      overdue: acc.overdue + p.overdue,
+      needsSupport: acc.needsSupport + p.needsSupport,
+    }),
+    { active: 0, overdue: 0, needsSupport: 0 },
+  );
+
   // Status-chip counts reflect every other active filter except status
   // itself (so switching status doesn't change what the other chips'
   // counts mean) — same convention as the Projects list page.
@@ -307,6 +337,7 @@ export default function MyTasksPage() {
     if (categoryFilter !== "ALL" && r.category !== categoryFilter) return false;
     if (priorityFilter !== "ALL" && r.priority !== priorityFilter) return false;
     if (sourceFilter !== "ALL" && r.kind !== sourceFilter) return false;
+    if (isAdmin && doerFilter !== DOER_FILTER_ALL && r.doer !== doerFilter) return false;
     if (query.trim() && !r.title.toLowerCase().includes(query.trim().toLowerCase())) return false;
     return true;
   });
@@ -333,6 +364,16 @@ export default function MyTasksPage() {
   function handleNeedsSupport(row: TodoRow, value: string) {
     if (row.kind === "project" && row.projectCode) setProjectNeedsSupport(row.projectCode, value);
     if (row.kind === "task" && row.taskId) setTaskNeedsSupport(row.taskId, value);
+  }
+
+  function handleImportantNote(row: TodoRow, value: string) {
+    if (row.kind === "project" && row.projectCode) setProjectImportantNote(row.projectCode, value);
+    if (row.kind === "task" && row.taskId) setTaskImportantNote(row.taskId, value);
+  }
+
+  function toggleDoerFilter(name: string) {
+    setDoerFilter((prev) => (prev === name ? DOER_FILTER_ALL : name));
+    setPage(1);
   }
 
   function handlePriority(row: TodoRow, value: TaskPriority) {
@@ -400,6 +441,50 @@ export default function MyTasksPage() {
 
         {tab === "todo" && (
           <>
+            {isAdmin && (
+              <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-[13px] font-extrabold">Tổng quan phòng</h2>
+                  <p className="text-[12px] text-text-muted">
+                    {overviewTotals.active} đang làm ·{" "}
+                    <span className={overviewTotals.overdue > 0 ? "font-bold text-red" : ""}>
+                      {overviewTotals.overdue} trễ hạn
+                    </span>{" "}
+                    ·{" "}
+                    <span className={overviewTotals.needsSupport > 0 ? "font-bold text-amber" : ""}>
+                      {overviewTotals.needsSupport} cần hỗ trợ
+                    </span>
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {overviewPeople.map((p) => {
+                    const active = doerFilter === p.name;
+                    return (
+                      <button
+                        key={p.name}
+                        onClick={() => toggleDoerFilter(p.name)}
+                        title="Bấm để lọc bảng theo người này"
+                        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-[12px] ${
+                          active ? "border-text bg-text text-white" : "border-line bg-bg hover:border-text-faint"
+                        }`}
+                      >
+                        <span className="font-bold">{p.name}</span>
+                        <span className={active ? "text-white/80" : "text-text-muted"}>{p.active} đang làm</span>
+                        {p.overdue > 0 && (
+                          <span className={`font-bold ${active ? "text-white" : "text-red"}`}>· {p.overdue} trễ</span>
+                        )}
+                        {p.needsSupport > 0 && (
+                          <span className={`font-bold ${active ? "text-white" : "text-amber"}`}>
+                            · {p.needsSupport} cần hỗ trợ
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               <Chip
                 active={statusFilter === "ALL"}
@@ -493,6 +578,23 @@ export default function MyTasksPage() {
                 <option value="project">Từ Project</option>
                 <option value="task">Tự thêm</option>
               </select>
+              {isAdmin && (
+                <select
+                  value={doerFilter}
+                  onChange={(e) => {
+                    setDoerFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-line bg-surface px-2 text-[12.5px] focus:border-accent focus:outline-none"
+                >
+                  <option value={DOER_FILTER_ALL}>Người làm</option>
+                  {STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN").map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortKey)}
@@ -631,9 +733,18 @@ export default function MyTasksPage() {
                     ) : (
                       <span className="text-text-muted">{row.completedAt ?? "—"}</span>
                     )}
-                    <span className="truncate text-text-muted" title={row.importantNote}>
-                      {row.importantNote ?? "—"}
-                    </span>
+                    {isAdmin ? (
+                      <StagedTextCell
+                        value={row.importantNote ?? ""}
+                        onSave={(v) => handleImportantNote(row, v)}
+                        placeholder="Nhập lưu ý…"
+                        keepEmpty
+                      />
+                    ) : (
+                      <span className="truncate text-text-muted" title={row.importantNote}>
+                        {row.importantNote ?? "—"}
+                      </span>
+                    )}
                     <StagedTextCell
                       value={row.needsSupport ?? ""}
                       onSave={(v) => handleNeedsSupport(row, v)}

@@ -20,6 +20,9 @@ interface RndTasksContextValue {
   // Same "own function, not a plain patch" reasoning as
   // ProjectsProvider.setProjectNeedsSupport — this one also notifies Admin.
   setTaskNeedsSupport: (id: string, note: string) => void;
+  // Opposite direction: Admin writing a directive down to the task's
+  // owner. Only my-tasks/page.tsx's isAdmin gate ever calls this.
+  setTaskImportantNote: (id: string, note: string) => void;
 }
 
 const RndTasksContext = createContext<RndTasksContextValue | null>(null);
@@ -65,8 +68,25 @@ export function RndTasksProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  function setTaskImportantNote(id: string, note: string) {
+    updateTask(id, { importantNote: note });
+    const trimmed = note.trim();
+    if (!trimmed) return;
+    const task = rndTasks.find((t) => t.id === id);
+    if (!task) return;
+    addNotification({
+      type: "ADMIN_IMPORTANT_NOTE",
+      title: `Admin gửi lưu ý cho "${task.title}"`,
+      message: trimmed,
+      link: "/my-tasks",
+      recipientName: task.ownerName,
+    });
+  }
+
   return (
-    <RndTasksContext.Provider value={{ rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport }}>
+    <RndTasksContext.Provider
+      value={{ rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport, setTaskImportantNote }}
+    >
       {children}
     </RndTasksContext.Provider>
   );

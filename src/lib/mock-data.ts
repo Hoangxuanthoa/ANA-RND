@@ -134,9 +134,8 @@ export interface RndTask {
   deadline: string;
   completedAt?: string;
   needsSupport?: string;
-  // Admin-writable, same as Project.rndImportantNote — no UI to set this
-  // yet (the Admin cross-employee view is a later phase), field exists
-  // so the To Do List column has something to show once that lands.
+  // Admin-writable directive down to whoever owns this task — R&D never
+  // gets edit UI for it, only Admin (see my-tasks/page.tsx's isAdmin gate).
   importantNote?: string;
 }
 
@@ -546,9 +545,11 @@ export interface Project {
   // The rest of these back the R&D "My Task" To Do List entry for this
   // project (one row per project the viewer is rndOwner of, not one per
   // ProjectProductItem — see my-tasks/page.tsx). rndPriority defaults to
-  // "Trung bình" when absent; rndImportantNote is Admin-writable (no UI
-  // for that yet — the Admin cross-employee view is a later phase);
-  // rndNeedsSupport is R&D-writable and notifies Admin when set.
+  // "Trung bình" when absent; rndImportantNote is Admin-writable only (a
+  // directive down to the rndOwner, notifies them when set) — R&D never
+  // gets edit UI for it; rndNeedsSupport is R&D-writable and notifies
+  // Admin when set — the two fields are one-way channels in opposite
+  // directions, not a shared note.
   rndPriority?: TaskPriority;
   rndImportantNote?: string;
   rndNeedsSupport?: string;
@@ -1021,7 +1022,8 @@ export type NotificationType =
   | "NEW_PITCH"
   | "PROJECT_REQUESTED_BY_CUSTOMER"
   | "PROJECT_ASSIGNED"
-  | "RND_NEEDS_SUPPORT";
+  | "RND_NEEDS_SUPPORT"
+  | "ADMIN_IMPORTANT_NOTE";
 
 export interface NotificationItem {
   id: string;

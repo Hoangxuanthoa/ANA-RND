@@ -60,6 +60,10 @@ interface ProjectsContextValue {
   // other notification-raising actions above (plain updateProject has no
   // side effects, so this is deliberately its own function).
   setProjectNeedsSupport: (code: string, note: string) => void;
+  // The opposite direction of setProjectNeedsSupport: Admin writing a
+  // directive down to the project's rndOwner. Only my-tasks/page.tsx's
+  // isAdmin gate ever calls this — R&D has no UI path to it.
+  setProjectImportantNote: (code: string, note: string) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
@@ -110,6 +114,21 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
       message: trimmed,
       link: `/projects/${code}`,
       recipientName: admin.name,
+    });
+  }
+
+  function setProjectImportantNote(code: string, note: string) {
+    updateProject(code, { rndImportantNote: note });
+    const trimmed = note.trim();
+    if (!trimmed) return;
+    const project = projects.find((p) => p.code === code);
+    if (!project || !project.rndOwner) return;
+    addNotification({
+      type: "ADMIN_IMPORTANT_NOTE",
+      title: `Admin gửi lưu ý cho dự án ${project.name}`,
+      message: trimmed,
+      link: `/projects/${code}`,
+      recipientName: project.rndOwner,
     });
   }
 
@@ -351,6 +370,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         rejectProjectProduct,
         resubmitProjectProduct,
         setProjectNeedsSupport,
+        setProjectImportantNote,
       }}
     >
       {children}
