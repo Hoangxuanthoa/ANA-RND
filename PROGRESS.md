@@ -1218,6 +1218,27 @@ posted a second comment from inside the zoom sidebar, closed the
 viewer (confirmed only the viewer closed, quick view stayed open) and
 saw both comments present in the quick view's own feedback list.
 
+**Follow-up (2026-09-16) — Ảnh dự án square crop, 4-col grids, tab
+rename:** the "folder keeps original aspect ratio" decision from
+earlier in the session turned out to still look bad in practice —
+same fixed-height + `object-cover` overflow the rest of the session's
+product-image cards already had fixed, just not applied here. Switched
+Ảnh dự án's card image box to `aspect-square` too, matching Product
+Development's look exactly (the crop-on-release fix from earlier still
+only affects what gets copied into a *product*'s `mainImage` — the
+folder's own stored photo is untouched, only how it's framed on the
+card changed).
+Product Development's grid was `grid-cols-3` while Ảnh dự án was
+already `grid-cols-4` — changed Product Development to match so both
+tabs show the same row density.
+Renamed the two project tabs: "Product Development" → "Sản phẩm dạng
+up", "Ảnh dự án" → "Sản phẩm dạng ảnh" — distinguishing by how the
+item entered the project (typed/uploaded directly as a full product
+vs. captured as a photo, pending release). Updated every other
+user-facing string naming the old tabs (both `ConfirmDialog`
+descriptions in `ProjectPhotosTab`, the PPTX/PDF export
+`collectionName` in `PhotoExportModal`) plus two stale code comments.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
