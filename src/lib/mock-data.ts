@@ -935,6 +935,10 @@ export interface Collection {
   // "Xuất Collection" button — lets a repeat click reuse/top up the same
   // collection instead of spawning a duplicate one each time.
   sourceProjectCode?: string;
+  // Set server-side the first time "Lấy link online" is logged — an
+  // unguessable id for the public /share/collection/[slug] page, distinct
+  // from the internal `id` above so a real customer link never exposes it.
+  publicSlug?: string;
 }
 
 export const COLLECTIONS: Collection[] = [

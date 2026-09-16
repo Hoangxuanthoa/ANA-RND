@@ -1412,6 +1412,92 @@ begin with), Project file attachments (stays cosmetic filename-only —
 never had real upload). Collections, RndTasks, Settings remain fully
 mock, next in the established migration order.
 
+## Backend wiring: Collections module goes real (2026-09-17)
+
+Continuing the established order (Products → Projects → **Collections**
+→ RndTasks → Settings). Schema needed zero migration this time — the
+`Collection`/`CollectionItem`/`CollectionPitch` models (including a
+`publicSlug` field on Collection) had already been designed in when the
+schema was brought current back on 2026-09-16, before any of it was
+wired up.
+
+**A real design decision surfaced before writing any code, and was
+confirmed with the user rather than assumed:** Collections' "Lấy link
+online" is meant to be a link sent to an outside customer with no
+account at all — but every route in the app has required a real
+session since the Auth migration, which would have quietly broken that
+intent the moment Collections went real. Asked the user directly; they
+confirmed the link should be genuinely public. Fixed by adding the
+**one deliberate exception** in `src/lib/supabase/middleware.ts`: a new
+`/share/` page namespace and its own `/api/collections/public/[slug]`
+data route skip the session check entirely, keyed by the real
+`publicSlug` (a `crypto.randomUUID()` minted server-side the first time
+a pitch is ever logged for a collection) — never the internal
+database id, so a shared link can't be used to guess at others.
+`RoleProvider` skips its `/api/me` bootstrap fetch for `/share/` pages
+the same way it already did for `/login`. While in there, also fixed a
+latent middleware bug this surfaced: an unauthenticated request to any
+`/api/*` route used to redirect to `/login`'s HTML instead of returning
+a JSON 401 — harmless before (every real page load already had a
+session by the time its providers fetched), but would have spammed
+JSON-parse console errors from every other provider's background fetch
+on the new public page. Now `/api/*` returns a clean 401 JSON when
+there's no session, any other page still redirects.
+
+**Collections module, full real backend:** same proven pattern as
+Products/Projects — full CRUD (`create`/`rename`/`delete`), add/remove
+product, and pitch logging, all under `src/app/api/collections/`. The
+public route builds its own safe, minimal subset of a product (code/
+category/material/size variants/main image only — no designer/status/
+exclusivity) rather than reusing the internal product serializer, since
+an anonymous customer should never see internal-only fields.
+`CollectionsProvider.tsx` rewritten to the same
+fetch-on-mount/optimistic-update/reconcile shape as the other real
+providers; `createCollection`/`logPitch` dropped their now-redundant
+`createdByName`/`loggedByName` parameters (the server derives both from
+the session) and `LogPitchModal` gained the same async
+submitting-state pattern already used elsewhere (`NewProjectModal`,
+etc.) since logging a pitch now needs a round trip before the share
+banner can show a real link. Editing (rename/delete/add/remove-item) is
+locked to DRAFT + (creator or Admin) — enforced server-side, not just
+hidden in the UI, matching `canEditCollection` in `permissions.ts`.
+This was also the last file still holding a `CURRENT_USER_NAME` mock
+identity outside RndTasks/Settings (`projects/[code]/page.tsx`'s
+"Xuất Collection" button, `AddToCollectionButton.tsx`) — both now use
+the real `effectiveUserName`.
+
+**Verified end-to-end locally** (`npx tsc --noEmit` and eslint both
+clean): created a collection, added/removed a real product, renamed it
+(survived a hard reload), logged a pitch and watched it flip to SENT
+with a real `publicSlug` returned; confirmed both the client (buttons
+hidden) and the server (`403 Forbidden` on a direct API call) refuse to
+edit a SENT collection; deleted a DRAFT collection successfully.
+Confirmed the "Xuất Collection" (from a completed Project)
+`sourceProjectCode` → real `projectId` resolution round-trips
+correctly. **Confirmed the public share page works with zero
+session** — cleared all cookies in the browser tab used for testing and
+reloaded: the page rendered the collection's real contents with no
+redirect to `/login` and no console errors, proving the middleware
+exception works as intended. (That cookie-clearing briefly signed the
+*testing browser's* other tab out too, since a browser's cookies aren't
+tab-scoped — not the user's real browser/account, no actual impact,
+just needed a re-login on that one shared testing session to finish
+the rest of the checks afterward.) All test data (collections,
+products, one throwaway project) cleaned up from the local DB after
+each check.
+
+**Not yet tested on production** — this pass covered local only; a
+`ana-rnd.vercel.app` smoke test (same discipline as Products/Projects:
+create real data, exercise the public share link with a real
+`R2_PUBLIC_URL`-backed image, clean up afterward) is still pending.
+
+**Deliberately not done this pass:** Collections' `CollectionItem`
+schema has unused `note`/`sortOrder`/`versionId` columns — the UI has
+never exposed per-item notes, manual ordering, or pinning to a specific
+product version, so the routes don't set them; revisit only if the
+user asks for that. RndTasks, Settings remain fully mock, next in the
+established migration order.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature

@@ -53,9 +53,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   // /login never has a session to fetch (middleware already redirects
   // anyone who does have one away from it) and doesn't read useRole() at
   // all — skip the fetch entirely so it never blocks on a loading screen.
+  // The public Collection share page is the same story for a different
+  // reason: it's meant to work with no session at all (see
+  // src/lib/supabase/middleware.ts), and it doesn't read useRole() either.
   const isLoginPage = pathname === "/login";
+  const skipIdentityFetch = isLoginPage || !!pathname?.startsWith("/share/");
   const [real, setReal] = useState<RealIdentity | null>(null);
-  const [loading, setLoading] = useState(!isLoginPage);
+  const [loading, setLoading] = useState(!skipIdentityFetch);
   const [role, setRoleState] = useState<Role>("RND");
   // Fake per-role contact info shown only while Admin is previewing a
   // role that isn't their own real account — there's no real "become
@@ -69,7 +73,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    if (isLoginPage) {
+    if (skipIdentityFetch) {
       setLoading(false);
       return;
     }
@@ -88,7 +92,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [isLoginPage]);
+  }, [skipIdentityFetch]);
 
   const isRealAdmin = real?.role === "ADMIN";
   const isPreviewingSelf = !real || role === real.role;

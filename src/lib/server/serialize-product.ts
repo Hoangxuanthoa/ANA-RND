@@ -28,7 +28,7 @@ const TINTS = ["accent", "blue", "green", "slate"] as const;
 // Deterministic, not stored — the mock Product.tint field never carried
 // real meaning beyond "a stable color per card", so a hash of the
 // category name reproduces that without a schema column.
-function tintFor(category: string): (typeof TINTS)[number] {
+export function tintFor(category: string): (typeof TINTS)[number] {
   let hash = 0;
   for (let i = 0; i < category.length; i++) hash = (hash * 31 + category.charCodeAt(i)) | 0;
   return TINTS[Math.abs(hash) % TINTS.length];

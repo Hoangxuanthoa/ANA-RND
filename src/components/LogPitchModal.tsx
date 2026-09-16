@@ -10,18 +10,21 @@ interface LogPitchModalProps {
   // file, who's it for" rather than a random unrelated question.
   actionLabel: string;
   onCancel: () => void;
-  onConfirm: (customer: string, note: string) => void;
+  onConfirm: (customer: string, note: string) => Promise<void> | void;
 }
 
 export function LogPitchModal({ open, actionLabel, onCancel, onConfirm }: LogPitchModalProps) {
   const [customer, setCustomer] = useState(CUSTOMERS[0]);
   const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onConfirm(customer, note);
+    setSubmitting(true);
+    await onConfirm(customer, note);
+    setSubmitting(false);
     setNote("");
   }
 
@@ -68,16 +71,18 @@ export function LogPitchModal({ open, actionLabel, onCancel, onConfirm }: LogPit
         <div className="mt-1 flex justify-end gap-2.5">
           <button
             type="button"
+            disabled={submitting}
             onClick={onCancel}
-            className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg"
+            className="h-9 rounded-lg border border-line bg-surface px-3.5 text-[13px] font-bold hover:bg-bg disabled:opacity-60"
           >
             Hủy
           </button>
           <button
             type="submit"
-            className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover"
+            disabled={submitting}
+            className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-60"
           >
-            Xác nhận
+            {submitting ? "Đang lưu…" : "Xác nhận"}
           </button>
         </div>
       </form>

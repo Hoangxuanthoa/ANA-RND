@@ -15,7 +15,7 @@ import { BulkUploadModal } from "@/components/BulkUploadModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
 import { ProjectPhotosTab } from "@/components/ProjectPhotosTab";
 import { useProjectPhotos } from "@/components/ProjectPhotosProvider";
-import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
+import { ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
   projectStatusBadge,
   projectTypeBadge,
@@ -70,11 +70,6 @@ export default function ProjectDetailPage() {
   const { products, releaseToLibrary, setReusePermission, createProductsBulk } = useProducts();
   const { collections, createCollection, addProductToCollection } = useCollections();
   const { photos } = useProjectPhotos();
-  // Projects is real now, so every Project/ProjectProduct ownership
-  // check below uses the real signed-in name — only createCollection
-  // (Collections is still mock, its own turn hasn't come yet) keeps the
-  // old per-role fictional name, aliased separately right where it's
-  // used.
   const userName = effectiveUserName;
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
@@ -137,7 +132,7 @@ export default function ProjectDetailPage() {
   // it up with any newly-eligible codes, never removing ones already
   // there in case someone deliberately took one out) instead of spawning
   // a duplicate collection on every click.
-  function handleExportCollection() {
+  async function handleExportCollection() {
     const exportableCodes = exportableItems.map((i) => i.productCode);
     const existing = collections.find((c) => c.sourceProjectCode === project!.code);
     if (existing) {
@@ -146,9 +141,7 @@ export default function ProjectDetailPage() {
       });
       router.push(`/collections/${existing.id}/export`);
     } else {
-      // Collections is still mock — its own createdByName stays the old
-      // per-role fictional name until its turn comes.
-      const id = createCollection(project!.name, CURRENT_USER_NAME[role], exportableCodes, project!.code);
+      const id = await createCollection(project!.name, exportableCodes, project!.code);
       router.push(`/collections/${id}/export`);
     }
   }

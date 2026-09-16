@@ -8,7 +8,7 @@ import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { CollectionSlideDeck } from "@/components/CollectionSlideDeck";
-import { CURRENT_USER_NAME, CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYYY } from "@/lib/mock-data";
+import { CUSTOMERS, formatSizeVariantDimensions, todayDDMMYYYY } from "@/lib/mock-data";
 import { canManageCollections } from "@/lib/permissions";
 import { generateCollectionPptx, PRODUCTS_PER_SLIDE_OPTIONS, type ProductsPerSlide } from "@/lib/pptxExport";
 import { generateCollectionPdf } from "@/lib/pdfExport";
@@ -59,7 +59,6 @@ function sizeLines(sizeVariants?: { size: string; length?: number; width?: numbe
 export default function CollectionExportPage() {
   const params = useParams<{ id: string }>();
   const { role } = useRole();
-  const userName = CURRENT_USER_NAME[role];
   const { collections, logPitch } = useCollections();
   const { products } = useProducts();
   const { pptxTemplate } = useSettings();
@@ -130,7 +129,7 @@ export default function CollectionExportPage() {
 
   function ensureLogged() {
     if (!logged && collection) {
-      logPitch(collection.id, customer, userName);
+      logPitch(collection.id, customer).catch(() => {});
       setLogged(true);
     }
   }

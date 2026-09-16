@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
-import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
+import { type Product } from "@/lib/mock-data";
 import { getPickableCollections } from "@/lib/permissions";
 import { useExclusiveGuard } from "@/components/useExclusiveGuard";
 
@@ -21,11 +21,7 @@ interface AddToCollectionButtonProps {
 
 export function AddToCollectionButton({ product, className, align = "left", openUp = false }: AddToCollectionButtonProps) {
   const { role, effectiveUserName } = useRole();
-  // getPickableCollections checks Collections' mock ownership field (not
-  // real yet), so it keeps the old per-role fictional name; the
-  // exclusive guard checks real Product.exclusiveBy, so it needs the
-  // real name.
-  const userName = CURRENT_USER_NAME[role];
+  const userName = effectiveUserName;
   const { collections, createCollection, addProductToCollection } = useCollections();
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
@@ -83,9 +79,9 @@ export function AddToCollectionButton({ product, className, align = "left", open
               className="h-8 flex-1 rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none"
             />
             <button
-              onClick={() => {
+              onClick={async () => {
                 if (!newName.trim()) return;
-                const id = createCollection(newName.trim(), userName);
+                const id = await createCollection(newName.trim());
                 handleAdd(id, newName.trim());
                 setNewName("");
               }}

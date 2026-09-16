@@ -10,15 +10,14 @@ import { useProducts } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LogPitchModal } from "@/components/LogPitchModal";
 import { ProductQuickView } from "@/components/ProductQuickView";
-import { CURRENT_USER_NAME, type Product } from "@/lib/mock-data";
+import { type Product } from "@/lib/mock-data";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 import { canManageCollections, canEditCollection } from "@/lib/permissions";
 
 export default function CollectionDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const { role } = useRole();
-  const userName = CURRENT_USER_NAME[role];
+  const { role, effectiveUserName: userName } = useRole();
   const { collections, renameCollection, deleteCollection, removeProductFromCollection, logPitch } = useCollections();
   const { products } = useProducts();
   const collection = collections.find((c) => c.id === params.id);
@@ -52,7 +51,10 @@ export default function CollectionDetailPage() {
   const editable = canEditCollection(role, userName, collection);
   const items = collection.productCodes.map((code) => products.find((p) => p.code === code)).filter((p): p is NonNullable<typeof p> => !!p);
 
-  const shareUrl = typeof window !== "undefined" ? `${window.location.origin}/collections/${collection.id}/share` : "";
+  const shareUrl =
+    typeof window !== "undefined" && collection.publicSlug
+      ? `${window.location.origin}/share/collection/${collection.publicSlug}`
+      : "";
 
   function copyShareLink() {
     navigator.clipboard?.writeText(shareUrl);
@@ -289,8 +291,8 @@ export default function CollectionDetailPage() {
         open={linkModalOpen}
         actionLabel="Lấy link online"
         onCancel={() => setLinkModalOpen(false)}
-        onConfirm={(customer, note) => {
-          logPitch(collection.id, customer, userName, note);
+        onConfirm={async (customer, note) => {
+          await logPitch(collection.id, customer, note);
           setShareBannerOpen(true);
           setLinkModalOpen(false);
         }}

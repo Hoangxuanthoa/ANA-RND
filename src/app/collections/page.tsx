@@ -5,7 +5,6 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useCollections } from "@/components/CollectionsProvider";
-import { CURRENT_USER_NAME } from "@/lib/mock-data";
 import { canManageCollections, isMyCollection } from "@/lib/permissions";
 
 type Scope = "mine" | "all";
@@ -13,11 +12,11 @@ type Scope = "mine" | "all";
 const PAGE_SIZE = 10;
 
 export default function CollectionsPage() {
-  const { role } = useRole();
-  const userName = CURRENT_USER_NAME[role];
+  const { role, effectiveUserName: userName } = useRole();
   const { collections, createCollection } = useCollections();
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   // Admin oversees everything so defaults to the full list; everyone else
   // mostly cares about the collections they made, same default logic as
   // the Projects tab.
@@ -72,10 +71,13 @@ export default function CollectionsPage() {
             <input
               value={name}
               autoFocus
+              disabled={submitting}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && name.trim()) {
-                  createCollection(name.trim(), userName);
+              onKeyDown={async (e) => {
+                if (e.key === "Enter" && name.trim() && !submitting) {
+                  setSubmitting(true);
+                  await createCollection(name.trim());
+                  setSubmitting(false);
                   setName("");
                   setCreating(false);
                 }
@@ -85,17 +87,21 @@ export default function CollectionsPage() {
               className="h-9 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
             />
             <button
-              onClick={() => {
+              disabled={submitting}
+              onClick={async () => {
                 if (!name.trim()) return;
-                createCollection(name.trim(), userName);
+                setSubmitting(true);
+                await createCollection(name.trim());
+                setSubmitting(false);
                 setName("");
                 setCreating(false);
               }}
-              className="h-9 flex-shrink-0 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+              className="h-9 flex-shrink-0 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover disabled:opacity-60"
             >
-              Tạo
+              {submitting ? "Đang tạo…" : "Tạo"}
             </button>
             <button
+              disabled={submitting}
               onClick={() => setCreating(false)}
               className="h-9 flex-shrink-0 rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg"
             >
