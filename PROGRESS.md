@@ -1870,6 +1870,46 @@ serverless instances likely compounds this too (cold starts on a
 low-traffic internal tool), which is a hosting-tier tradeoff already
 known and accepted for now, not a new finding.
 
+**Follow-up the same day — the real dominant cause of the slowness**
+(2026-09-17): the user pushed back that the app was still "very slow
+and laggy" for basic actions (creating a Project/Collection, uploading
+a photo) — "sao dùng được" (how is this usable). That was a fair
+push-back: the prefetch fix above was real but minor, and didn't match
+a complaint this severe. Measured directly this time instead of
+reasoning from the request-count finding alone — a single trivial
+`/api/me` call (one Prisma query) took **1.7–2.7 seconds, consistently,
+every time**, not as an occasional cold-start spike. The `x-vercel-id`
+response header showed why: `hkg1::iad1::...` — Vercel's serverless
+functions were executing in **`iad1` (US East, Virginia)**, while the
+Supabase database has always lived in **`ap-southeast-1` (Singapore)**.
+Every single database round trip was paying a full trans-Pacific hop,
+and most routes make several sequential ones.
+
+Fixed with a one-line, code-free deployment config: added
+`vercel.json` with `"regions": ["sin1"]`, pinning function execution
+to Singapore — geographically colocated with the database. Re-measured
+immediately after: the same `/api/me` call now consistently takes
+**220–385ms** (`x-vercel-id` now shows `sin1`) — roughly a **7–10×**
+improvement. Directly timed the exact actions from the complaint
+against production: creating a Project (`POST /api/projects`) — 357ms;
+creating a Collection (`POST /api/collections`) — 384ms. Also timed a
+real image upload (`POST /api/upload`, a 400×400 PNG to R2) at
+~1.2–1.3s — that one's inherently slower than a plain DB call (it's a
+real file transfer to a separate service, Cloudflare R2, not a Postgres
+round trip) and wasn't touched by this fix, but is a reasonable,
+expected order of magnitude on its own, not the "laggy" symptom being
+chased here. All test data (2 projects, 1 collection, 2 uploaded R2
+images) cleaned up afterward.
+
+This was the actual dominant cause of the slowness complaint — a
+deployment topology mismatch, not the request-count/provider-fetching
+concern flagged as a "recommended follow-up" just above (that
+finding was real and worth doing eventually, but was never going to
+explain multi-second lag on its own). Worth remembering for future
+"why is this slow" reports on this stack: check `x-vercel-id` and
+compare against the database's actual region before assuming it's a
+query-count or code-level problem.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
