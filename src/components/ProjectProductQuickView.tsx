@@ -314,6 +314,10 @@ export function ProjectProductQuickView({
           index={0}
           onIndexChange={() => {}}
           onClose={() => setImageViewerOpen(false)}
+          comments={{
+            items: item.feedback,
+            onAdd: (content) => addProjectProductFeedback(item.projectCode, item.productCode, content),
+          }}
         />
       )}
     </div>
