@@ -1149,6 +1149,49 @@ comment, it appeared in the modal instantly with the right
 author/role/time, and the card's count badge updated from 0 to 1 without
 closing the modal.
 
+**Follow-up (2026-09-16) — square product images + zoomable thumbnail:**
+after the comments feature shipped, the user sent screenshots of the
+Product Development grid showing bulk/single-released photos displayed
+inconsistently — some cropped so badly a label or logo was mostly cut
+off. Root cause: every product-image grid card (Library, Dashboard,
+Product Development, Collections) used a fixed *height* box
+(`h-32`/`h-40`/`h-[150px]`) with `object-cover`, so on a grid column
+wider than that height, `object-cover` cropped an arbitrary-aspect
+source image unpredictably. `BulkUploadModal`'s own preview grid already
+used `aspect-square` and looked clean by comparison — changed all the
+above to `aspect-square` too, so the frame itself is always square
+regardless of column width.
+That only fixed *display*, not the *source*: releasing a photo from
+Ảnh dự án (single or bulk) was carrying over the raw uploaded photo's
+original aspect ratio untouched as `mainImage`, unlike "Up hàng loạt"
+which auto-square-crops via `autoSquareCropUrl`. Folders intentionally
+keep the original ratio (an earlier decision), but a *released* product
+should look like every other product — so `ProjectPhotosTab`'s single
+`openRelease(photo)` and `handleBulkRelease` now both await
+`autoSquareCropUrl(photo.url)` before handing the image to
+`NewProductModal`/`createProductsBulk`, with a brief "Đang xử lý…" busy
+state on the Release button/confirm dialog while the crop runs.
+Also from the same feedback: the comment button on Ảnh dự án cards was
+a bare icon the user found too small — changed to icon + "Comment (N)"
+label. And: clicking a Product Development card always opened
+`ProjectProductQuickView` (status/feedback) with no way to see the image
+large. Generalized `PhotoViewerModal`'s prop type from `ProjectPhoto[]`
+to a plain structural `{fileName, url, releasedProductCode?}[]` (no
+behavior change, just decoupled from the photo-folder type) and reused
+it in `ProjectProductQuickView`: clicking specifically the small
+product thumbnail now opens it as a single-image zoom/fullscreen
+viewer stacked on top of the quick view; clicking elsewhere on the card
+still opens the quick view as before. Verified all three in the
+browser: uploaded a synthetic wide (800×400) test photo, released it
+both ways and confirmed the product's main image came out centered and
+square in the grid; opened the new thumbnail zoom and confirmed it
+opens on top of (not instead of) the quick view and closes back to it.
+Noticed in passing (not fixed here, flagged as a separate follow-up):
+`ImageLightbox.tsx` (used by `ProductQuickView`/`library/[code]`) has
+the same passive-`onWheel` background-scroll-leak bug already fixed in
+`PhotoViewerModal` this session — console showed repeated
+"Unable to preventDefault inside passive event listener" while testing.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
