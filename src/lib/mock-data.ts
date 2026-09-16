@@ -800,10 +800,30 @@ export const PROJECT_PRODUCTS: ProjectProductItem[] = [
 // "27/08/2026" — matches the dd/mm/yyyy style already used for deadlines
 // everywhere else, for stamping a new project's creation date.
 export function todayDDMMYYYY(): string {
-  const now = new Date();
-  const dd = String(now.getDate()).padStart(2, "0");
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  return `${dd}/${mm}/${now.getFullYear()}`;
+  return formatDDMMYYYY(new Date());
+}
+
+// Same "dd/mm/yyyy" formatting for an arbitrary Date — used by API routes
+// turning a real DateTime column back into the display string every mock
+// field/component already expects.
+export function formatDDMMYYYY(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${date.getFullYear()}`;
+}
+
+// "Vừa xong" / "5 phút trước" / "3 ngày trước", matching the flavor of
+// this app's existing seed feedback timestamps — falls back to a plain
+// date once it's more than a week old rather than "52 ngày trước".
+export function relativeTimeVi(date: Date): string {
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60000);
+  if (diffMin < 1) return "Vừa xong";
+  if (diffMin < 60) return `${diffMin} phút trước`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour} giờ trước`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay} ngày trước`;
+  return formatDDMMYYYY(date);
 }
 
 // Parses the "dd/mm/yyyy" format used for createdAt/deadline fields —

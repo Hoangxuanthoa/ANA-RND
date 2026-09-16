@@ -75,14 +75,18 @@ const IconBell = (
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
+  // Projects/ProjectProduct ownership checks below still compare against
+  // mock data, so they keep the old per-role fictional name until
+  // Projects is wired for real; the Library visibility check and the
+  // greeting use the real signed-in name.
   const userName = CURRENT_USER_NAME[role];
   const { products } = useProducts();
   const { projects, projectProducts } = useProjects();
   const isCustomer = role === "CUSTOMER";
   const isAdmin = role === "ADMIN";
   const isRnd = role === "RND";
-  const visibleProducts = products.filter((p) => canSeeProductInLibrary(role, userName, p));
+  const visibleProducts = products.filter((p) => canSeeProductInLibrary(role, effectiveUserName, p));
   const recentProducts = [...visibleProducts]
     .sort((a, b) => (parseDDMMYYYY(b.createdAt)?.getTime() ?? 0) - (parseDDMMYYYY(a.createdAt)?.getTime() ?? 0))
     .slice(0, 3);
@@ -126,7 +130,7 @@ export default function DashboardPage() {
       <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-7 p-7">
         <div>
           <h1 className="mb-1 text-[22px] font-extrabold">
-            Chào buổi sáng, {isCustomer ? "JYSK Buyer" : userName}
+            Chào buổi sáng, {isCustomer ? "JYSK Buyer" : effectiveUserName}
           </h1>
           <p className="text-sm text-text-muted">
             Đang xem với vai trò <strong className="text-text">{ROLE_LABEL[role]}</strong>

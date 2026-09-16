@@ -2,11 +2,14 @@
 
 import { useCallback, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
-import { getCroppedImageUrl } from "@/lib/cropImage";
+import { getCroppedImageBlob } from "@/lib/cropImage";
+import { uploadFile } from "@/lib/upload";
 
 interface ImageCropModalProps {
   open: boolean;
   imageSrc: string;
+  // Namespaces the R2 key for the uploaded result (e.g. "products").
+  folder: string;
   onCancel: () => void;
   onCropped: (url: string) => void;
 }
@@ -15,12 +18,17 @@ interface ImageCropModalProps {
 // stored — Library/Collection grids and the PPTX export all show
 // thumbnails, and a fixed 1:1 crop at upload time keeps those consistent
 // instead of relying on each container's own CSS object-fit cropping a
-// different part of the image.
-export function ImageCropModal({ open, imageSrc, onCancel, onCropped }: ImageCropModalProps) {
+// different part of the image. The crop source itself stays a local
+// blob: URL (unavoidable — cropping needs pixels in a <canvas>); only
+// the cropped *result* gets uploaded to real storage here, so callers
+// (NewProductModal, UploadVersionModal) get back a real, persisted URL
+// with no logic changes of their own needed.
+export function ImageCropModal({ open, imageSrc, folder, onCancel, onCropped }: ImageCropModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   const onCropComplete = useCallback((_croppedArea: Area, pixels: Area) => {
     setCroppedAreaPixels(pixels);
@@ -30,10 +38,14 @@ export function ImageCropModal({ open, imageSrc, onCancel, onCropped }: ImageCro
 
   async function handleConfirm() {
     if (!croppedAreaPixels) return;
+    setError("");
     setBusy(true);
     try {
-      const url = await getCroppedImageUrl(imageSrc, croppedAreaPixels);
+      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels);
+      const url = await uploadFile(new File([blob], "image.jpg", { type: "image/jpeg" }), folder);
       onCropped(url);
+    } catch {
+      setError("Tải ảnh lên thất bại — thử lại.");
     } finally {
       setBusy(false);
     }
@@ -68,6 +80,8 @@ export function ImageCropModal({ open, imageSrc, onCancel, onCropped }: ImageCro
             className="w-full accent-accent"
           />
         </label>
+
+        {error && <p className="text-[12.5px] font-semibold text-red">{error}</p>}
 
         <div className="flex justify-end gap-2.5">
           <button

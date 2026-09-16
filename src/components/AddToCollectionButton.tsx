@@ -20,14 +20,18 @@ interface AddToCollectionButtonProps {
 }
 
 export function AddToCollectionButton({ product, className, align = "left", openUp = false }: AddToCollectionButtonProps) {
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
+  // getPickableCollections checks Collections' mock ownership field (not
+  // real yet), so it keeps the old per-role fictional name; the
+  // exclusive guard checks real Product.exclusiveBy, so it needs the
+  // real name.
   const userName = CURRENT_USER_NAME[role];
   const { collections, createCollection, addProductToCollection } = useCollections();
   const [open, setOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const pickable = getPickableCollections(role, userName, collections);
-  const { guardPick, guardModal } = useExclusiveGuard(userName);
+  const { guardPick, guardModal } = useExclusiveGuard(effectiveUserName);
 
   function handleAdd(id: string, name: string) {
     guardPick(product, () => addProductToCollection(id, product.code));

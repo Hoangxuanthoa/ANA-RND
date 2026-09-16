@@ -1,27 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import {
-  PRODUCTS as INITIAL_PRODUCTS,
-  PRODUCT_FEEDBACK as INITIAL_PRODUCT_FEEDBACK,
-  PRODUCT_VERSIONS as INITIAL_PRODUCT_VERSIONS,
-  CATEGORIES as INITIAL_CATEGORIES,
-  MATERIALS as INITIAL_MATERIALS,
-  SIZES as INITIAL_SIZES,
-  COLORS as INITIAL_COLORS,
-  feedbackIdentity,
-  nextProductCode,
-  nextVersionNumber,
-  todayDDMMYYYY,
-  CURRENT_USER_NAME,
-  type Product,
-  type ProductSizeVariant,
-  type ProductFeedbackItem,
-  type ReusePermission,
-  type VersionItem,
-} from "@/lib/mock-data";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Product, ProductSizeVariant, ProductFeedbackItem, ReusePermission, VersionItem } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
-import { useNotifications } from "@/components/NotificationsProvider";
 
 interface ProductsContextValue {
   products: Product[];
@@ -34,20 +15,12 @@ interface ProductsContextValue {
   colors: string[];
   approveProduct: (code: string) => void;
   rejectProduct: (code: string, reason: string) => void;
-  // Path A: a standalone (no project) draft is submitted straight to the
-  // Admin review queue.
   submitForReview: (code: string) => void;
-  // Path B: R&D releases a design out of a (closed) project into the
-  // general library — also lands in the same review queue.
   releaseToLibrary: (code: string, projectName: string) => void;
-  // exclusiveBy is who to credit/ask when reuse is EXCLUSIVE — omit (or
-  // pass undefined) when clearing it back to REUSABLE.
   setReusePermission: (code: string, reuse: ReusePermission, exclusiveBy?: string) => void;
   toggleFavorite: (code: string) => void;
   addProductFeedback: (productCode: string, content: string) => void;
-  // Appends a new, auto-numbered version entry for this product and, if
-  // an image was included, makes it the product's live main image too.
-  addProductVersion: (productCode: string, note: string, image?: string) => void;
+  addProductVersion: (productCode: string, note: string, image?: string) => Promise<void>;
   createProduct: (
     input: {
       name: string;
@@ -60,9 +33,8 @@ interface ProductsContextValue {
       originCustomer?: string;
     },
     options?: { autoSubmit?: boolean },
-  ) => string;
-  // Bulk intake — one placeholder product per image, see createProductsBulk.
-  createProductsBulk: (images: { name: string; mainImage: string }[], originCustomer?: string) => string[];
+  ) => Promise<string>;
+  createProductsBulk: (images: { name: string; mainImage: string }[], originCustomer?: string) => Promise<string[]>;
   updateProduct: (code: string, patch: Partial<Product>) => void;
   archiveProduct: (code: string) => void;
   deleteProduct: (code: string) => void;
@@ -82,62 +54,118 @@ interface ProductsContextValue {
 
 const ProductsContext = createContext<ProductsContextValue | null>(null);
 
-// Shared CRUD for the lookup lists (Category/Material/Color) that hang
-// off a Product by plain string field — add/rename/remove, with rename
-// cascading to every product using the old value and remove blocked
-// while any product still does. Size is handled separately below since a
-// product can have several size variants, not one flat field.
-function useManagedField(
-  initial: string[],
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+// undefined values silently vanish from JSON.stringify's output — but a
+// patch clearing a field (e.g. removing the main image) needs that key
+// to actually arrive as `null`, not disappear, so the server can tell
+// "clear this" apart from "field not included in this patch".
+function bodyWithNulls(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => (v === undefined ? null : v));
+}
+
+async function postJson<T>(url: string, body: unknown, method: "POST" | "PATCH" = "POST"): Promise<T> {
+  const res = await fetch(url, { method, headers: JSON_HEADERS, body: bodyWithNulls(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Thao tác thất bại — thử lại.");
+  return data as T;
+}
+
+interface LookupRow {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+// Real-backend equivalent of the mock's useManagedField — same
+// add/rename/remove shape (rename cascades to every already-fetched
+// product using the old value, so open tabs stay visually consistent;
+// remove deactivates server-side instead of hard-deleting/being blocked
+// while in use). One instance per endpoint (categories/materials/colors).
+function useLookupField(
+  endpoint: string,
   field: "category" | "material" | "color",
-  products: Product[],
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>,
 ) {
-  const [items, setItems] = useState<string[]>(initial);
+  const [rows, setRows] = useState<LookupRow[]>([]);
+
+  useEffect(() => {
+    fetch(endpoint)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: LookupRow[]) => setRows(data));
+  }, [endpoint]);
 
   function add(name: string) {
     const trimmed = name.trim();
-    if (!trimmed || items.includes(trimmed)) return;
-    setItems((prev) => [...prev, trimmed]);
+    if (!trimmed || rows.some((r) => r.name === trimmed)) return;
+    postJson<LookupRow>(endpoint, { name: trimmed })
+      .then((created) => setRows((prev) => [...prev, created]))
+      .catch(() => {});
   }
 
   function rename(oldName: string, newName: string) {
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === oldName || items.includes(trimmed)) return;
-    setItems((prev) => prev.map((v) => (v === oldName ? trimmed : v)));
+    if (!trimmed || trimmed === oldName || rows.some((r) => r.name === trimmed)) return;
+    const row = rows.find((r) => r.name === oldName);
+    if (!row) return;
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, name: trimmed } : r)));
     setProducts((prev) => prev.map((p) => (p[field] === oldName ? { ...p, [field]: trimmed } : p)));
+    postJson(`${endpoint}/${row.id}`, { name: trimmed }, "PATCH").catch(() => {});
   }
 
   function remove(name: string) {
-    if (products.some((p) => p[field] === name)) return;
-    setItems((prev) => prev.filter((v) => v !== name));
+    const row = rows.find((r) => r.name === name);
+    if (!row) return;
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
+    postJson(`${endpoint}/${row.id}`, { isActive: false }, "PATCH").catch(() => {});
   }
 
-  return { items, add, rename, remove };
+  return { items: rows.map((r) => r.name), add, rename, remove };
 }
 
 export function ProductsProvider({ children }: { children: ReactNode }) {
-  const { role } = useRole();
-  const { addNotification } = useNotifications();
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const { effectiveUserName } = useRole();
+  const [products, setProducts] = useState<Product[]>([]);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
-  const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>(INITIAL_PRODUCT_FEEDBACK);
-  const [productVersions, setProductVersions] = useState<VersionItem[]>(INITIAL_PRODUCT_VERSIONS);
-  const categoryField = useManagedField(INITIAL_CATEGORIES, "category", products, setProducts);
-  const materialField = useManagedField(INITIAL_MATERIALS, "material", products, setProducts);
-  const colorField = useManagedField(INITIAL_COLORS, "color", products, setProducts);
-  const [sizes, setSizes] = useState<string[]>(INITIAL_SIZES);
+  const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>([]);
+  const [productVersions, setProductVersions] = useState<VersionItem[]>([]);
+  const categoryField = useLookupField("/api/categories", "category", setProducts);
+  const materialField = useLookupField("/api/materials", "material", setProducts);
+  const colorField = useLookupField("/api/colors", "color", setProducts);
+  const [sizeRows, setSizeRows] = useState<LookupRow[]>([]);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: (Product & { favoritedByMe: boolean })[]) => {
+        setProducts(data);
+        setFavoritedCodes(new Set(data.filter((p) => p.favoritedByMe).map((p) => p.code)));
+      });
+    fetch("/api/products/feedback")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setProductFeedback);
+    fetch("/api/products/versions")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setProductVersions);
+    fetch("/api/sizes")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: LookupRow[]) => setSizeRows(data));
+  }, []);
 
   function addSize(name: string) {
     const trimmed = name.trim();
-    if (!trimmed || sizes.includes(trimmed)) return;
-    setSizes((prev) => [...prev, trimmed]);
+    if (!trimmed || sizeRows.some((r) => r.name === trimmed)) return;
+    postJson<LookupRow>("/api/sizes", { name: trimmed })
+      .then((created) => setSizeRows((prev) => [...prev, created]))
+      .catch(() => {});
   }
 
   function renameSize(oldName: string, newName: string) {
     const trimmed = newName.trim();
-    if (!trimmed || trimmed === oldName || sizes.includes(trimmed)) return;
-    setSizes((prev) => prev.map((v) => (v === oldName ? trimmed : v)));
+    if (!trimmed || trimmed === oldName || sizeRows.some((r) => r.name === trimmed)) return;
+    const row = sizeRows.find((r) => r.name === oldName);
+    if (!row) return;
+    setSizeRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, name: trimmed } : r)));
     setProducts((prev) =>
       prev.map((p) =>
         p.sizeVariants
@@ -145,116 +173,82 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
+    postJson(`/api/sizes/${row.id}`, { name: trimmed }, "PATCH").catch(() => {});
   }
 
   function removeSize(name: string) {
-    if (products.some((p) => p.sizeVariants?.some((v) => v.size === name))) return;
-    setSizes((prev) => prev.filter((v) => v !== name));
+    const row = sizeRows.find((r) => r.name === name);
+    if (!row) return;
+    setSizeRows((prev) => prev.filter((r) => r.id !== row.id));
+    postJson(`/api/sizes/${row.id}`, { isActive: false }, "PATCH").catch(() => {});
+  }
+
+  function replaceProduct(code: string, updated: Product) {
+    setProducts((prev) => prev.map((p) => (p.code === code ? updated : p)));
   }
 
   function approveProduct(code: string) {
-    const product = products.find((p) => p.code === code);
-    setProducts((prev) =>
-      prev.map((p) => (p.code === code ? { ...p, status: "RELEASED", lastRejectionReason: undefined } : p)),
-    );
-    if (product) {
-      addNotification({
-        type: "PRODUCT_APPROVED",
-        title: `${product.name} đã được duyệt`,
-        message: "Sản phẩm đã Released vào Library.",
-        link: `/library/${code}`,
-        recipientName: product.designer,
-      });
-    }
+    setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, status: "RELEASED", lastRejectionReason: undefined } : p)));
+    postJson<Product>(`/api/products/${code}/approve`, {}).then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
   function rejectProduct(code: string, reason: string) {
-    const product = products.find((p) => p.code === code);
-    setProducts((prev) =>
-      prev.map((p) => (p.code === code ? { ...p, status: "DRAFT", lastRejectionReason: reason } : p)),
-    );
-    if (product) {
-      addNotification({
-        type: "PRODUCT_REJECTED",
-        title: `${product.name} bị từ chối`,
-        message: reason,
-        link: `/library/${code}`,
-        recipientName: product.designer,
-      });
-    }
+    setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, status: "DRAFT", lastRejectionReason: reason } : p)));
+    postJson<Product>(`/api/products/${code}/reject`, { reason }).then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
-  // No bell notification here on purpose — the "Duyệt sản phẩm" nav badge
-  // (pendingCount) is already the signal Admin watches for this; a second
-  // notification would just duplicate it.
   function submitForReview(code: string) {
     setProducts((prev) =>
-      prev.map((p) =>
-        p.code === code
-          ? { ...p, status: "PENDING_REVIEW", submittedAt: "Vừa xong", sourceProjectName: undefined }
-          : p,
-      ),
+      prev.map((p) => (p.code === code ? { ...p, status: "PENDING_REVIEW", submittedAt: "Vừa xong", sourceProjectName: undefined } : p)),
     );
+    postJson<Product>(`/api/products/${code}/submit`, {}).then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
   function releaseToLibrary(code: string, projectName: string) {
     setProducts((prev) =>
-      prev.map((p) =>
-        p.code === code
-          ? { ...p, status: "PENDING_REVIEW", submittedAt: "Vừa xong", sourceProjectName: projectName }
-          : p,
-      ),
+      prev.map((p) => (p.code === code ? { ...p, status: "PENDING_REVIEW", submittedAt: "Vừa xong", sourceProjectName: projectName } : p)),
     );
+    postJson<Product>(`/api/products/${code}/release`, { projectName }).then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
-  function setReusePermission(code: string, reuse: ReusePermission, exclusiveBy?: string) {
+  function setReusePermission(code: string, reuse: ReusePermission) {
     setProducts((prev) =>
-      prev.map((p) => (p.code === code ? { ...p, reuse, exclusiveBy: reuse === "EXCLUSIVE" ? exclusiveBy : undefined } : p)),
+      prev.map((p) => (p.code === code ? { ...p, reuse, exclusiveBy: reuse === "EXCLUSIVE" ? effectiveUserName : undefined } : p)),
     );
+    postJson<Product>(`/api/products/${code}/reuse`, { reuse }).then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
   function toggleFavorite(code: string) {
+    const willFavorite = !favoritedCodes.has(code);
     setFavoritedCodes((prev) => {
       const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
+      if (willFavorite) next.add(code);
+      else next.delete(code);
       return next;
     });
+    setProducts((prev) =>
+      prev.map((p) => (p.code === code ? { ...p, favorites: p.favorites + (willFavorite ? 1 : -1) } : p)),
+    );
+    postJson<Product & { favoritedByMe: boolean }>(`/api/products/${code}/favorite`, { favorited: willFavorite })
+      .then((p) => replaceProduct(code, p))
+      .catch(() => {});
   }
 
   function addProductFeedback(productCode: string, content: string) {
-    const { author, initials, tint } = feedbackIdentity(role);
-    setProductFeedback((prev) => [...prev, { productCode, author, content, time: "Vừa xong", initials, tint }]);
-    const product = products.find((p) => p.code === productCode);
-    const actorName = CURRENT_USER_NAME[role];
-    if (product && !product.designer.startsWith(actorName)) {
-      addNotification({
-        type: "NEW_FEEDBACK",
-        title: `Bình luận mới trên ${product.name}`,
-        message: content,
-        link: `/library/${productCode}`,
-        recipientName: product.designer,
-      });
-    }
+    postJson<ProductFeedbackItem>(`/api/products/${productCode}/feedback`, { content })
+      .then((entry) => setProductFeedback((prev) => [...prev, entry]))
+      .catch(() => {});
   }
 
-  function addProductVersion(productCode: string, note: string, image?: string) {
-    const existing = productVersions.filter((v) => v.productCode === productCode);
-    const entry: VersionItem = {
-      productCode,
-      number: nextVersionNumber(existing),
-      note,
-      by: CURRENT_USER_NAME[role],
-      date: todayDDMMYYYY(),
-      image,
-    };
+  async function addProductVersion(productCode: string, note: string, image?: string) {
+    const entry = await postJson<VersionItem>(`/api/products/${productCode}/versions`, { note, image });
     setProductVersions((prev) => [entry, ...prev]);
     if (image) {
       setProducts((prev) => prev.map((p) => (p.code === productCode ? { ...p, mainImage: image } : p)));
     }
   }
 
-  function createProduct(
+  async function createProduct(
     input: {
       name: string;
       category: string;
@@ -265,85 +259,32 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       images?: string[];
       originCustomer?: string;
     },
-    // Standalone Library/Dashboard uploads go straight to Admin review —
-    // no separate "Nộp duyệt" click needed. Designs created inside a
-    // project stay DRAFT (its own internal review happens at the
-    // ProjectProductItem level, not here) until R&D releases it once the
-    // project completes, so this defaults to off.
     options?: { autoSubmit?: boolean },
-  ) {
-    const code = nextProductCode(products);
-    const autoSubmit = options?.autoSubmit ?? false;
-    const newProduct: Product = {
-      code,
-      name: input.name,
-      category: input.category,
-      material: input.material,
-      designer: CURRENT_USER_NAME[role],
-      originCustomer: input.originCustomer?.trim() || "—",
-      status: autoSubmit ? "PENDING_REVIEW" : "DRAFT",
-      submittedAt: autoSubmit ? "Vừa xong" : undefined,
-      reuse: "REUSABLE",
-      favorites: 0,
-      tint: "blue",
-      createdAt: todayDDMMYYYY(),
-      sizeVariants: input.sizeVariants,
-      color: input.color,
-      mainImage: input.mainImage,
-      images: input.images,
-    };
-    setProducts((prev) => [newProduct, ...prev]);
-    return code;
+  ): Promise<string> {
+    const created = await postJson<Product>("/api/products", { ...input, autoSubmit: options?.autoSubmit ?? false });
+    setProducts((prev) => [created, ...prev]);
+    return created.code;
   }
 
-  // Bulk intake for a rush project — one image in, one placeholder
-  // product out, `incomplete: true` so it can move through review but
-  // can't be Released until someone fills in the real name/category/
-  // material (see isProjectProductReadyToRelease). Codes are assigned
-  // sequentially off one `products` snapshot (not looped calls to
-  // createProduct, which would all compute the same "next" code since
-  // none of the intermediate setProducts calls would have landed yet).
-  function createProductsBulk(images: { name: string; mainImage: string }[], originCustomer?: string): string[] {
-    let pool = products;
-    const newProducts: Product[] = images.map((img) => {
-      const code = nextProductCode(pool);
-      const product: Product = {
-        code,
-        name: img.name,
-        category: categoryField.items[0] ?? "",
-        material: materialField.items[0] ?? "",
-        designer: CURRENT_USER_NAME[role],
-        originCustomer: originCustomer?.trim() || "—",
-        status: "DRAFT",
-        reuse: "REUSABLE",
-        favorites: 0,
-        tint: "blue",
-        createdAt: todayDDMMYYYY(),
-        sizeVariants: [],
-        color: colorField.items[0] ?? "",
-        mainImage: img.mainImage,
-        incomplete: true,
-      };
-      pool = [...pool, product];
-      return product;
-    });
-    setProducts((prev) => [...newProducts, ...prev]);
-    return newProducts.map((p) => p.code);
+  async function createProductsBulk(images: { name: string; mainImage: string }[], originCustomer?: string): Promise<string[]> {
+    const created = await postJson<Product[]>("/api/products/bulk", { images, originCustomer });
+    setProducts((prev) => [...created, ...prev]);
+    return created.map((p) => p.code);
   }
 
   function updateProduct(code: string, patch: Partial<Product>) {
     setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, ...patch } : p)));
+    postJson<Product>(`/api/products/${code}`, patch, "PATCH").then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
-  // Hard delete only when nothing references the product yet (see
-  // canHardDeleteProduct); otherwise archive so existing project/reuse
-  // history stays valid instead of pointing at a missing product.
   function archiveProduct(code: string) {
     setProducts((prev) => prev.map((p) => (p.code === code ? { ...p, status: "ARCHIVED" } : p)));
+    postJson<Product>(`/api/products/${code}/archive`, {}).then((p) => replaceProduct(code, p)).catch(() => {});
   }
 
   function deleteProduct(code: string) {
     setProducts((prev) => prev.filter((p) => p.code !== code));
+    fetch(`/api/products/${code}`, { method: "DELETE" }).catch(() => {});
   }
 
   return (
@@ -355,7 +296,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         productVersions,
         categories: categoryField.items,
         materials: materialField.items,
-        sizes,
+        sizes: sizeRows.map((r) => r.name),
         colors: colorField.items,
         approveProduct,
         rejectProduct,

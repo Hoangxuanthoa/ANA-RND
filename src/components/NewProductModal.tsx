@@ -89,6 +89,8 @@ export function NewProductModal({
   const isEditing = !!product;
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [cropTarget, setCropTarget] = useState<{ src: string; onDone: (url: string) => void } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   function pickForCrop(file: File, onDone: (url: string) => void) {
     setCropTarget({ src: URL.createObjectURL(file), onDone });
@@ -126,7 +128,7 @@ export function NewProductModal({
     setSizeVariants((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim() || !category || !material) return;
     const fields = {
@@ -143,14 +145,22 @@ export function NewProductModal({
       mainImage,
       images,
     };
-    if (product) {
-      // A saved edit is what clears a bulk-upload placeholder's "Thiếu
-      // thông tin" flag — see isProjectProductReadyToRelease.
-      updateProduct(product.code, { ...fields, incomplete: false });
-      onCreate(product.code);
-    } else {
-      const code = createProduct({ ...fields, originCustomer: projectCustomer }, { autoSubmit });
-      onCreate(code);
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      if (product) {
+        // A saved edit is what clears a bulk-upload placeholder's "Thiếu
+        // thông tin" flag — see isProjectProductReadyToRelease.
+        updateProduct(product.code, { ...fields, incomplete: false });
+        onCreate(product.code);
+      } else {
+        const code = await createProduct({ ...fields, originCustomer: projectCustomer }, { autoSubmit });
+        onCreate(code);
+      }
+    } catch {
+      setSubmitError("Lưu sản phẩm thất bại — thử lại.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -322,6 +332,8 @@ export function NewProductModal({
           </button>
         </div>
 
+        {submitError && <p className="text-[12.5px] font-semibold text-red">{submitError}</p>}
+
         <div className="mt-1 flex justify-end gap-2.5">
           <button
             type="button"
@@ -332,10 +344,10 @@ export function NewProductModal({
           </button>
           <button
             type="submit"
-            disabled={!name.trim()}
+            disabled={!name.trim() || submitting}
             className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            {isEditing ? "Lưu thay đổi" : "Tạo sản phẩm"}
+            {submitting ? "Đang lưu…" : isEditing ? "Lưu thay đổi" : "Tạo sản phẩm"}
           </button>
         </div>
       </form>
@@ -343,6 +355,7 @@ export function NewProductModal({
       <ImageCropModal
         open={cropTarget !== null}
         imageSrc={cropTarget?.src ?? ""}
+        folder="products"
         onCancel={() => setCropTarget(null)}
         onCropped={(url) => {
           cropTarget?.onDone(url);

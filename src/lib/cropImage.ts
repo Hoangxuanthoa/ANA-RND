@@ -1,8 +1,9 @@
 // Canvas-based crop, following react-easy-crop's own documented recipe:
-// draw only the cropped pixel rectangle onto a canvas sized to match, then
-// export that canvas as a real Blob URL — same "object URL" shape every
-// other image in this app already uses, so nothing downstream needs to
-// know a crop happened.
+// draw only the cropped pixel rectangle onto a canvas sized to match,
+// then export that canvas as a real Blob. Callers that need a real,
+// persisted image (any product/photo upload) pass the blob to
+// uploadFile() themselves rather than getting a session-only blob: URL
+// back — see ImageCropModal/BulkUploadModal for the upload step.
 export interface PixelCrop {
   x: number;
   y: number;
@@ -22,15 +23,15 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 // Auto center-crop to a square — used by bulk upload, where there's no
 // per-image interactive crop step (see ImageCropModal for the manual
 // version used everywhere else a single image is uploaded).
-export async function autoSquareCropUrl(imageSrc: string): Promise<string> {
+export async function autoSquareCropBlob(imageSrc: string): Promise<Blob> {
   const image = await loadImage(imageSrc);
   const size = Math.min(image.naturalWidth, image.naturalHeight);
   const x = (image.naturalWidth - size) / 2;
   const y = (image.naturalHeight - size) / 2;
-  return getCroppedImageUrl(imageSrc, { x, y, width: size, height: size });
+  return getCroppedImageBlob(imageSrc, { x, y, width: size, height: size });
 }
 
-export async function getCroppedImageUrl(imageSrc: string, crop: PixelCrop): Promise<string> {
+export async function getCroppedImageBlob(imageSrc: string, crop: PixelCrop): Promise<Blob> {
   const image = await loadImage(imageSrc);
   const canvas = document.createElement("canvas");
   canvas.width = crop.width;
@@ -45,7 +46,7 @@ export async function getCroppedImageUrl(imageSrc: string, crop: PixelCrop): Pro
           reject(new Error("Crop failed"));
           return;
         }
-        resolve(URL.createObjectURL(blob));
+        resolve(blob);
       },
       "image/jpeg",
       0.92,

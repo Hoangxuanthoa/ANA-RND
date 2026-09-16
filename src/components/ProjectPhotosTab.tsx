@@ -11,7 +11,8 @@ import { PhotoCommentsModal } from "@/components/PhotoCommentsModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { safeFileName } from "@/lib/exportLayout";
 import { canCreateProduct } from "@/lib/permissions";
-import { autoSquareCropUrl } from "@/lib/cropImage";
+import { autoSquareCropBlob } from "@/lib/cropImage";
+import { uploadFile } from "@/lib/upload";
 import type { Project, ProjectPhoto, Role } from "@/lib/mock-data";
 
 function stripExtension(name: string): string {
@@ -108,11 +109,19 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
   // released product's main image is displayed in a fixed square frame
   // everywhere (Sản phẩm dạng up grid, Library) — same auto-crop
   // "Up hàng loạt" already applies, so released products look consistent
-  // no matter which path created them.
+  // no matter which path created them. Products are now real, so the
+  // cropped result also has to be a real, persisted URL — not another
+  // session-only blob: URL — or the product's image would break the
+  // moment this tab closes.
+  async function cropAndUploadSquare(url: string): Promise<string> {
+    const blob = await autoSquareCropBlob(url);
+    return uploadFile(new File([blob], "photo.jpg", { type: "image/jpeg" }), "products");
+  }
+
   async function openRelease(p: ProjectPhoto) {
     setCroppingId(p.id);
     try {
-      const cropped = await autoSquareCropUrl(p.url);
+      const cropped = await cropAndUploadSquare(p.url);
       setReleaseTarget({ ...p, url: cropped });
     } finally {
       setCroppingId(null);
@@ -123,8 +132,8 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
     if (selectedUnreleased.length === 0) return;
     setBulkReleasing(true);
     try {
-      const croppedUrls = await Promise.all(selectedUnreleased.map((p) => autoSquareCropUrl(p.url)));
-      const codes = createProductsBulk(
+      const croppedUrls = await Promise.all(selectedUnreleased.map((p) => cropAndUploadSquare(p.url)));
+      const codes = await createProductsBulk(
         selectedUnreleased.map((p, i) => ({ name: stripExtension(p.fileName), mainImage: croppedUrls[i] })),
         project.customer,
       );

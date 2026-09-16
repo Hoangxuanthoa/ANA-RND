@@ -30,7 +30,11 @@ export default function CollectionDetailPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Product | null>(null);
   const [notice, setNotice] = useState<React.ReactNode | null>(null);
-  const [quickView, setQuickView] = useState<Product | null>(null);
+  // Code, not a snapshot — see library/page.tsx's quickView for why (a
+  // mutation made from inside the open modal, e.g. favoriting, needs to
+  // visibly update without closing and reopening it).
+  const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
+  const quickView = quickViewCode ? (products.find((p) => p.code === quickViewCode) ?? null) : null;
 
   if (!canManageCollections(role)) {
     return (
@@ -200,7 +204,7 @@ export default function CollectionDetailPage() {
           {items.map((p) => (
             <div key={p.code} className="overflow-hidden rounded-xl border border-line bg-surface">
               <div
-                onClick={() => setQuickView(p)}
+                onClick={() => setQuickViewCode(p.code)}
                 className={`relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}
               >
                 {p.mainImage ? (
@@ -229,7 +233,7 @@ export default function CollectionDetailPage() {
                 )}
               </div>
               <div className="flex flex-col gap-1 p-3">
-                <button onClick={() => setQuickView(p)} className="truncate text-left text-[12.5px] font-bold hover:text-accent">
+                <button onClick={() => setQuickViewCode(p.code)} className="truncate text-left text-[12.5px] font-bold hover:text-accent">
                   {p.name}
                 </button>
                 <div className="text-[11px] font-semibold text-text-faint">{p.code}</div>
@@ -279,7 +283,7 @@ export default function CollectionDetailPage() {
         </div>
       </div>
 
-      {quickView && <ProductQuickView product={quickView} onClose={() => setQuickView(null)} />}
+      {quickView && <ProductQuickView product={quickView} onClose={() => setQuickViewCode(null)} />}
 
       <LogPitchModal
         open={linkModalOpen}

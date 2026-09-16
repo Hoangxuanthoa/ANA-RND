@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { autoSquareCropUrl } from "@/lib/cropImage";
+import { autoSquareCropBlob } from "@/lib/cropImage";
+import { uploadFile } from "@/lib/upload";
 
 interface BulkImageItem {
   id: string;
@@ -12,7 +13,7 @@ interface BulkImageItem {
 interface BulkUploadModalProps {
   open: boolean;
   onCancel: () => void;
-  onConfirm: (items: { name: string; mainImage: string }[]) => void;
+  onConfirm: (items: { name: string; mainImage: string }[]) => Promise<void>;
 }
 
 function stripExtension(fileName: string): string {
@@ -27,21 +28,42 @@ function stripExtension(fileName: string): string {
 export function BulkUploadModal({ open, onCancel, onConfirm }: BulkUploadModalProps) {
   const [items, setItems] = useState<BulkImageItem[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
+  async function handleConfirm() {
+    setError("");
+    setConfirming(true);
+    try {
+      await onConfirm(items.map(({ name, preview }) => ({ name, mainImage: preview })));
+    } catch {
+      setError("Tạo sản phẩm thất bại — thử lại.");
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   async function handleFiles(files: FileList) {
     setProcessing(true);
+    setError("");
     const picked = Array.from(files);
-    const results = await Promise.all(
-      picked.map(async (file) => {
-        const objectUrl = URL.createObjectURL(file);
-        const preview = await autoSquareCropUrl(objectUrl);
-        return { id: `${file.name}-${file.lastModified}-${Math.random()}`, name: stripExtension(file.name), preview };
-      }),
-    );
-    setItems((prev) => [...prev, ...results]);
-    setProcessing(false);
+    try {
+      const results = await Promise.all(
+        picked.map(async (file) => {
+          const objectUrl = URL.createObjectURL(file);
+          const blob = await autoSquareCropBlob(objectUrl);
+          const preview = await uploadFile(new File([blob], stripExtension(file.name) + ".jpg", { type: "image/jpeg" }), "products");
+          return { id: `${file.name}-${file.lastModified}-${Math.random()}`, name: stripExtension(file.name), preview };
+        }),
+      );
+      setItems((prev) => [...prev, ...results]);
+    } catch {
+      setError("Tải ảnh lên thất bại — thử lại.");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   function removeItem(id: string) {
@@ -77,6 +99,7 @@ export function BulkUploadModal({ open, onCancel, onConfirm }: BulkUploadModalPr
         </label>
 
         {processing && <p className="text-[12.5px] text-text-faint">Đang xử lý ảnh…</p>}
+        {error && <p className="text-[12.5px] font-semibold text-red">{error}</p>}
 
         {items.length > 0 && (
           <div className="grid max-h-[320px] grid-cols-4 gap-3 overflow-y-auto">
@@ -115,11 +138,11 @@ export function BulkUploadModal({ open, onCancel, onConfirm }: BulkUploadModalPr
             </button>
             <button
               type="button"
-              disabled={items.length === 0}
-              onClick={() => onConfirm(items.map(({ name, preview }) => ({ name, mainImage: preview })))}
+              disabled={items.length === 0 || confirming}
+              onClick={handleConfirm}
               className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
             >
-              Tạo{items.length > 0 ? ` (${items.length})` : ""} sản phẩm
+              {confirming ? "Đang tạo…" : `Tạo${items.length > 0 ? ` (${items.length})` : ""} sản phẩm`}
             </button>
           </div>
         </div>

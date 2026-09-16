@@ -21,7 +21,10 @@ interface ProductQuickViewProps {
 }
 
 export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
+  // getPickableProjects checks Projects' mock ownership fields (not real
+  // yet), so it keeps the old per-role fictional name; the exclusive
+  // guard checks real Product.exclusiveBy, so it needs the real name.
   const userName = CURRENT_USER_NAME[role];
   const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct, addProductVersion } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
@@ -30,12 +33,15 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
-  const { guardPick, guardModal } = useExclusiveGuard(userName);
+  const { guardPick, guardModal } = useExclusiveGuard(effectiveUserName);
 
   const status = productStatusBadge(product.status);
   const reuse = reusePermissionBadge(product.reuse);
   const isFavorited = favoritedCodes.has(product.code);
-  const favoriteCount = product.favorites + (isFavorited ? 1 : 0);
+  // product.favorites is a real per-user aggregate now (ProductFavorite
+  // rows), already including your own favorite if isFavorited is true —
+  // no "+1" compensation needed like the old mock/session-only count did.
+  const favoriteCount = product.favorites;
   const reusedCount = projectProducts.filter((pp) => pp.productCode === product.code && pp.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
   const pickableProjects = getPickableProjects(role, userName, projects);
@@ -253,8 +259,8 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
           open
           productName={product.name}
           onCancel={() => setUploadVersionOpen(false)}
-          onConfirm={(note, image) => {
-            addProductVersion(product.code, note, image);
+          onConfirm={async (note, image) => {
+            await addProductVersion(product.code, note, image);
             setUploadVersionOpen(false);
           }}
         />

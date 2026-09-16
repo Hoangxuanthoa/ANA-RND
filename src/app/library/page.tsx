@@ -9,7 +9,7 @@ import { NewProductModal } from "@/components/NewProductModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
-import { CURRENT_USER_NAME, type Product, type ReusePermission } from "@/lib/mock-data";
+import { type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
 
@@ -69,8 +69,7 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { role } = useRole();
-  const userName = CURRENT_USER_NAME[role];
+  const { role, effectiveUserName: userName } = useRole();
   const { products, favoritedCodes, toggleFavorite, categories: CATEGORIES, materials: MATERIALS } = useProducts();
   const { projectProducts } = useProjects();
   const [query, setQuery] = useState("");
@@ -79,14 +78,23 @@ export default function LibraryPage() {
   const [reuses, setReuses] = useState<ReusePermission[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
-  const [quickView, setQuickView] = useState<Product | null>(null);
+  // Stores just the code, not a snapshot Product object — a snapshot
+  // would freeze the modal's data at click time, so a mutation made
+  // while it's open (favorite, approve, exclusive...) wouldn't visibly
+  // update until it's closed and reopened. Re-deriving from the live
+  // `products` list every render keeps it in sync instead.
+  const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
+  const quickView = quickViewCode ? (products.find((p) => p.code === quickViewCode) ?? null) : null;
   const [newProductOpen, setNewProductOpen] = useState(false);
 
   function reusedCountOf(code: string) {
     return projectProducts.filter((pp) => pp.productCode === code && pp.usage === "REUSE").length;
   }
+  // p.favorites is a real per-user aggregate now (ProductFavorite rows),
+  // already including your own favorite when favoritedCodes has it — no
+  // "+1" compensation needed like the old mock/session-only count did.
   function favoriteCountOf(p: Product) {
-    return p.favorites + (favoritedCodes.has(p.code) ? 1 : 0);
+    return p.favorites;
   }
 
   const filtered = useMemo(() => {
@@ -260,8 +268,8 @@ export default function LibraryPage() {
                   key={p.code}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setQuickView(p)}
-                  onKeyDown={(e) => e.key === "Enter" && setQuickView(p)}
+                  onClick={() => setQuickViewCode(p.code)}
+                  onKeyDown={(e) => e.key === "Enter" && setQuickViewCode(p.code)}
                   className="cursor-pointer overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
                   <div className={`relative flex aspect-square items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
@@ -347,7 +355,7 @@ export default function LibraryPage() {
         </div>
       </div>
 
-      {quickView && <ProductQuickView product={quickView} onClose={() => setQuickView(null)} />}
+      {quickView && <ProductQuickView product={quickView} onClose={() => setQuickViewCode(null)} />}
 
       {newProductOpen && (
         <NewProductModal

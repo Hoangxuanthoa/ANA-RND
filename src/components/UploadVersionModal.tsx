@@ -8,7 +8,7 @@ interface UploadVersionModalProps {
   open: boolean;
   productName: string;
   onCancel: () => void;
-  onConfirm: (note: string, image?: string) => void;
+  onConfirm: (note: string, image?: string) => Promise<void>;
 }
 
 export function UploadVersionModal({ open, productName, onCancel, onConfirm }: UploadVersionModalProps) {
@@ -16,15 +16,25 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
   const [image, setImage] = useState<string | undefined>(undefined);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!note.trim()) return;
-    onConfirm(note.trim(), image);
-    setNote("");
-    setImage(undefined);
+    setError("");
+    setSubmitting(true);
+    try {
+      await onConfirm(note.trim(), image);
+      setNote("");
+      setImage(undefined);
+    } catch {
+      setError("Lưu version thất bại — thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function requestClose() {
@@ -96,6 +106,8 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
           )}
         </div>
 
+        {error && <p className="text-[12.5px] font-semibold text-red">{error}</p>}
+
         <div className="mt-1 flex justify-end gap-2.5">
           <button
             type="button"
@@ -106,10 +118,10 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
           </button>
           <button
             type="submit"
-            disabled={!note.trim()}
+            disabled={!note.trim() || submitting}
             className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            Lưu version
+            {submitting ? "Đang lưu…" : "Lưu version"}
           </button>
         </div>
       </form>
@@ -117,6 +129,7 @@ export function UploadVersionModal({ open, productName, onCancel, onConfirm }: U
       <ImageCropModal
         open={cropSrc !== null}
         imageSrc={cropSrc ?? ""}
+        folder="products"
         onCancel={() => setCropSrc(null)}
         onCropped={(url) => {
           setImage(url);

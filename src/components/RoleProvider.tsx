@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CURRENT_USER_EMAIL, CURRENT_USER_PHONE, type Role } from "@/lib/mock-data";
+import { CURRENT_USER_EMAIL, CURRENT_USER_NAME, CURRENT_USER_PHONE, type Role } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
 
 interface Profile {
@@ -15,6 +15,7 @@ interface Profile {
 // override to preview another role's UI without actually being that
 // person (see isRealAdmin/setRole).
 interface RealIdentity {
+  id: string;
   role: Role;
   fullName: string;
   email: string;
@@ -31,6 +32,16 @@ const RoleContext = createContext<{
   // Admin preview of a different role) — email is only ever editable
   // (well, real at all) in this case.
   isPreviewingSelf: boolean;
+  // The real signed-in account's id — null while previewing (there's no
+  // real "become this person" mechanism), for backend modules that need
+  // to stamp real ownership (e.g. Product.designerId) instead of the old
+  // CURRENT_USER_NAME mock mapping.
+  userId: string | null;
+  // Real name when acting as yourself; falls back to the old fictional
+  // per-role preview name when Admin is previewing a role that isn't
+  // their own — a preview has no single real backing person, so that
+  // part of the mock mapping is still needed there.
+  effectiveUserName: string;
   profile: Profile;
   updateProfile: (patch: Partial<Profile>) => void;
   signOut: () => Promise<void>;
@@ -68,7 +79,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (cancelled || !data) return;
-        setReal({ role: data.role, fullName: data.fullName, email: data.email, phone: data.phone });
+        setReal({ id: data.id, role: data.role, fullName: data.fullName, email: data.email, phone: data.phone });
         setRoleState(data.role);
       })
       .finally(() => {
@@ -81,6 +92,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const isRealAdmin = real?.role === "ADMIN";
   const isPreviewingSelf = !real || role === real.role;
+  const userId = isPreviewingSelf && real ? real.id : null;
+  const effectiveUserName = isPreviewingSelf && real ? real.fullName : CURRENT_USER_NAME[role];
 
   function setRole(next: Role) {
     if (!isRealAdmin) return;
@@ -113,7 +126,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <RoleContext.Provider value={{ role, setRole, isRealAdmin, isPreviewingSelf, profile, updateProfile, signOut }}>
+    <RoleContext.Provider
+      value={{ role, setRole, isRealAdmin, isPreviewingSelf, userId, effectiveUserName, profile, updateProfile, signOut }}
+    >
       {children}
     </RoleContext.Provider>
   );

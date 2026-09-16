@@ -51,7 +51,7 @@ const TABS = [
 export default function ProjectDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
   const {
     projects,
     projectProducts,
@@ -70,6 +70,10 @@ export default function ProjectDetailPage() {
   const { products, releaseToLibrary, setReusePermission, createProductsBulk } = useProducts();
   const { collections, createCollection, addProductToCollection } = useCollections();
   const { photos } = useProjectPhotos();
+  // Projects/ProjectProduct ownership checks throughout this page still
+  // compare against mock data, so they keep the old per-role fictional
+  // name until Projects is wired for real — only the one real-Product
+  // ownership check (quickViewCanEditProduct, below) uses the real name.
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
@@ -125,7 +129,7 @@ export default function ProjectDetailPage() {
     !!quickViewItem &&
     !!quickViewProduct &&
     (quickViewItem.status === "DEVELOPING" || !!quickViewProduct.incomplete) &&
-    canEditProduct(role, userName, quickViewProduct);
+    canEditProduct(role, effectiveUserName, quickViewProduct);
   const editProductTarget = editProductCode ? products.find((p) => p.code === editProductCode) : undefined;
 
   // Reuses an existing auto-created collection for this project (topping
@@ -563,8 +567,8 @@ export default function ProjectDetailPage() {
       <BulkUploadModal
         open={bulkUploadOpen}
         onCancel={() => setBulkUploadOpen(false)}
-        onConfirm={(items) => {
-          const codes = createProductsBulk(items, project.customer);
+        onConfirm={async (items) => {
+          const codes = await createProductsBulk(items, project.customer);
           addProductsToProjectBulk(project.code, codes, "NEW", role === "RND" ? userName : undefined);
           setBulkUploadOpen(false);
         }}

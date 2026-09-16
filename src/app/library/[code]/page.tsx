@@ -47,7 +47,11 @@ export default function ProductDetailPage() {
   } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const product = products.find((p) => p.code === params.code);
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
+  // getPickableProjects still checks Projects' mock ownership fields, so
+  // it needs the old per-role fictional name until Projects is wired for
+  // real — everything else here checks real Product.designer/exclusiveBy,
+  // so it needs the real signed-in name.
   const userName = CURRENT_USER_NAME[role];
   const [assetIndex, setAssetIndex] = useState(0);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("versions");
@@ -58,7 +62,7 @@ export default function ProductDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
-  const { guardPick, guardModal } = useExclusiveGuard(userName);
+  const { guardPick, guardModal } = useExclusiveGuard(effectiveUserName);
 
   if (!product) return notFound();
 
@@ -77,7 +81,10 @@ export default function ProductDetailPage() {
   const images = [product.mainImage, ...(product.images ?? [])].filter((src): src is string => !!src);
   const activeImage = images[Math.min(assetIndex, images.length - 1)];
   const isFavorited = favoritedCodes.has(product.code);
-  const favoriteCount = product.favorites + (isFavorited ? 1 : 0);
+  // product.favorites is a real per-user aggregate now (ProductFavorite
+  // rows), already including your own favorite if isFavorited is true —
+  // no "+1" compensation needed like the old mock/session-only count did.
+  const favoriteCount = product.favorites;
   const usages = projectProducts.filter((pp) => pp.productCode === product.code);
   const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
@@ -87,7 +94,7 @@ export default function ProductDetailPage() {
   const relatedProject = product.sourceProjectName
     ? projects.find((p) => p.name === product.sourceProjectName)
     : undefined;
-  const editable = canEditProduct(role, userName, product);
+  const editable = canEditProduct(role, effectiveUserName, product);
   const hardDelete = canHardDeleteProduct(product, usages.length);
 
   return (
@@ -467,8 +474,8 @@ export default function ProductDetailPage() {
           open
           productName={product.name}
           onCancel={() => setUploadVersionOpen(false)}
-          onConfirm={(note, image) => {
-            addProductVersion(product.code, note, image);
+          onConfirm={async (note, image) => {
+            await addProductVersion(product.code, note, image);
             setUploadVersionOpen(false);
           }}
         />

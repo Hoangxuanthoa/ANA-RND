@@ -14,7 +14,11 @@ export default function ReviewQueuePage() {
   const { role } = useRole();
   const { products, approveProduct, rejectProduct } = useProducts();
   const [rejectTarget, setRejectTarget] = useState<Product | null>(null);
-  const [quickViewTarget, setQuickViewTarget] = useState<Product | null>(null);
+  // Code, not a snapshot — see library/page.tsx's quickView for why (a
+  // mutation made from inside the open modal, e.g. favoriting, needs to
+  // visibly update without closing and reopening it).
+  const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
+  const quickViewTarget = quickViewCode ? (products.find((p) => p.code === quickViewCode) ?? null) : null;
 
   const pending = products.filter((p) => p.status === "PENDING_REVIEW");
 
@@ -48,7 +52,7 @@ export default function ReviewQueuePage() {
           {pending.map((p) => (
             <div key={p.code} className="flex gap-4 rounded-xl border border-line bg-surface p-4">
               <button
-                onClick={() => setQuickViewTarget(p)}
+                onClick={() => setQuickViewCode(p.code)}
                 className={`flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${p.mainImage ? "" : TINT_BG[p.tint]}`}
               >
                 {p.mainImage ? (
@@ -65,7 +69,7 @@ export default function ReviewQueuePage() {
 
               <div className="flex flex-1 flex-col gap-2">
                 <div className="flex justify-between gap-2.5">
-                  <button onClick={() => setQuickViewTarget(p)} className="text-left">
+                  <button onClick={() => setQuickViewCode(p.code)} className="text-left">
                     <div className="text-sm font-bold hover:text-accent">{p.name}</div>
                     <div className="mt-0.5 text-xs font-semibold text-text-faint">{p.code}</div>
                   </button>
@@ -126,7 +130,7 @@ export default function ReviewQueuePage() {
       )}
 
       {quickViewTarget && (
-        <ProductQuickView product={quickViewTarget} onClose={() => setQuickViewTarget(null)} />
+        <ProductQuickView product={quickViewTarget} onClose={() => setQuickViewCode(null)} />
       )}
     </div>
   );
