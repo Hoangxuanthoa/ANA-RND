@@ -15,32 +15,85 @@ and setup.
 
 ## Current state (important — read before assuming anything is "real")
 
-**This is a frontend-only prototype.** Every page runs on in-memory mock
-state — there is no live database traffic, no auth check, no persistence
-across a page reload.
+**The frontend is still 100% mock data — backend wiring just started
+(2026-09-16), schema + real DB only, no API routes or auth yet.** Every page
+still runs on in-memory mock state today: there is no live database traffic
+from the app, no auth check, no persistence across a page reload. That is
+actively being changed, module by module — see "Backend wiring" below for
+exactly how far it's gotten.
 
-- All data lives in [src/lib/mock-data.ts](src/lib/mock-data.ts) and is
+- All data still lives in [src/lib/mock-data.ts](src/lib/mock-data.ts) and is
   mutated through React Context providers (`ProductsProvider`,
   `ProjectsProvider`, `CollectionsProvider`, `SettingsProvider`,
-  `RoleProvider`). Reload the page and every edit is gone.
-- [src/app/login/page.tsx](src/app/login/page.tsx) is cosmetic: it does not
-  check credentials, just `setTimeout` then redirects to `/dashboard`.
+  `RoleProvider`, `RndTasksProvider`, `ProjectPhotosProvider`). Reload the
+  page and every edit is gone — **this has not changed yet**, providers
+  aren't calling any API.
+- [src/app/login/page.tsx](src/app/login/page.tsx) is still cosmetic: it does
+  not check credentials, just `setTimeout` then redirects to `/dashboard`.
   `RoleProvider` is what actually controls which role you're "logged in" as
-  (there's a role switcher for testing — not real auth).
-- `prisma/schema.prisma` has a fairly complete real schema (User, Customer,
-  Product, Project, Collection, Feedback, Activity, Notification, etc.) and
-  Supabase/Prisma client libs are installed, but **none of it is wired up**:
-  there are no `src/app/api/*` routes at all. `src/lib/prisma.ts` and
-  `src/lib/supabase.ts` exist but nothing calls them yet.
+  (there's a role switcher for testing — not real auth). Real Supabase Auth
+  is planned next (see "Backend wiring") but not built yet.
+- `prisma/schema.prisma` is now a real, live schema pushed to a real Supabase
+  Postgres project (not just a design doc) — see "Backend wiring" below.
+  `src/lib/prisma.ts` and `src/lib/supabase.ts` exist but the app's pages
+  still don't call them yet — only `prisma migrate`/`db pull` from the CLI
+  has touched the real database so far.
 - Do not assume README's "Auth: Custom JWT via jose" is implemented — `jose`
-  isn't even in `package.json`. The README describes the intended target
-  architecture, not the current one.
+  isn't even in `package.json`. Real auth is going to be Supabase Auth
+  instead (see "Backend wiring") — the README's description is stale on this
+  point and should be corrected once auth actually lands.
 
-Wiring the real backend (API routes + auth + migrating providers from
-in-memory state to real API calls) is a known, deliberately-deferred chunk of
-work — see "Next candidates" below. Confirm with the user before starting it;
-it's a different scope than the frontend feature work most sessions have been
-doing.
+## Backend wiring (in progress, started 2026-09-16)
+
+Real infra now exists: a Supabase project (`design-library`, Singapore
+region) with a live Postgres database. Credentials live in `.env` (gitignored
+— never commit it; `.env.example` documents the shape without real values).
+Doing this **module by module, verifying each before the next** (the user's
+explicit choice over doing it all at once) — real Auth is in scope for this
+pass too, not deferred.
+
+**Done:**
+1. Supabase project created, connection verified (`npx prisma db pull`
+   round-trips cleanly against the real database).
+2. **Schema audited and brought current (2026-09-16), then migrated for
+   real** — the schema had been written as a "V1" design doc long before
+   most of today's features existed, so pushing it as-is would have meant
+   an immediate second migration for nearly every module. Read every
+   relevant type in `mock-data.ts` and added what was missing before
+   running anything:
+   - New models: `RndTask`, `ProjectPhoto`, `Size`, `Color`,
+     `ProductSizeVariant`, `CollectionPitch`, `AppSettings`.
+   - New fields: `User.phone`; `Product.colorId`/`exclusiveById`/
+     `sourceProjectName`/`submittedAt`/`lastRejectionReason`/`incomplete`;
+     `Project.completedAt`/`rndPriority`/`rndImportantNote`/
+     `rndNeedsSupport`; `ProjectProduct.lastRejectionReason`;
+     `ProductVersion.imageUrl`.
+   - `NotificationType` expanded from 1 value to the real 11 the app fires
+     today.
+   - Kept English enum members throughout (`TaskPriority.FOCUS`, not a
+     literal `"Trọng tâm"`) — matches the existing convention where every
+     other enum (`ProductStatus`, `ProjectStatus`, ...) is English and
+     Vietnamese labels are a presentation-layer concern (`badges.ts`),
+     never stored.
+   - Ran `npx prisma migrate dev --name init` against the real database —
+     applied cleanly, verified via `npx prisma db pull --print` that all
+     22 models / 15 enums exist for real. This is migration `init`
+     (`prisma/migrations/20260916034245_init/`) — treat it as the
+     baseline; do not edit it after the fact, add new migrations instead.
+
+**Not done yet — next candidates in order:**
+3. Real Auth via Supabase Auth (in scope for this pass — the user chose
+   this over deferring it). Replace `/login`'s cosmetic flow and
+   `RoleProvider`'s manual role switcher with a real session; map
+   `auth.users` to the `User` table (`User.id` is designed to equal the
+   matching `auth.users.id`, not independently generated — see the schema
+   file header).
+4. Then module by module, in dependency order: Staff/User → Products →
+   Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) → Collections
+   → RndTasks → Notifications → Settings. Each step: real API routes (or
+   server actions), swap that Provider's `useState(INITIAL_X)` for a real
+   fetch + real mutations, **keep the Provider's public hook interface
+   unchanged** (`useProducts()` etc.) so page components need zero changes.
 
 ## Business rules worth knowing (so you don't re-derive them)
 
@@ -522,11 +575,10 @@ a real notification with the note's content in their bell inbox.
    gap found: Customer couldn't originate a project at all. Fixed by adding
    a request-intake flow (see Projects above) rather than just reviewing
    the prior read-only experience.
-4. Eventually: wire the real backend (Prisma/Supabase/auth) and migrate the
-   Context providers to call real API routes instead of holding state in
-   memory. Big, separate-scope effort — do not start opportunistically.
-   **Next candidate**, but confirm with the user first — nothing else from
-   this list is currently blocking it.
+4. Wiring the real backend (Prisma/Supabase/auth) — **started 2026-09-16**,
+   see the "Backend wiring" section right after "Current state" near the
+   top of this file for exactly what's done vs. still pending. Continue
+   there, module by module, rather than treating this as a fresh decision.
 5. ~~Possible future feature: per-product (not just per-project) R&D
    assignment~~ — **ruled out 2026-09-13**. User confirmed the real
    workflow is always 1 project → 1 R&D owner; no need to build a

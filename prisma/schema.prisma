@@ -1,7 +1,10 @@
-// R&D Design Library — Database Schema V1
-// Source of truth: the V1 schema doc. Auth is handled by Supabase Auth
-// (auth.users) — `User.id` here is set to match the corresponding
-// auth.users.id, it is not independently generated.
+// R&D Design Library — Database Schema V2
+// Source of truth: mock data in src/lib/mock-data.ts + the providers that
+// mutate it, audited field-by-field against this schema on 2026-09-16
+// (V1 predated most of the features below — My Task, Ảnh dự án, the
+// expanded notification set, size/color variants, etc.). Auth is handled
+// by Supabase Auth (auth.users) — `User.id` here is set to match the
+// corresponding auth.users.id, it is not independently generated.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,31 +18,37 @@ datasource db {
 
 // USERS
 model User {
-  id         String   @id @db.Uuid
+  id         String    @id @db.Uuid
   fullName   String
-  email      String   @unique
+  email      String    @unique
+  phone      String?
   role       Role
   avatar     String?
-  customerId String?  @db.Uuid
+  customerId String?   @db.Uuid
   customer   Customer? @relation(fields: [customerId], references: [id])
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
 
   // Relations
-  designedProducts       Product[]         @relation("Designer")
-  salesProjects          Project[]         @relation("Sales")
-  rndOwnerProjects       Project[]         @relation("RndOwner")
-  createdProjects        Project[]         @relation("ProjectCreator")
-  uploadedAssets         ProductAsset[]
-  uploadedVersions       ProductVersion[]
-  feedback               Feedback[]
-  activity               Activity[]
-  addedProjectProducts   ProjectProduct[]  @relation("AddedBy")
-  assignedProjectProducts ProjectProduct[] @relation("Assignee")
-  notifications          Notification[]
-  createdCollections     Collection[]
-  favorites              ProductFavorite[]
-  uploadedAttachments    ProjectAttachment[]
+  designedProducts        Product[]           @relation("Designer")
+  exclusiveProducts       Product[]           @relation("ExclusiveBy")
+  salesProjects           Project[]           @relation("Sales")
+  rndOwnerProjects        Project[]           @relation("RndOwner")
+  createdProjects         Project[]           @relation("ProjectCreator")
+  uploadedAssets          ProductAsset[]
+  uploadedVersions        ProductVersion[]
+  feedback                Feedback[]
+  activity                Activity[]
+  addedProjectProducts    ProjectProduct[]    @relation("AddedBy")
+  assignedProjectProducts ProjectProduct[]    @relation("Assignee")
+  notifications           Notification[]
+  createdCollections      Collection[]
+  loggedPitches           CollectionPitch[]
+  favorites               ProductFavorite[]
+  uploadedAttachments     ProjectAttachment[]
+  uploadedPhotos          ProjectPhoto[]      @relation("PhotoUploader")
+  ownedTasks              RndTask[]           @relation("TaskOwner")
+  requestedTasks          RndTask[]           @relation("TaskRequester")
 
   @@map("users")
 }
@@ -54,25 +63,28 @@ enum Role {
 
 // CUSTOMERS
 model Customer {
-  id            String   @id @default(uuid()) @db.Uuid
-  customerCode  String?
-  name          String
-  country       String?
-  contactName   String?
-  contactEmail  String?
-  note          String?
-  createdAt     DateTime @default(now())
+  id           String   @id @default(uuid()) @db.Uuid
+  customerCode String?
+  name         String
+  country      String?
+  contactName  String?
+  contactEmail String?
+  note         String?
+  createdAt    DateTime @default(now())
 
   // Relations
   users          User[]
   projects       Project[]
-  originProducts Product[] @relation("OriginCustomer")
+  originProducts Product[]    @relation("OriginCustomer")
   collections    Collection[]
 
   @@map("customers")
 }
 
-// CATEGORIES
+// CATEGORIES / MATERIALS / SIZES / COLORS
+// Four parallel lookup lists, all Admin-managed in Settings — same
+// add/rename/remove shape (rename cascades to every product using the old
+// value, remove blocked while any product still references it).
 model Category {
   id       String     @id @default(uuid()) @db.Uuid
   name     String
@@ -86,7 +98,6 @@ model Category {
   @@map("categories")
 }
 
-// MATERIALS
 model Material {
   id       String  @id @default(uuid()) @db.Uuid
   name     String
@@ -97,35 +108,74 @@ model Material {
   @@map("materials")
 }
 
+model Size {
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String
+  isActive Boolean @default(true)
+
+  sizeVariants ProductSizeVariant[]
+
+  @@map("sizes")
+}
+
+model Color {
+  id       String  @id @default(uuid()) @db.Uuid
+  name     String
+  isActive Boolean @default(true)
+
+  products Product[]
+
+  @@map("colors")
+}
+
 // PRODUCTS
 model Product {
-  id                String          @id @default(uuid()) @db.Uuid
-  productCode       String          @unique
-  name              String
-  categoryId        String          @db.Uuid
-  category          Category        @relation(fields: [categoryId], references: [id])
-  materialId        String          @db.Uuid
-  material          Material        @relation(fields: [materialId], references: [id])
-  designerId        String          @db.Uuid
-  designer          User            @relation("Designer", fields: [designerId], references: [id])
-  originCustomerId  String?         @db.Uuid
-  originCustomer    Customer?       @relation("OriginCustomer", fields: [originCustomerId], references: [id])
-  description       String?
-  status            ProductStatus   @default(DRAFT)
-  reusePermission   ReusePermission @default(REUSABLE)
+  id                  String          @id @default(uuid()) @db.Uuid
+  productCode         String          @unique
+  name                String
+  categoryId          String          @db.Uuid
+  category            Category        @relation(fields: [categoryId], references: [id])
+  materialId          String          @db.Uuid
+  material            Material        @relation(fields: [materialId], references: [id])
+  colorId             String?         @db.Uuid
+  color               Color?          @relation(fields: [colorId], references: [id])
+  designerId          String          @db.Uuid
+  designer            User            @relation("Designer", fields: [designerId], references: [id])
+  originCustomerId    String?         @db.Uuid
+  originCustomer      Customer?       @relation("OriginCustomer", fields: [originCustomerId], references: [id])
+  description         String?
+  status              ProductStatus   @default(DRAFT)
+  reusePermission     ReusePermission @default(REUSABLE)
+  // Who marked it Exclusive — only ever set on a freshly-designed (NEW
+  // usage) product inside a project, cleared when un-marked.
+  exclusiveById       String?         @db.Uuid
+  exclusiveBy         User?           @relation("ExclusiveBy", fields: [exclusiveById], references: [id])
   // Prep for connecting the existing product website later (see doc section 21).
-  sourceType        SourceType      @default(RND)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  sourceType          SourceType      @default(RND)
+  // Set when submitted via "Release to Library" from a completed project
+  // rather than uploaded straight to the library — a point-in-time
+  // snapshot of the project's name for the review queue, not a live FK
+  // (the project the design came from can later be closed/archived).
+  sourceProjectName   String?
+  submittedAt         DateTime?
+  lastRejectionReason String?
+  // Set by bulk image upload — a placeholder record with an auto-cropped
+  // image and no real name/category/material yet. Blocks Release (see
+  // isProjectProductReadyToRelease) but not the review pipeline itself.
+  incomplete          Boolean         @default(false)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
   // Relations
   assets          ProductAsset[]
   versions        ProductVersion[]
+  sizeVariants    ProductSizeVariant[]
   projectProducts ProjectProduct[]
   feedback        Feedback[]
   activity        Activity[]
   collectionItems CollectionItem[]
   favorites       ProductFavorite[]
+  releasedPhotos  ProjectPhoto[]
 
   @@map("products")
 }
@@ -149,6 +199,22 @@ enum ReusePermission {
 enum SourceType {
   RND
   EXTERNAL
+}
+
+// A product can come in several sizes (e.g. S/M/L), each with its own
+// dimensions — not one fixed size per design.
+model ProductSizeVariant {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sizeId    String  @db.Uuid
+  size      Size    @relation(fields: [sizeId], references: [id])
+  length    Float?
+  width     Float?
+  height    Float?
+
+  @@unique([productId, sizeId])
+  @@map("product_size_variants")
 }
 
 // Anyone can favorite a product ("like") — one row per user per product.
@@ -201,6 +267,9 @@ model ProductVersion {
   product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   versionNumber String
   note          String?
+  // Optional new main image attached with this version — also becomes the
+  // product's live main image when set (see addProductVersion).
+  imageUrl      String?
   uploadedById  String   @db.Uuid
   uploadedBy    User     @relation(fields: [uploadedById], references: [id])
   createdAt     DateTime @default(now())
@@ -218,23 +287,35 @@ model ProductVersion {
 // a customer. `type` distinguishes them; `createdById` (not `salesId`,
 // which is now optional) is what edit/delete ownership is checked against.
 model Project {
-  id          String        @id @default(uuid()) @db.Uuid
-  projectCode String        @unique
-  projectName String
-  type        ProjectType   @default(CUSTOMER)
-  customerId  String?       @db.Uuid
-  customer    Customer?     @relation(fields: [customerId], references: [id])
-  salesId     String?       @db.Uuid
-  sales       User?         @relation("Sales", fields: [salesId], references: [id])
-  rndOwnerId  String?       @db.Uuid
-  rndOwner    User?         @relation("RndOwner", fields: [rndOwnerId], references: [id])
-  createdById String        @db.Uuid
-  createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
-  brief       String?
-  deadline    DateTime?     @db.Date
-  status      ProjectStatus @default(CREATED)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id               String        @id @default(uuid()) @db.Uuid
+  projectCode      String        @unique
+  projectName      String
+  type             ProjectType   @default(CUSTOMER)
+  customerId       String?       @db.Uuid
+  customer         Customer?     @relation(fields: [customerId], references: [id])
+  salesId          String?       @db.Uuid
+  sales            User?         @relation("Sales", fields: [salesId], references: [id])
+  rndOwnerId       String?       @db.Uuid
+  rndOwner         User?         @relation("RndOwner", fields: [rndOwnerId], references: [id])
+  createdById      String        @db.Uuid
+  createdBy        User          @relation("ProjectCreator", fields: [createdById], references: [id])
+  brief            String?
+  deadline         DateTime?     @db.Date
+  status           ProjectStatus @default(CREATED)
+  // Stamped when markCompleted runs — feeds "Ngày hoàn thành thực tế" on
+  // the R&D To Do List, rather than recomputing "today" on every render.
+  completedAt      DateTime?     @db.Date
+  // The rest back this project's row on the R&D/Admin "My Task" To Do
+  // List (one row per project the viewer is rndOwner of). rndPriority
+  // defaults to MEDIUM when absent; rndImportantNote is Admin-writable
+  // only (a directive down to the rndOwner); rndNeedsSupport is
+  // R&D-writable and notifies Admin when set — one-way channels in
+  // opposite directions, not a shared note.
+  rndPriority      TaskPriority  @default(MEDIUM)
+  rndImportantNote String?
+  rndNeedsSupport  String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   // Relations
   projectProducts ProjectProduct[]
@@ -242,6 +323,7 @@ model Project {
   activity        Activity[]
   collections     Collection[]
   attachments     ProjectAttachment[]
+  photos          ProjectPhoto[]
 
   @@map("projects")
 }
@@ -276,26 +358,50 @@ model ProjectAttachment {
   @@map("project_attachments")
 }
 
+// A lightweight, un-vetted image dump attached to a Project — distinct
+// from a real Product: no category/material, not part of the approval
+// pipeline. Lets R&D dump reference/factory photos first and decide later
+// (via "Release Library") which ones become real products; a released
+// photo keeps its row here too, tagged with the resulting product so it's
+// never accidentally released twice.
+model ProjectPhoto {
+  id                String   @id @default(uuid()) @db.Uuid
+  projectId         String   @db.Uuid
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fileName          String
+  fileUrl           String
+  uploadedById      String   @db.Uuid
+  uploadedBy        User     @relation("PhotoUploader", fields: [uploadedById], references: [id])
+  releasedProductId String?  @db.Uuid
+  releasedProduct   Product? @relation(fields: [releasedProductId], references: [id])
+  createdAt         DateTime @default(now())
+
+  @@map("project_photos")
+}
+
 // PROJECT_PRODUCTS — resolves the Product <-> Project many-to-many relation
 // and tracks reuse (usageType = REUSE increments the Reused stat).
 model ProjectProduct {
-  id                String               @id @default(uuid()) @db.Uuid
-  projectId         String               @db.Uuid
-  project           Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  productId         String               @db.Uuid
-  product           Product              @relation(fields: [productId], references: [id])
-  usageType         UsageType
-  modificationNote  String?
-  status            ProjectProductStatus @default(DEVELOPING)
-  customerApproval  CustomerApproval     @default(PENDING)
-  addedById         String               @db.Uuid
-  addedBy           User                 @relation("AddedBy", fields: [addedById], references: [id])
+  id                  String               @id @default(uuid()) @db.Uuid
+  projectId           String               @db.Uuid
+  project             Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId           String               @db.Uuid
+  product             Product              @relation(fields: [productId], references: [id])
+  usageType           UsageType
+  modificationNote    String?
+  status              ProjectProductStatus @default(DEVELOPING)
+  customerApproval    CustomerApproval     @default(PENDING)
+  // Set when sent back to DEVELOPING from either review stage — mirrors
+  // Product.lastRejectionReason. Cleared on resubmit.
+  lastRejectionReason String?
+  addedById           String               @db.Uuid
+  addedBy             User                 @relation("AddedBy", fields: [addedById], references: [id])
   // Which R&D person is actually doing this specific piece of work —
   // distinct from Project.rndOwnerId, which is project-wide. Feeds the
   // personal "My Tasks" queue.
-  assigneeId        String?              @db.Uuid
-  assignee          User?                @relation("Assignee", fields: [assigneeId], references: [id])
-  createdAt         DateTime             @default(now())
+  assigneeId          String?              @db.Uuid
+  assignee            User?                @relation("Assignee", fields: [assigneeId], references: [id])
+  createdAt           DateTime             @default(now())
 
   @@unique([projectId, productId])
   @@map("project_products")
@@ -321,10 +427,55 @@ enum CustomerApproval {
   APPROVED
 }
 
+// MY TASK — an ad-hoc task R&D/Admin added themselves via "Thêm công
+// việc", not tied to any project. Trạng thái is deliberately not a stored
+// field: it's derived as "Hoàn thành" once completedAt is filled in,
+// "Đang làm" otherwise — filling in the completion date is what marks it
+// done, not a separate status toggle. Shares TaskCategory/TaskPriority
+// with Project.rndPriority above, since both feed the same unified To Do
+// List table.
+model RndTask {
+  id            String       @id @default(uuid()) @db.Uuid
+  ownerId       String       @db.Uuid
+  owner         User         @relation("TaskOwner", fields: [ownerId], references: [id])
+  title         String
+  category      TaskCategory
+  priority      TaskPriority @default(MEDIUM)
+  requesterId   String?      @db.Uuid
+  requester     User?        @relation("TaskRequester", fields: [requesterId], references: [id])
+  startDate     DateTime?    @db.Date
+  deadline      DateTime?    @db.Date
+  completedAt   DateTime?    @db.Date
+  needsSupport  String?
+  // Admin-writable directive down to whoever owns this task — R&D never
+  // gets edit UI for it, only Admin.
+  importantNote String?
+  createdAt     DateTime     @default(now())
+
+  @@map("rnd_tasks")
+}
+
+enum TaskCategory {
+  DESIGN_3D
+  DRAWING
+  PRICING_SUPPORT
+  OTHER
+}
+
+enum TaskPriority {
+  FOCUS
+  HIGH
+  MEDIUM
+  LOW
+}
+
 // FEEDBACK
 // Usually scoped to a project, but a Product uploaded straight to the
 // library (not tied to any project) needs to carry feedback too — e.g.
-// an Admin's reason for rejecting it — so projectId is optional.
+// an Admin's reason for rejecting it — so projectId is optional. A row
+// with both projectId and productId set is feedback on that specific
+// project+product pairing (no separate FK to ProjectProduct needed, since
+// that pair is already unique there).
 model Feedback {
   id        String          @id @default(uuid()) @db.Uuid
   projectId String?         @db.Uuid
@@ -375,13 +526,23 @@ model Notification {
 
 enum NotificationType {
   PRODUCT_REJECTED
+  PRODUCT_APPROVED
+  PROJECT_ITEM_NEEDS_REVIEW
+  PROJECT_ITEM_CHANGE_REQUESTED
+  PROJECT_ITEM_APPROVED
+  NEW_FEEDBACK
+  NEW_PITCH
+  PROJECT_REQUESTED_BY_CUSTOMER
+  PROJECT_ASSIGNED
+  RND_NEEDS_SUPPORT
+  ADMIN_IMPORTANT_NOTE
 }
 
 // COLLECTIONS — a curated set of Products to hand to a customer who won't
 // log into the app. Built two ways: picked freely from the Library
 // (projectId null), or exported from a specific project's finished
 // designs (projectId set, for traceability). Stays editable even after
-// being marked SENT — no locking.
+// being pitched — no locking.
 model Collection {
   id          String           @id @default(uuid()) @db.Uuid
   name        String
@@ -397,7 +558,8 @@ model Collection {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
-  items CollectionItem[]
+  items   CollectionItem[]
+  pitches CollectionPitch[]
 
   @@map("collections")
 }
@@ -421,4 +583,34 @@ model CollectionItem {
 
   @@unique([collectionId, productId])
   @@map("collection_items")
+}
+
+// Logged at export/share time (not a separate optional step) — getting
+// the file/link requires saying who it's for. Append-only, same as
+// Feedback — a pitch log entry is never edited or removed once recorded,
+// so the history stays trustworthy.
+model CollectionPitch {
+  id           String     @id @default(uuid()) @db.Uuid
+  collectionId String     @db.Uuid
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  customerName String
+  note         String?
+  loggedById   String     @db.Uuid
+  loggedBy     User       @relation(fields: [loggedById], references: [id])
+  createdAt    DateTime   @default(now())
+
+  @@map("collection_pitches")
+}
+
+// APP SETTINGS — a singleton row (Admin-only, Settings' "Mẫu PPTX" tab)
+// for the Collection PPTX/PDF export's cover/closing template. Category/
+// Material/Size/Color management doesn't need a settings row of its own —
+// those are just CRUD on their own lookup tables above.
+model AppSettings {
+  id               String  @id @default(uuid())
+  pptxCoverImage   String?
+  pptxClosingImage String?
+  pptxClosingText  String  @default("Cảm ơn quý khách")
+
+  @@map("app_settings")
 }
