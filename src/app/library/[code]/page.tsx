@@ -35,6 +35,7 @@ export default function ProductDetailPage() {
   const router = useRouter();
   const {
     products,
+    productsLoaded,
     favoritedCodes,
     toggleFavorite,
     submitForReview,
@@ -56,10 +57,24 @@ export default function ProductDetailPage() {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Same race as Collections'/Projects' detail pages: hard-deleting
+  // removes this product from local state immediately, which — while
+  // router.push("/library") is still in flight — would otherwise make
+  // `product` below go undefined and trigger notFound() for a flash
+  // before the navigation lands.
+  const [deleting, setDeleting] = useState(false);
   const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
   const { guardPick, guardModal } = useExclusiveGuard(effectiveUserName);
 
-  if (!product) return notFound();
+  if (!product) {
+    // `products` starts empty and only fills in once the real fetch
+    // resolves — without this check, a fresh/hard page load would 404
+    // immediately (before the fetch lands) instead of showing the real
+    // product a moment later. Once truly loaded, an unknown code (or one
+    // we just deleted, see the `deleting` flag above) is a real 404.
+    if (!productsLoaded || deleting) return null;
+    return notFound();
+  }
 
   const feedback = productFeedback.filter((f) => f.productCode === product.code);
   const realVersions = productVersions.filter((v) => v.productCode === product.code);
@@ -489,6 +504,7 @@ export default function ProductDetailPage() {
         onCancel={() => setDeleteOpen(false)}
         onConfirm={() => {
           if (hardDelete) {
+            setDeleting(true);
             deleteProduct(product.code);
             router.push("/library");
           } else {

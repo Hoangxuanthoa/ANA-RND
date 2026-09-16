@@ -18,7 +18,7 @@ export default function CollectionDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const { role, effectiveUserName: userName } = useRole();
-  const { collections, renameCollection, deleteCollection, removeProductFromCollection, logPitch } = useCollections();
+  const { collections, collectionsLoaded, renameCollection, deleteCollection, removeProductFromCollection, logPitch } = useCollections();
   const { products } = useProducts();
   const collection = collections.find((c) => c.id === params.id);
 
@@ -27,6 +27,12 @@ export default function CollectionDetailPage() {
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [shareBannerOpen, setShareBannerOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Deleting removes this collection from local state immediately
+  // (optimistic), which — while router.push("/collections") is still in
+  // flight — would otherwise make `collection` below go undefined and
+  // trigger notFound() for a flash before the navigation lands. This
+  // flag suppresses that render race.
+  const [deleting, setDeleting] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<Product | null>(null);
   const [notice, setNotice] = useState<React.ReactNode | null>(null);
   // Code, not a snapshot — see library/page.tsx's quickView for why (a
@@ -46,7 +52,15 @@ export default function CollectionDetailPage() {
     );
   }
 
-  if (!collection) return notFound();
+  if (!collection) {
+    // `collections` starts empty and only fills in once the real fetch
+    // resolves — without this check, a fresh/hard page load would 404
+    // immediately (before the fetch lands) instead of showing the real
+    // collection a moment later. Once truly loaded, an unknown id (or
+    // one we just deleted, see the `deleting` flag above) is a real 404.
+    if (!collectionsLoaded || deleting) return null;
+    return notFound();
+  }
 
   const editable = canEditCollection(role, userName, collection);
   const items = collection.productCodes.map((code) => products.find((p) => p.code === code)).filter((p): p is NonNullable<typeof p> => !!p);
@@ -319,6 +333,7 @@ export default function CollectionDetailPage() {
         confirmLabel="Xóa"
         onCancel={() => setDeleteOpen(false)}
         onConfirm={() => {
+          setDeleting(true);
           deleteCollection(collection.id);
           router.push("/collections");
         }}

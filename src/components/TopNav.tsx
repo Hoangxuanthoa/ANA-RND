@@ -29,6 +29,12 @@ function NavLink({
   return (
     <Link
       href={href}
+      // TopNav is on every page with 5-7 of these links always in
+      // view, so Next's default viewport-prefetch would fire that many
+      // background RSC requests on every single page load — pure
+      // contention against the real data fetches the current page
+      // actually needs, for a route the user may never click into.
+      prefetch={false}
       className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2.5 text-[13.5px] font-semibold ${fullWidth ? "w-full" : ""} ${
         active
           ? "bg-accent-soft text-accent-soft-text"

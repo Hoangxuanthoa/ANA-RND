@@ -4,6 +4,11 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Collection } from "@/lib/mock-data";
 
 interface CollectionsContextValue {
+  // False until the initial GET /api/collections resolves — see
+  // ProductsProvider's productsLoaded for why a detail page needs this
+  // (collections/[id]/page.tsx must wait for it before concluding
+  // "not found").
+  collectionsLoaded: boolean;
   collections: Collection[];
   createCollection: (name: string, productCodes?: string[], sourceProjectCode?: string) => Promise<string>;
   renameCollection: (id: string, name: string) => void;
@@ -35,11 +40,13 @@ async function postJson<T>(url: string, body: unknown, method: "POST" | "PATCH" 
 
 export function CollectionsProvider({ children }: { children: ReactNode }) {
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionsLoaded, setCollectionsLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/collections")
       .then((res) => (res.ok ? res.json() : []))
-      .then(setCollections);
+      .then(setCollections)
+      .finally(() => setCollectionsLoaded(true));
   }, []);
 
   function replaceCollection(id: string, updated: Collection) {
@@ -90,6 +97,7 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
   return (
     <CollectionsContext.Provider
       value={{
+        collectionsLoaded,
         collections,
         createCollection,
         renameCollection,

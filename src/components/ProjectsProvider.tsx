@@ -6,6 +6,11 @@ import { useStaff } from "@/components/StaffProvider";
 import { projectCreatorRole } from "@/lib/permissions";
 
 interface ProjectsContextValue {
+  // False until the initial GET /api/projects resolves — see
+  // ProductsProvider's productsLoaded for why a detail page needs this
+  // (projects/[code]/page.tsx must wait for it before concluding
+  // "not found").
+  projectsLoaded: boolean;
   projects: Project[];
   projectProducts: ProjectProductItem[];
   projectFeedback: ProjectFeedbackItem[];
@@ -51,13 +56,15 @@ async function postJson<T>(url: string, body: unknown, method: "POST" | "PATCH" 
 export function ProjectsProvider({ children }: { children: ReactNode }) {
   const { staff } = useStaff();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [projectProducts, setProjectProducts] = useState<ProjectProductItem[]>([]);
   const [projectFeedback, setProjectFeedback] = useState<ProjectFeedbackItem[]>([]);
 
   useEffect(() => {
     fetch("/api/projects")
       .then((res) => (res.ok ? res.json() : []))
-      .then(setProjects);
+      .then(setProjects)
+      .finally(() => setProjectsLoaded(true));
     fetch("/api/projects/feedback")
       .then((res) => (res.ok ? res.json() : []))
       .then(setProjectFeedback);
@@ -234,6 +241,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   return (
     <ProjectsContext.Provider
       value={{
+        projectsLoaded,
         projects,
         projectProducts,
         projectFeedback,

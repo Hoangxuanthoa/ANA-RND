@@ -54,6 +54,7 @@ export default function ProjectDetailPage() {
   const { role, effectiveUserName } = useRole();
   const {
     projects,
+    projectsLoaded,
     projectProducts,
     projectFeedback,
     closeProject,
@@ -80,8 +81,22 @@ export default function ProjectDetailPage() {
   const [commentText, setCommentText] = useState("");
   const [newDesignOpen, setNewDesignOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  // Same race as Collections'/Library's detail pages: hard-deleting
+  // removes this project from local state immediately, which — while
+  // router.push("/projects") is still in flight — would otherwise make
+  // `project` below go undefined and trigger notFound() for a flash
+  // before the navigation lands.
+  const [deleting, setDeleting] = useState(false);
 
-  if (!project) return notFound();
+  if (!project) {
+    // `projects` starts empty and only fills in once the real fetch
+    // resolves — without this check, a fresh/hard page load would 404
+    // immediately (before the fetch lands) instead of showing the real
+    // project a moment later. Once truly loaded, an unknown code (or one
+    // we just deleted, see the `deleting` flag above) is a real 404.
+    if (!projectsLoaded || deleting) return null;
+    return notFound();
+  }
 
   const feedback = projectFeedback.filter((f) => f.projectCode === project.code);
 
@@ -488,6 +503,7 @@ export default function ProjectDetailPage() {
         onCancel={() => setConfirmOpen(false)}
         onConfirm={() => {
           if (hardDelete) {
+            setDeleting(true);
             deleteProject(project.code);
             router.push("/projects");
           } else {

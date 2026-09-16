@@ -59,7 +59,7 @@ function sizeLines(sizeVariants?: { size: string; length?: number; width?: numbe
 export default function CollectionExportPage() {
   const params = useParams<{ id: string }>();
   const { role } = useRole();
-  const { collections, logPitch } = useCollections();
+  const { collections, collectionsLoaded, logPitch } = useCollections();
   const { products } = useProducts();
   const { pptxTemplate } = useSettings();
   const collection = collections.find((c) => c.id === params.id);
@@ -106,7 +106,12 @@ export default function CollectionExportPage() {
     );
   }
 
-  if (!collection) return notFound();
+  if (!collection) {
+    // Same loading-vs-not-found distinction as collections/[id]/page.tsx
+    // — `collections` starts empty until the real fetch resolves.
+    if (!collectionsLoaded) return null;
+    return notFound();
+  }
 
   const selectedItems = items.filter((p) => included.has(p.code));
   const deckItems = selectedItems.map((p) => ({

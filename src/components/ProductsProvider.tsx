@@ -5,6 +5,11 @@ import type { Product, ProductSizeVariant, ProductFeedbackItem, ReusePermission,
 import { useRole } from "@/components/RoleProvider";
 
 interface ProductsContextValue {
+  // False until the initial GET /api/products resolves — a product
+  // detail page must wait for this before concluding "not found" (see
+  // library/[code]/page.tsx), since `products` starts empty and would
+  // otherwise 404 on every fresh page load before the fetch lands.
+  productsLoaded: boolean;
   products: Product[];
   favoritedCodes: Set<string>;
   productFeedback: ProductFeedbackItem[];
@@ -126,6 +131,7 @@ function useLookupField(
 export function ProductsProvider({ children }: { children: ReactNode }) {
   const { effectiveUserName } = useRole();
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoaded, setProductsLoaded] = useState(false);
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>([]);
   const [productVersions, setProductVersions] = useState<VersionItem[]>([]);
@@ -140,7 +146,8 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       .then((data: (Product & { favoritedByMe: boolean })[]) => {
         setProducts(data);
         setFavoritedCodes(new Set(data.filter((p) => p.favoritedByMe).map((p) => p.code)));
-      });
+      })
+      .finally(() => setProductsLoaded(true));
     fetch("/api/products/feedback")
       .then((res) => (res.ok ? res.json() : []))
       .then(setProductFeedback);
@@ -290,6 +297,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   return (
     <ProductsContext.Provider
       value={{
+        productsLoaded,
         products,
         favoritedCodes,
         productFeedback,

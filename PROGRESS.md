@@ -1802,6 +1802,74 @@ likely worth asking first which of those actually get used from a
 phone before investing in them, same as the framing this pass started
 from.
 
+## Real bug fix: detail pages 404ing on fresh load, plus a slowness finding (2026-09-17)
+
+User reported two things after testing on production: the site feels
+slow even with almost no data, and testing "add then delete" a Project/
+Collection showed a real 404 page, not a graceful return to the list.
+
+**The 404 was a genuine, significant bug — not the dev-mode-only
+quirk this log had assumed several times earlier.** Root cause:
+`ProductsProvider`/`ProjectsProvider`/`CollectionsProvider` all start
+their data as an empty array (`useState<T[]>([])`) and only fill it in
+once their `useEffect` fetch resolves. Every detail page
+(`library/[code]`, `projects/[code]`, `collections/[id]`, and
+`collections/[id]/export`) does `items.find(x => x.code === param)`
+and calls Next's `notFound()` the instant that's `undefined` — which
+is **always true on the very first render** of a fresh page load or
+browser refresh, before the fetch has had any chance to land.
+`notFound()` throws and unmounts into Next's not-found boundary; once
+that happens, the page doesn't get a second chance to render correctly
+when the real data arrives moments later — it's stuck showing the 404
+until the user manually navigates away. This is a real, deterministic
+client-side race present in production and local dev alike (nothing to
+do with Next's dev-server compile lag), and every earlier "transient
+404" observation logged in this file during testing was almost
+certainly this same bug, not a benign quirk — worth remembering for
+next time something like this shows up during testing rather than
+writing it off again.
+
+Fixed by adding a `productsLoaded`/`projectsLoaded`/`collectionsLoaded`
+boolean to each of the three providers (`true` once their initial
+fetch settles) and changing every affected page's guard from `if
+(!item) return notFound();` to distinguish "still loading" (render
+nothing yet) from "genuinely doesn't exist" (only after the real fetch
+has completed). Also separately hardened the three hard-delete flows
+(`library/[code]`, `projects/[code]`, `collections/[id]`) that
+`deleteX(id); router.push(...)` in one call — the optimistic local
+delete can make `item` go undefined a render before the navigation away
+completes, so each got its own `deleting` flag to suppress the same
+race during that specific transition.
+
+Verified by directly reproducing the exact reported scenario: created
+a project/collection/product via the API, hard-navigated straight to
+its detail page (previously 404'd close to every time), confirmed it
+now loads correctly on the first try, repeated with a real page reload
+(not just fresh navigation) — same result. Also re-ran the original
+create-then-delete flow for Projects and Collections several times
+each with zero 404s, where it had reliably reproduced before the fix.
+
+**Slowness — one concrete contributing fix made, the larger cause
+flagged rather than rushed.** Confirmed via the browser's own network
+log on production: a single Dashboard load fires on the order of 18
+parallel API requests (every one of the 7 globally-mounted providers —
+Staff, Notifications, Projects, Products, Collections, RndTasks,
+ProjectPhotos — fetches on every page regardless of whether that page
+uses its data) plus 5-7 more background requests from Next.js
+auto-prefetching every TopNav link's route data, since TopNav is
+always in view. Fixed the second part now — `prefetch={false}` on
+TopNav's links, since prefetching a route the user may never click
+into is pure contention against the real data the *current* page
+needs, and TopNav is the one component on every single page. The
+larger cause (every page paying for every provider's fetch, most of
+which it doesn't use) is a real, worthwhile optimization but a
+genuinely bigger, riskier change — touches all 7 providers and their
+consumers — flagged to the user as a recommended follow-up rather than
+rushed into this pass. Vercel's Hobby tier having no guaranteed warm
+serverless instances likely compounds this too (cold starts on a
+low-traffic internal tool), which is a hosting-tier tradeoff already
+known and accepted for now, not a new finding.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
