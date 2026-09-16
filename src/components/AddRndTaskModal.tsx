@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { DateInput } from "@/components/DateInput";
-import { STAFF, TASK_CATEGORIES, TASK_PRIORITIES, todayDDMMYYYY, type TaskCategory, type TaskPriority } from "@/lib/mock-data";
+import { TASK_CATEGORIES, TASK_PRIORITIES, todayDDMMYYYY, type TaskCategory, type TaskPriority } from "@/lib/mock-data";
+import { useStaff } from "@/components/StaffProvider";
 
 interface AddRndTaskModalProps {
   open: boolean;
@@ -18,10 +19,16 @@ interface AddRndTaskModalProps {
 }
 
 export function AddRndTaskModal({ open, onCancel, onCreate }: AddRndTaskModalProps) {
+  const { staff } = useStaff();
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<TaskCategory>(TASK_CATEGORIES[0]);
   const [priority, setPriority] = useState<TaskPriority>("Trung bình");
-  const [requester, setRequester] = useState(STAFF[0]?.name ?? "");
+  // Empty until the user picks one — the select's value falls back to
+  // the first real staff member once the roster loads (see below), which
+  // a plain useState initializer can't do since `staff` is still empty
+  // on first mount (this modal stays mounted the whole time, just
+  // hidden — see `open` below — not remounted fresh each time it opens).
+  const [requester, setRequester] = useState("");
   const [startDate, setStartDate] = useState(todayDDMMYYYY());
   const [deadline, setDeadline] = useState("");
 
@@ -30,11 +37,11 @@ export function AddRndTaskModal({ open, onCancel, onCreate }: AddRndTaskModalPro
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim() || !deadline.trim()) return;
-    onCreate({ title: title.trim(), category, priority, requester, startDate, deadline });
+    onCreate({ title: title.trim(), category, priority, requester: requester || staff[0]?.name || "", startDate, deadline });
     setTitle("");
     setCategory(TASK_CATEGORIES[0]);
     setPriority("Trung bình");
-    setRequester(STAFF[0]?.name ?? "");
+    setRequester("");
     setStartDate(todayDDMMYYYY());
     setDeadline("");
   }
@@ -93,11 +100,11 @@ export function AddRndTaskModal({ open, onCancel, onCreate }: AddRndTaskModalPro
         <label className="flex flex-col gap-1.5">
           <span className="text-[12.5px] font-semibold">Người yêu cầu</span>
           <select
-            value={requester}
+            value={requester || staff[0]?.name || ""}
             onChange={(e) => setRequester(e.target.value)}
             className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
           >
-            {STAFF.map((s) => (
+            {staff.map((s) => (
               <option key={s.id} value={s.name}>
                 {s.name}
               </option>

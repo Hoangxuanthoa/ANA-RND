@@ -6,12 +6,12 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { useRndTasks } from "@/components/RndTasksProvider";
+import { useStaff } from "@/components/StaffProvider";
 import { AddRndTaskModal } from "@/components/AddRndTaskModal";
 import { DateInput } from "@/components/DateInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
   CURRENT_USER_NAME,
-  STAFF,
   daysUntil,
   parseDDMMYYYY,
   todayDDMMYYYY,
@@ -251,6 +251,7 @@ export default function MyTasksPage() {
   const userName = CURRENT_USER_NAME[role];
   const { projects, updateProject, setProjectNeedsSupport, setProjectImportantNote } = useProjects();
   const { rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport, setTaskImportantNote } = useRndTasks();
+  const { staff } = useStaff();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("todo");
   const [addOpen, setAddOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -366,7 +367,7 @@ export default function MyTasksPage() {
   // (overdue, then pending support requests) surfaces first — this is an
   // at-a-glance triage view, not an alphabetical roster.
   const overviewPeople = isAdmin
-    ? STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN")
+    ? staff.filter((s) => s.role === "RND" || s.role === "ADMIN")
         .map((s) => {
           const rows = allRows.filter((r) => r.doer === s.name);
           return {
@@ -645,7 +646,7 @@ export default function MyTasksPage() {
                   className="h-9 rounded-lg border border-line bg-surface px-2 text-[12.5px] focus:border-accent focus:outline-none"
                 >
                   <option value={DOER_FILTER_ALL}>Người làm</option>
-                  {STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN").map((s) => (
+                  {staff.filter((s) => s.role === "RND" || s.role === "ADMIN").map((s) => (
                     <option key={s.id} value={s.name}>
                       {s.name}
                     </option>
@@ -746,7 +747,7 @@ export default function MyTasksPage() {
                         onChange={(e) => updateTask(row.taskId!, { requester: e.target.value })}
                         className="h-8 rounded-md border border-line bg-surface px-1.5 text-[12px] focus:border-accent focus:outline-none"
                       >
-                        {STAFF.map((s) => (
+                        {staff.map((s) => (
                           <option key={s.id} value={s.name}>
                             {s.name}
                           </option>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { STAFF, type Project } from "@/lib/mock-data";
+import { type Project } from "@/lib/mock-data";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DateInput } from "@/components/DateInput";
+import { useStaff } from "@/components/StaffProvider";
 
 interface EditProjectModalProps {
   open: boolean;
@@ -13,9 +14,10 @@ interface EditProjectModalProps {
 }
 
 export function EditProjectModal({ open, project, onSave, onCancel }: EditProjectModalProps) {
+  const { staff } = useStaff();
   // Admin also does hands-on R&D work, not just oversight, so counts as
   // a pickable owner here too — not only "RND" role staff.
-  const rndStaff = STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN");
+  const rndStaff = staff.filter((s) => s.role === "RND" || s.role === "ADMIN");
   const [name, setName] = useState(project.name);
   const [rndOwner, setRndOwner] = useState(project.rndOwner ?? "");
   const [deadline, setDeadline] = useState(project.deadline === "—" ? "" : project.deadline);

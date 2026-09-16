@@ -5,6 +5,7 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useSettings } from "@/components/SettingsProvider";
+import { useStaff } from "@/components/StaffProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ROLE_LABEL, type Role } from "@/lib/mock-data";
 import { canManageSettings } from "@/lib/permissions";
@@ -152,20 +153,54 @@ function TagListEditor({
 }
 
 function UserTab() {
-  const { staff, addStaff, updateStaffRole, removeStaff } = useSettings();
+  const { staff, addStaff, updateStaffRole, removeStaff } = useStaff();
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<Exclude<Role, "CUSTOMER">>("SALES");
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const removeTarget = staff.find((s) => s.id === removeId) ?? null;
 
+  async function handleAdd() {
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      setError("Điền đủ Tên, Email và Mật khẩu tạm.");
+      return;
+    }
+    setError(null);
+    setCreating(true);
+    const { error } = await addStaff({ name: name.trim(), email: email.trim(), role, password: password.trim() });
+    setCreating(false);
+    if (error) {
+      setError(error);
+      return;
+    }
+    setName("");
+    setEmail("");
+    setPassword("");
+  }
+
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Tên nhân viên…"
-          className="h-9 w-56 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+          className="h-9 w-40 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+        />
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email đăng nhập…"
+          className="h-9 w-52 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+        />
+        <input
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Mật khẩu tạm…"
+          className="h-9 w-36 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
         />
         <select
           value={role}
@@ -179,21 +214,27 @@ function UserTab() {
           ))}
         </select>
         <button
-          onClick={() => {
-            if (!name.trim()) return;
-            addStaff(name.trim(), role);
-            setName("");
-          }}
-          className="h-9 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+          onClick={handleAdd}
+          disabled={creating}
+          className="h-9 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
         >
-          Thêm
+          {creating ? "Đang tạo…" : "Thêm"}
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-2.5 text-[12.5px] font-semibold text-red">
+          {error}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         {staff.map((s, i) => (
           <div key={s.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-            <span className="text-[13.5px] font-semibold">{s.name}</span>
+            <div>
+              <div className="text-[13.5px] font-semibold">{s.name}</div>
+              <div className="text-[11.5px] text-text-faint">{s.email}</div>
+            </div>
             <div className="flex items-center gap-2">
               <select
                 value={s.role}

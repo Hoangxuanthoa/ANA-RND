@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import {
-  STAFF,
   CUSTOMERS,
   CURRENT_USER_NAME,
   type Role,
@@ -11,6 +10,7 @@ import {
 import { creatableProjectTypes } from "@/lib/permissions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DateInput } from "@/components/DateInput";
+import { useStaff } from "@/components/StaffProvider";
 
 const TYPE_LABEL: Record<ProjectType, string> = {
   CUSTOMER: "Khách hàng",
@@ -35,11 +35,12 @@ interface NewProjectModalProps {
 }
 
 export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectModalProps) {
+  const { staff } = useStaff();
   const types = creatableProjectTypes(role);
-  const salesStaff = STAFF.filter((s) => s.role === "SALES");
+  const salesStaff = staff.filter((s) => s.role === "SALES");
   // Admin also does hands-on R&D work, not just oversight, so counts as
   // a pickable owner here too — not only "RND" role staff.
-  const rndStaff = STAFF.filter((s) => s.role === "RND" || s.role === "ADMIN");
+  const rndStaff = staff.filter((s) => s.role === "RND" || s.role === "ADMIN");
 
   const isCustomer = role === "CUSTOMER";
   const [name, setName] = useState("");

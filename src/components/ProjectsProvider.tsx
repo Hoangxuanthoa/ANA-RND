@@ -7,7 +7,6 @@ import {
   PROJECT_FEEDBACK as INITIAL_PROJECT_FEEDBACK,
   feedbackIdentity,
   CURRENT_USER_NAME,
-  STAFF,
   todayDDMMYYYY,
   type Project,
   type ProjectProductItem,
@@ -15,6 +14,7 @@ import {
   type UsageType,
 } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
+import { useStaff } from "@/components/StaffProvider";
 import { useNotifications } from "@/components/NotificationsProvider";
 import { projectCreatorRole } from "@/lib/permissions";
 
@@ -70,6 +70,7 @@ const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 
 export function ProjectsProvider({ children }: { children: ReactNode }) {
   const { role } = useRole();
+  const { staff } = useStaff();
   const { addNotification } = useNotifications();
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
   const [projectProducts, setProjectProducts] = useState<ProjectProductItem[]>(INITIAL_PROJECT_PRODUCTS);
@@ -106,7 +107,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     const trimmed = note.trim();
     if (!trimmed) return;
     const project = projects.find((p) => p.code === code);
-    const admin = STAFF.find((s) => s.role === "ADMIN");
+    const admin = staff.find((s) => s.role === "ADMIN");
     if (!project || !admin) return;
     addNotification({
       type: "RND_NEEDS_SUPPORT",
@@ -267,7 +268,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
 
   function approveProjectProduct(projectCode: string, productCode: string) {
     const project = projects.find((p) => p.code === projectCode);
-    const creatorRole = project ? projectCreatorRole(project) : undefined;
+    const creatorRole = project ? projectCreatorRole(project, staff) : undefined;
     const current = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
     const updated = projectProducts.map((pp): ProjectProductItem => {
       if (pp.projectCode !== projectCode || pp.productCode !== productCode) return pp;

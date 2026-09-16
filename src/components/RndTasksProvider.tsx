@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { INITIAL_RND_TASKS, STAFF, type RndTask, type TaskCategory, type TaskPriority } from "@/lib/mock-data";
+import { INITIAL_RND_TASKS, type RndTask, type TaskCategory, type TaskPriority } from "@/lib/mock-data";
 import { useNotifications } from "@/components/NotificationsProvider";
+import { useStaff } from "@/components/StaffProvider";
 
 interface RndTasksContextValue {
   rndTasks: RndTask[];
@@ -29,6 +30,7 @@ const RndTasksContext = createContext<RndTasksContextValue | null>(null);
 
 export function RndTasksProvider({ children }: { children: ReactNode }) {
   const { addNotification } = useNotifications();
+  const { staff } = useStaff();
   const [rndTasks, setRndTasks] = useState<RndTask[]>(INITIAL_RND_TASKS);
 
   function addTask(input: {
@@ -57,7 +59,7 @@ export function RndTasksProvider({ children }: { children: ReactNode }) {
     const trimmed = note.trim();
     if (!trimmed) return;
     const task = rndTasks.find((t) => t.id === id);
-    const admin = STAFF.find((s) => s.role === "ADMIN");
+    const admin = staff.find((s) => s.role === "ADMIN");
     if (!task || !admin) return;
     addNotification({
       type: "RND_NEEDS_SUPPORT",

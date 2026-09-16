@@ -47,26 +47,10 @@ export const CURRENT_USER_PHONE: Record<Role, string> = {
   CUSTOMER: "090 567 8901",
 };
 
-// Company roster — feeds the R&D-owner / assignee pickers on New Project
-// and Admin Settings' User management. At least 5 Sales, 1 Marketing, 2
-// R&D, matching the actual team size.
-export interface StaffMember {
-  id: string;
-  name: string;
-  role: Exclude<Role, "CUSTOMER">;
-}
-
-export const STAFF: StaffMember[] = [
-  { id: "usr-1", name: "Minh", role: "ADMIN" },
-  { id: "usr-2", name: "Hà", role: "SALES" },
-  { id: "usr-3", name: "Hùng", role: "SALES" },
-  { id: "usr-4", name: "Trang", role: "SALES" },
-  { id: "usr-5", name: "Quân", role: "SALES" },
-  { id: "usr-6", name: "Ngọc", role: "SALES" },
-  { id: "usr-7", name: "Linh", role: "MARKETING" },
-  { id: "usr-8", name: "An", role: "RND" },
-  { id: "usr-9", name: "Lan", role: "RND" },
-];
+// Company roster — used to be a hardcoded mock array here. Now real: see
+// StaffProvider.tsx (fetches from /api/staff, backed by the `User` table)
+// — that file also re-exports the `StaffMember` shape callers used to
+// import from this one.
 
 export const CUSTOMERS = ["JYSK", "ADE", "SCG", "Habitat"];
 

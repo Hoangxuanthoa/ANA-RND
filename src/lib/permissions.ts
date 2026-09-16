@@ -1,4 +1,5 @@
-import { STAFF, type Role, type Project, type ProjectType, type Product, type Collection, type ProjectProductItem } from "@/lib/mock-data";
+import { type Role, type Project, type ProjectType, type Product, type Collection, type ProjectProductItem } from "@/lib/mock-data";
+import type { StaffMember } from "@/components/StaffProvider";
 
 export const canViewLibrary = (role: Role) => role !== "CUSTOMER";
 export const canCreateProduct = (role: Role) => role === "RND" || role === "ADMIN";
@@ -172,8 +173,8 @@ export function canReleaseProjectProduct(role: Role, userName: string, project: 
 // Who created a project, by role — looked up from the staff roster since
 // Project only stores the creator's name. Used to decide the internal
 // review path for that project's products (see canReviewAsCreator).
-export function projectCreatorRole(project: Project): Role | undefined {
-  return STAFF.find((s) => s.name === project.createdByName)?.role;
+export function projectCreatorRole(project: Project, staff: StaffMember[]): Role | undefined {
+  return staff.find((s) => s.name === project.createdByName)?.role;
 }
 
 // The first review stage for anything added to a project is always the

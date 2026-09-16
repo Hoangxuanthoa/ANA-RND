@@ -176,12 +176,60 @@ pass too, not deferred.
    confirmed the phone field in "Cập nhật thông tin" round-trips through
    a real `/api/me` PATCH (survives a full page reload).
 
-5. Then module by module, in dependency order: Staff/User → Products →
-   Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) → Collections
-   → RndTasks → Notifications → Settings. Each step: real API routes (or
-   server actions), swap that Provider's `useState(INITIAL_X)` for a real
-   fetch + real mutations, **keep the Provider's public hook interface
-   unchanged** (`useProducts()` etc.) so page components need zero changes.
+5. **Staff/User module wired to the real database (2026-09-16)** — the
+   hardcoded `STAFF` array in `mock-data.ts` (and its `StaffMember` type)
+   is gone; the company roster is now real rows in the `User` table.
+   - New `src/components/StaffProvider.tsx` (`useStaff()`) fetches from a
+     new `GET /api/staff` (any signed-in user — every role needs the
+     roster for pickers, not just Admin) and exposes `addStaff`/
+     `updateStaffRole`/`removeStaff`. Wired into `layout.tsx` right after
+     `RoleProvider`, ahead of everything that needs it.
+   - `POST /api/staff` (Admin-only) creates a real Supabase Auth user
+     (Admin sets the initial password directly in the form — same
+     no-email-confirmation approach as `scripts/seed-users.mjs`) plus the
+     matching `User` row. `PATCH /api/staff/[id]` changes role and/or
+     deactivates (`isActive: false`) — a real account can't be
+     hard-deleted without breaking every Product/Project/etc. that
+     references it, so "Xóa" in Settings' User tab now deactivates and
+     **also bans the real Supabase Auth login** (`ban_duration`), not
+     just hides them from pickers.
+   - Every call site that imported the mock `STAFF` constant now calls
+     `useStaff()` instead: `NewProjectModal`/`EditProjectModal` (Sales/
+     R&D owner pickers), `AddRndTaskModal` + `my-tasks/page.tsx`
+     (requester picker, Admin's doer filter/overview), `ProjectsProvider`/
+     `RndTasksProvider` (looking up Admin for a notification recipient),
+     and `permissions.ts`'s `projectCreatorRole` (now takes `staff` as a
+     parameter instead of importing the mock array directly, since it's a
+     plain function and can't call a hook itself). Settings' User tab
+     moved off `SettingsProvider` (which now only holds the PPTX template)
+     onto `useStaff()`, and gained Email + Mật khẩu tạm fields since a
+     real account needs both, not just a name.
+   - **Deliberately unchanged in this step:** Projects/Products/RndTasks
+     still store ownership as plain name strings (`rndOwner: "An"`, etc.),
+     matched against `StaffMember.name` — real staff rows were seeded
+     with the exact same names as the old mock array, so this is a
+     drop-in swap with zero data-shape changes elsewhere. Fixing
+     ownership to key off real `User.id` (the actual fix for the
+     multi-person-per-role gap flagged in the Auth entry above) happens
+     naturally once Projects/Products themselves migrate below — doing it
+     piecemeal here would leave those modules half-real, half-mock.
+   - Verified in the browser: Settings' User tab shows all 9 real people
+     with real emails; added a real "Test User" account through the form
+     (appeared immediately, survived a full reload); deactivated it
+     (disappeared from the list, survived a full reload — confirmed the
+     `isActive: true` filter in `GET /api/staff` is doing real filtering,
+     not just a client-side hide); confirmed New Project's Sales/R&D
+     owner dropdowns reflect the real roster.
+
+**Not done yet — next candidates in order:**
+6. Products → Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) →
+   Collections → RndTasks → Notifications → Settings (Category/Material/
+   Size/Color/AppSettings — the lookup tables, distinct from the Staff/
+   User work just finished). Each step: real API routes (or server
+   actions), swap that Provider's `useState(INITIAL_X)` for a real fetch +
+   real mutations, **keep the Provider's public hook interface unchanged**
+   (`useProducts()` etc.) so page components need zero changes. Products
+   should go first since Projects/Collections/RndTasks all reference it.
 
 ## Business rules worth knowing (so you don't re-derive them)
 
