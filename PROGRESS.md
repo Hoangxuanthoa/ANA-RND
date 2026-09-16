@@ -1126,6 +1126,29 @@ title swap too) and back; scroll-zoomed while fullscreen and confirmed
 both the image's `transform: scale(...)` changed **and**
 `window.scrollY` stayed at 0 throughout.
 
+**Follow-up (2026-09-16) — comments on Ảnh dự án photos:** the user
+pointed out photos had no way to leave notes/discussion, unlike
+Products/Projects/ProjectProduct which all already have a feedback
+thread. Added the same pattern: `ProjectPhoto.comments: FeedbackItem[]`
+(embedded directly on the photo, same spirit as
+`ProjectProductItem.feedback` — a photo folder entry is a small,
+self-contained item, not a top-level entity like Product/Project that
+warrants its own separate feedback array). `ProjectPhotosProvider` gained
+`addPhotoComment(id, content)` using the same `feedbackIdentity(role)`
+helper every other comment feature already uses; `addPhotos` now seeds
+`comments: []` on every new photo. New `PhotoCommentsModal.tsx` —
+deliberately its own small bounded quick-view modal (`max-w-[480px]`),
+not folded into the (much bigger) `PhotoViewerModal`, since commenting
+and full-size viewing are different intents. Each photo card gained a
+small comment-count button (speech-bubble icon + count) next to the
+Release button/badge, at the exact spot the user pointed at in a
+screenshot. Opening it looks up the live photo by id from the provider's
+list (not a snapshot passed in at click time), so the count/thread stay
+in sync immediately after posting — verified in the browser: posted a
+comment, it appeared in the modal instantly with the right
+author/role/time, and the card's count badge updated from 0 to 1 without
+closing the modal.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature

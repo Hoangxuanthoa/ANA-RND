@@ -671,6 +671,11 @@ export interface ProjectPhoto {
   url: string;
   uploadedAt: string;
   releasedProductCode?: string;
+  // A comment thread per photo — same shape/spirit as Product/Project
+  // feedback elsewhere, just embedded directly on the photo (like
+  // ProjectProductItem.feedback) rather than a separate top-level array,
+  // since a photo folder entry is a small, self-contained item.
+  comments: FeedbackItem[];
 }
 
 export const INITIAL_PROJECT_PHOTOS: ProjectPhoto[] = [];

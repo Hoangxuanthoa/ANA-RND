@@ -7,6 +7,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { NewProductModal } from "@/components/NewProductModal";
 import { PhotoViewerModal } from "@/components/PhotoViewerModal";
 import { PhotoExportModal } from "@/components/PhotoExportModal";
+import { PhotoCommentsModal } from "@/components/PhotoCommentsModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { safeFileName } from "@/lib/exportLayout";
 import { canCreateProduct } from "@/lib/permissions";
@@ -24,7 +25,7 @@ interface ProjectPhotosTabProps {
 }
 
 export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabProps) {
-  const { photos: allPhotos, addPhotos, deletePhoto, markPhotoReleased } = useProjectPhotos();
+  const { photos: allPhotos, addPhotos, deletePhoto, markPhotoReleased, addPhotoComment } = useProjectPhotos();
   const { createProductsBulk } = useProducts();
   const { addProductToProject, addProductsToProjectBulk } = useProjects();
   const canManage = canCreateProduct(role);
@@ -34,6 +35,8 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [releaseTarget, setReleaseTarget] = useState<ProjectPhoto | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ProjectPhoto | null>(null);
+  const [commentsTargetId, setCommentsTargetId] = useState<string | null>(null);
+  const commentsPhoto = photos.find((p) => p.id === commentsTargetId) ?? null;
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
@@ -218,21 +221,36 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
                 <div className="truncate text-[12px] font-semibold" title={p.fileName}>
                   {p.fileName}
                 </div>
-                {p.releasedProductCode ? (
-                  <span className="text-[11px] font-bold text-green">Đã release → {p.releasedProductCode}</span>
-                ) : canManage ? (
+                <div className="flex items-center justify-between gap-2">
+                  {p.releasedProductCode ? (
+                    <span className="truncate text-[11px] font-bold text-green">Đã release → {p.releasedProductCode}</span>
+                  ) : canManage ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReleaseTarget(p);
+                      }}
+                      className="h-7 w-fit flex-shrink-0 rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover"
+                    >
+                      Release
+                    </button>
+                  ) : (
+                    <span className="truncate text-[11px] text-text-faint">{p.uploadedAt}</span>
+                  )}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      setReleaseTarget(p);
+                      setCommentsTargetId(p.id);
                     }}
-                    className="h-7 w-fit rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover"
+                    title="Bình luận"
+                    className="flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold text-text-faint hover:bg-bg hover:text-text"
                   >
-                    Release
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
+                    </svg>
+                    {p.comments.length}
                   </button>
-                ) : (
-                  <span className="text-[11px] text-text-faint">{p.uploadedAt}</span>
-                )}
+                </div>
               </div>
             </div>
           );
@@ -242,6 +260,14 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
       {photos.length === 0 && (
         <div className="py-10 text-center text-sm text-text-faint">Chưa có ảnh nào trong dự án này.</div>
       )}
+
+      <PhotoCommentsModal
+        photo={commentsPhoto}
+        onAddComment={(content) => {
+          if (commentsTargetId) addPhotoComment(commentsTargetId, content);
+        }}
+        onClose={() => setCommentsTargetId(null)}
+      />
 
       {viewerIndex !== null && (
         <PhotoViewerModal
