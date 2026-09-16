@@ -11,11 +11,15 @@ interface ProfileModalProps {
   name: string;
   email: string;
   phone: string;
+  // False while viewing your own real account — email is the real login
+  // credential there, changing it means a real Supabase confirmation
+  // email round trip that isn't wired up yet, so it's shown read-only.
+  emailEditable?: boolean;
   onSave: (patch: { email: string; phone: string }) => void;
   onCancel: () => void;
 }
 
-export function ProfileModal({ open, role, name, email, phone, onSave, onCancel }: ProfileModalProps) {
+export function ProfileModal({ open, role, name, email, phone, emailEditable = true, onSave, onCancel }: ProfileModalProps) {
   const [emailInput, setEmailInput] = useState(email);
   const [phoneInput, setPhoneInput] = useState(phone);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -72,9 +76,13 @@ export function ProfileModal({ open, role, name, email, phone, onSave, onCancel 
           <input
             type="email"
             value={emailInput}
+            disabled={!emailEditable}
             onChange={(e) => setEmailInput(e.target.value)}
-            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15 disabled:bg-bg disabled:text-text-faint"
           />
+          {!emailEditable && (
+            <span className="text-[11.5px] text-text-faint">Email đăng nhập — chưa hỗ trợ đổi tại đây.</span>
+          )}
         </label>
 
         <label className="flex flex-col gap-1.5">

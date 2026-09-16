@@ -44,7 +44,7 @@ function NavLink({
 }
 
 export function TopNav() {
-  const { role, setRole, profile, updateProfile } = useRole();
+  const { role, setRole, isRealAdmin, isPreviewingSelf, profile, updateProfile, signOut } = useRole();
   const { products } = useProducts();
   const { notifications, markNotificationRead } = useNotifications();
   const router = useRouter();
@@ -97,20 +97,24 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-3.5">
-        <span className="text-[11px] font-semibold text-text-faint">Xem thử vai trò:</span>
-        <div className="flex rounded-lg border border-line bg-bg p-0.5">
-          {ROLES.map((r) => (
-            <button
-              key={r}
-              onClick={() => setRole(r)}
-              className={`rounded-md px-3 py-1.5 text-xs font-bold ${
-                role === r ? "bg-surface text-text shadow-sm" : "text-text-faint"
-              }`}
-            >
-              {ROLE_LABEL[r]}
-            </button>
-          ))}
-        </div>
+        {isRealAdmin && (
+          <>
+            <span className="text-[11px] font-semibold text-text-faint">Xem thử vai trò:</span>
+            <div className="flex rounded-lg border border-line bg-bg p-0.5">
+              {ROLES.map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRole(r)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-bold ${
+                    role === r ? "bg-surface text-text shadow-sm" : "text-text-faint"
+                  }`}
+                >
+                  {ROLE_LABEL[r]}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="relative" ref={bellRef}>
           <button
@@ -191,7 +195,7 @@ export function TopNav() {
               <button
                 onClick={() => {
                   setAccountOpen(false);
-                  router.push("/login");
+                  signOut();
                 }}
                 className="flex items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-red hover:bg-red-soft"
               >
@@ -213,6 +217,7 @@ export function TopNav() {
         name={userName}
         email={profile.email}
         phone={profile.phone}
+        emailEditable={!isPreviewingSelf}
         onSave={(patch) => {
           updateProfile(patch);
           setProfileModalOpen(false);

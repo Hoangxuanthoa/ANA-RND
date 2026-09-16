@@ -46,13 +46,12 @@ exactly how far it's gotten.
   is planned next (see "Backend wiring") but not built yet.
 - `prisma/schema.prisma` is now a real, live schema pushed to a real Supabase
   Postgres project (not just a design doc) — see "Backend wiring" below.
-  `src/lib/prisma.ts` and `src/lib/supabase.ts` exist but the app's pages
-  still don't call them yet — only `prisma migrate`/`db pull` from the CLI
-  has touched the real database so far.
-- Do not assume README's "Auth: Custom JWT via jose" is implemented — `jose`
-  isn't even in `package.json`. Real auth is going to be Supabase Auth
-  instead (see "Backend wiring") — the README's description is stale on this
-  point and should be corrected once auth actually lands.
+  `src/lib/prisma.ts` and `src/lib/supabase/*` are now actually in use for
+  real login (see "Backend wiring" — Auth is done); the rest of the app's
+  data (Products/Projects/etc.) still doesn't call them.
+- Real Auth is done (Supabase Auth, see "Backend wiring") — README now
+  reflects this correctly. If you see anything claiming "Custom JWT via
+  jose" anywhere, it's stale leftover text that should be fixed on sight.
 
 ## Backend wiring (in progress, started 2026-09-16)
 
@@ -92,8 +91,10 @@ pass too, not deferred.
      (`prisma/migrations/20260916034245_init/`) — treat it as the
      baseline; do not edit it after the fact, add new migrations instead.
 3. **App deployed to Vercel (2026-09-16)** —
-   [design-library-indol.vercel.app](https://design-library-indol.vercel.app),
-   GitHub repo `Hoangxuanthoa/design-library` connected for auto-deploy on
+   [ana-rnd.vercel.app](https://ana-rnd.vercel.app) (was
+   design-library-indol.vercel.app before the app-wide rename to ANA-RND,
+   see the note near the top of this file — that old URL still works too),
+   GitHub repo `Hoangxuanthoa/ANA-RND` connected for auto-deploy on
    push to `main`. Deliberately Vercel **Hobby (free)** for now, not Pro —
    the user knows this technically violates Vercel's ToS for a commercial/
    company system (this is exactly why the plan moved to a VPS back on
@@ -109,13 +110,72 @@ pass too, not deferred.
    signed up) — not wired into any code yet, comes up when the Products/
    ProjectPhotos module needs real file uploads.
 
-**Not done yet — next candidates in order:**
-4. Real Auth via Supabase Auth (in scope for this pass — the user chose
-   this over deferring it). Replace `/login`'s cosmetic flow and
-   `RoleProvider`'s manual role switcher with a real session; map
-   `auth.users` to the `User` table (`User.id` is designed to equal the
-   matching `auth.users.id`, not independently generated — see the schema
-   file header).
+4. **Real Auth via Supabase Auth (2026-09-16)** — `/login` now calls
+   `supabase.auth.signInWithPassword` for real; `src/middleware.ts` (+
+   `src/lib/supabase/middleware.ts`) gates every route except `/login`
+   behind having a real, server-revalidated session (`getUser()`, not
+   `getSession()` — the latter only reads a cookie, doesn't check it's
+   still valid). Split the old single `src/lib/supabase.ts` into
+   `src/lib/supabase/{client,server,admin}.ts` (browser client, SSR
+   server client via `@supabase/ssr`, and the service-role admin client)
+   since a real session needs all three, not just the one browser client
+   that existed before.
+
+   New `/api/me` route (GET the real identity — role/fullName/email/phone
+   from the `User` table via the session's `auth.users.id`; PATCH updates
+   `phone` only) is what `RoleProvider` now bootstraps from on mount,
+   instead of always defaulting to a hardcoded `"RND"`. Per the user's
+   explicit choice, **the existing "Xem thử vai trò" preview switcher is
+   kept, but only for the real Admin account** (`isRealAdmin`, computed
+   from the real fetched role, not the currently-previewed one) —
+   non-admin accounts see their own real role only, no switcher. The
+   switcher's underlying mechanism (a local `role` override + the old
+   per-role mock `CURRENT_USER_EMAIL`/`CURRENT_USER_PHONE` for whichever
+   role is being previewed) is otherwise unchanged from before real auth.
+
+   Ran a one-off `scripts/seed-users.mjs` to create real Supabase Auth
+   users + matching `User` rows for all 9 people in the `STAFF` list —
+   placeholder `@rattanco.vn` emails (real ones are coming later from the
+   user) and one shared temp password, so real login works today without
+   waiting on that. Idempotent (skips anyone whose auth user already
+   exists), safe to re-run once real emails arrive (would need updating,
+   not re-running as-is, since email is looked up to decide "already
+   exists").
+
+   **Scoping call, flagged clearly to the user:** this step is "real
+   login + real role gate", not yet "real per-person identity everywhere."
+   The rest of the app still resolves "who am I" via the old
+   `CURRENT_USER_NAME[role]` mock mapping (one fixed name per role,
+   e.g. `RND` always means "An") for all ownership checks
+   (`.startsWith(userName)` across Products/Projects/etc.) — that's
+   unchanged and deliberately deferred to the Staff/User migration step
+   below, since fixing it here alone (without also migrating those
+   modules) would leave the app in a worse, inconsistent half-state.
+   **Concrete near-term risk this creates:** SALES has 5 real people
+   (Hà/Hùng/Trang/Quân/Ngọc) and RND has 2 (An/Lan), but the mock mapping
+   only ever attributes ownership to one name per role — e.g. Hùng
+   logging in today would have his work show up as created by "Hà"
+   everywhere. Low-impact while only Minh (Admin) and An have been smoke
+   tested, but this should push the Staff/User + Projects/Products
+   migration up in priority rather than treating it as just another item
+   in the list.
+
+   Also flagged: real password change isn't wired up yet (`ProfileModal`'s
+   password fields are still cosmetic/no-op, pre-dates this change) —
+   worth doing very soon given every seeded account currently shares one
+   temp password. Email editing for a real account is intentionally
+   disabled in the UI (`emailEditable` prop) rather than half-wired, since
+   a real change there needs a Supabase confirmation-email round trip
+   that placeholder `@rattanco.vn` addresses can't receive.
+
+   Verified in the browser end-to-end: real login as Minh (Admin) and An
+   (RND), confirmed the preview switcher still works for Admin and is
+   completely absent for An, confirmed sign-out clears the session
+   (`sb-*-auth-token` cookie) and redirects to `/login`, confirmed a
+   direct/root navigation with no session redirects to `/login`, and
+   confirmed the phone field in "Cập nhật thông tin" round-trips through
+   a real `/api/me` PATCH (survives a full page reload).
+
 5. Then module by module, in dependency order: Staff/User → Products →
    Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) → Collections
    → RndTasks → Notifications → Settings. Each step: real API routes (or

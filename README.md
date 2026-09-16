@@ -12,7 +12,8 @@ from designers, sales, and customers.
   through [Prisma](https://www.prisma.io/)
 - **File storage**: Supabase Storage (3D model files, thumbnails)
 - **Styling**: Tailwind CSS
-- **Auth**: Custom JWT (httpOnly cookie), via [jose](https://github.com/panva/jose)
+- **Auth**: [Supabase Auth](https://supabase.com/docs/guides/auth) (email +
+  password), via `@supabase/ssr` for cookie-based sessions
 
 ## Project structure
 
@@ -20,14 +21,18 @@ from designers, sales, and customers.
 prisma/schema.prisma        Database schema: User, Customer, Category, Material,
                              Product, ProductAsset, ProductVersion, Project,
                              ProjectProduct, Collection, CollectionItem,
-                             Feedback, Activity
+                             Feedback, Activity, RndTask, ProjectPhoto, and more
 src/app/                    Routes (pages + API routes)
-src/app/api/auth/           Register / login / logout / me
+src/app/api/me/             GET the current session's real identity (role/name/
+                             email/phone from the User table); PATCH to update phone
+src/app/login/              Real Supabase Auth sign-in page
 src/lib/prisma.ts           Prisma client singleton
-src/lib/supabase.ts         Supabase client (browser) + admin client (server)
-src/lib/auth.ts             JWT sign/verify, password hashing
-src/lib/session.ts          Read the current session from cookies
-src/middleware.ts           Route protection (redirects /dashboard/* to /login)
+src/lib/supabase/client.ts  Browser Supabase client (Client Components)
+src/lib/supabase/server.ts  Server Supabase client (Server Components, Route Handlers)
+src/lib/supabase/admin.ts   Service-role client — server-only, manages auth users
+src/lib/supabase/middleware.ts  Session refresh + route gate, called from src/middleware.ts
+src/middleware.ts           Redirects unauthenticated requests to /login (and back)
+scripts/seed-users.mjs      One-off: creates the initial 9 staff Supabase Auth users
 ```
 
 ## Getting started
@@ -37,7 +42,6 @@ src/middleware.ts           Route protection (redirects /dashboard/* to /login)
      Database → Connection string (pooled + direct).
    - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` /
      `SUPABASE_SERVICE_ROLE_KEY` — from Supabase project settings → API.
-   - `JWT_SECRET` — generate with `openssl rand -base64 32`.
 
 2. Install dependencies:
 
@@ -45,13 +49,20 @@ src/middleware.ts           Route protection (redirects /dashboard/* to /login)
    npm install
    ```
 
-3. Push the schema to your Supabase database:
+3. Apply the schema to your Supabase database:
 
    ```bash
-   npm run db:push
+   npm run db:migrate
    ```
 
-4. Run the dev server:
+4. Create the initial staff accounts (placeholder emails/shared temp
+   password — see the script's header comment):
+
+   ```bash
+   node --env-file=.env scripts/seed-users.mjs
+   ```
+
+5. Run the dev server:
 
    ```bash
    npm run dev
@@ -61,22 +72,22 @@ src/middleware.ts           Route protection (redirects /dashboard/* to /login)
 
 ## Notes / TODO
 
-- Auth roles: `RND`, `SALES`, `CUSTOMER`, `ADMIN` (`Role` enum in
-  `prisma/schema.prisma`). `/api/auth/register` defaults new users to `RND`.
-- The submitted schema had 5 relations missing their opposite field, which
-  Prisma requires on both sides — fixed while wiring it up:
-  - `Product.feedback` / `Product.activity` back-relations added (`Feedback`
-    and `Activity` both have an optional `productId`).
-  - `ProductVersion.resolvedFeedback` (named relation `ResolvedInVersion`)
-    added for `Feedback.resolvedInVersionId`.
-  - `User.addedProjectProducts` added for `ProjectProduct.addedById`.
-  - `ProjectProduct.feedback` removed — it had no matching foreign key on
-    `Feedback` (which links to project/product/version, not the
-    project-product pairing directly). Add a `projectProductId` on
-    `Feedback` if that link turns out to be needed.
-- `directUrl` was added to the `datasource` block (pointing at `DIRECT_URL`)
-  so `prisma migrate` can bypass Supabase's connection pooler, which is
-  required for migrations to work reliably.
+- Auth roles: `ADMIN`, `RND`, `SALES`, `MARKETING`, `CUSTOMER` (`Role` enum
+  in `prisma/schema.prisma`). A real account is a Supabase Auth user *plus*
+  a matching `User` row with the same `id` — creating just one half (e.g.
+  via the Supabase dashboard) isn't enough on its own, see
+  `scripts/seed-users.mjs` for the pattern.
+- Admin gets a "Xem thử vai trò" switcher (top nav) to preview any other
+  role's UI without actually being that person — see `RoleProvider.tsx`.
+  Non-admin accounts always see their own real role only.
+- The rest of the app (Products/Projects/Collections/etc.) still runs on
+  the in-memory mock data in `src/lib/mock-data.ts`, not the real database
+  — only login/session and `/api/me` (role/name/email/phone, plus updating
+  phone) are wired to real data so far. See `PROGRESS.md`'s "Backend
+  wiring" section for the module-by-module plan for the rest.
+- Known gap: real password change isn't wired up yet (the "Đổi mật khẩu"
+  fields in the profile modal are still cosmetic) — worth prioritizing
+  since every seeded account currently shares one temp password.
 - `npm audit` currently reports high-severity issues in `postcss`/`sharp`
   that are only fixed by upgrading to Next.js 16 — left as-is since the
   stack targets Next.js 15; revisit before going to production.

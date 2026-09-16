@@ -2,16 +2,29 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading">("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setStatus("loading");
-    setTimeout(() => router.push("/dashboard"), 700);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      setError("Email hoặc mật khẩu không đúng.");
+      setStatus("idle");
+      return;
+    }
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
@@ -24,13 +37,20 @@ export default function LoginPage() {
           <p className="text-sm text-text-muted">Dùng tài khoản công ty được Admin cấp.</p>
         </div>
 
+        {error && (
+          <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-2.5 text-[13px] font-semibold text-red">
+            {error}
+          </div>
+        )}
+
         <div className="flex flex-col gap-4">
           <label className="flex flex-col gap-1.5">
             <span className="text-[13px] font-semibold">Email</span>
             <input
               type="email"
               required
-              defaultValue="rnd.designer@rattanco.vn"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="h-11 rounded-lg border border-line bg-surface px-3.5 text-sm focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
             />
           </label>
@@ -41,7 +61,8 @@ export default function LoginPage() {
               <input
                 type={showPw ? "text" : "password"}
                 required
-                defaultValue="password123"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="h-11 w-full rounded-lg border border-line bg-surface px-3.5 pr-11 text-sm focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
               />
               <button
