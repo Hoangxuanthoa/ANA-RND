@@ -1674,6 +1674,63 @@ each module's own pass (not newly discovered gaps): the Activity feed
 upload), and real password self-service change (`ProfileModal`'s
 password fields are still a no-op).
 
+## Retired "Xem thử vai trò" role preview + fixed the avatar-initials bug it was masking (2026-09-17)
+
+The user spotted this right after using the app as their real account
+for the first time: the TopNav avatar showed "MI" for Henry, and the
+Admin-only "Xem thử vai trò" switcher was still visible even though
+every role now has real people logged in as themselves — both were
+leftover dev-only tooling that had outlived their purpose now that
+backend wiring is fully done.
+
+**Removed the switcher entirely**, not just hidden: `RoleProvider.tsx`
+lost `setRole`/`isRealAdmin`/`isPreviewingSelf`/`previewProfiles` (the
+whole "Admin can browse as a different role" mechanism) along with the
+mock `CURRENT_USER_EMAIL`/`CURRENT_USER_PHONE` fallback data it read
+from — `role`/`effectiveUserName`/`profile` now always reflect the real
+signed-in account, full stop. `TopNav.tsx` dropped the switcher UI.
+`ProfileModal`'s email field was only ever conditionally editable while
+previewing a non-real role (a real account's login email was already
+always shown read-only) — simplified to just always read-only, dropping
+the now-dead `emailEditable` prop and its local `emailInput` state.
+
+**Root-caused the "MI" avatar as a real, separate bug, not just a
+symptom of the switcher:** the account avatar (and ~7 other "your own
+initials while composing a new comment" bubbles across Library/
+Projects/Photo modals/ProjectProductQuickView) all read `ROLE_INITIALS[role]`
+— a fixed pair of letters per role from the mock's original 5-persona
+design (`ADMIN: "MI"` for the mock's original "Minh" persona), never
+updated once real per-person accounts existed. Historical/submitted
+comments were never affected — those already resolve real per-person
+initials server-side via `feedbackAuthor()` in `src/lib/server/
+identity.ts`. Fixed by adding a shared `initialsFromName()` to
+`mock-data.ts` and pointing every "my own avatar" spot at
+`initialsFromName(effectiveUserName)` instead; `identity.ts` now
+imports the same function instead of keeping its own duplicate copy.
+Also deleted `feedbackIdentity()` (mock-data.ts) and `ROLE_INITIALS`
+itself once nothing referenced them anymore — both were already fully
+dead code before this pass, just never cleaned up.
+
+**A second real bug found while writing `initialsFromName`, not
+inherited from the old mock code:** the "first letter of first word +
+first letter of last word" algorithm (copied as-is from the already-
+live server version) doubles the same letter for a one-word name —
+"Henry" → "HH", "Minh" → "MM" — and **every single real person at this
+company goes by one given name**, confirmed by checking the actual
+`User` table (Minh, Hùng, Trang, Quân, Ngọc, Linh, Lan, An, Henry, Hà —
+zero multi-word names). Fixed by taking a single-word name's own first
+two letters instead ("Henry" → "HE", "Minh" → "MI"). This also
+retroactively fixes every future real comment's displayed initials
+(nothing stored needs a data fix — initials are computed at
+render/serialize time, not persisted).
+
+Verified in the browser: TopNav avatar and the "Cập nhật thông tin"
+modal both now show "HE" for Henry, switcher is gone from TopNav
+entirely, `tsc --noEmit` and eslint clean. Not yet re-verified on
+production — this is a small, low-risk UI-only change; push and a
+quick visual check is enough, doesn't need the full smoke-test
+discipline the backend migrations got.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ROLE_LABEL, ROLE_INITIALS, type Role } from "@/lib/mock-data";
+import { ROLE_LABEL, initialsFromName, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -11,16 +11,11 @@ interface ProfileModalProps {
   name: string;
   email: string;
   phone: string;
-  // False while viewing your own real account — email is the real login
-  // credential there, changing it means a real Supabase confirmation
-  // email round trip that isn't wired up yet, so it's shown read-only.
-  emailEditable?: boolean;
-  onSave: (patch: { email: string; phone: string }) => void;
+  onSave: (patch: { phone: string }) => void;
   onCancel: () => void;
 }
 
-export function ProfileModal({ open, role, name, email, phone, emailEditable = true, onSave, onCancel }: ProfileModalProps) {
-  const [emailInput, setEmailInput] = useState(email);
+export function ProfileModal({ open, role, name, email, phone, onSave, onCancel }: ProfileModalProps) {
   const [phoneInput, setPhoneInput] = useState(phone);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -48,7 +43,7 @@ export function ProfileModal({ open, role, name, email, phone, emailEditable = t
       }
     }
     setPasswordError("");
-    onSave({ email: emailInput, phone: phoneInput });
+    onSave({ phone: phoneInput });
   }
 
   return (
@@ -63,7 +58,7 @@ export function ProfileModal({ open, role, name, email, phone, emailEditable = t
           <div
             className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${TINT_AVATAR_BG[role]}`}
           >
-            {ROLE_INITIALS[role]}
+            {initialsFromName(name)}
           </div>
           <div>
             <p className="text-[13.5px] font-bold">{name}</p>
@@ -75,14 +70,11 @@ export function ProfileModal({ open, role, name, email, phone, emailEditable = t
           <span className="text-[12.5px] font-semibold">Email</span>
           <input
             type="email"
-            value={emailInput}
-            disabled={!emailEditable}
-            onChange={(e) => setEmailInput(e.target.value)}
-            className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15 disabled:bg-bg disabled:text-text-faint"
+            value={email}
+            disabled
+            className="h-10 rounded-lg border border-line bg-bg px-3 text-[13px] text-text-faint"
           />
-          {!emailEditable && (
-            <span className="text-[11.5px] text-text-faint">Email đăng nhập — chưa hỗ trợ đổi tại đây.</span>
-          )}
+          <span className="text-[11.5px] text-text-faint">Email đăng nhập — chưa hỗ trợ đổi tại đây.</span>
         </label>
 
         <label className="flex flex-col gap-1.5">

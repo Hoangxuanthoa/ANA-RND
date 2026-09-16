@@ -8,14 +8,6 @@ export const ROLE_LABEL: Record<Role, string> = {
   CUSTOMER: "Customer",
 };
 
-export const ROLE_INITIALS: Record<Role, string> = {
-  ADMIN: "MI",
-  RND: "AN",
-  SALES: "HA",
-  MARKETING: "LI",
-  CUSTOMER: "JY",
-};
-
 // Plain name of "the person currently previewing this role" — matches the
 // `sales` / `rndOwner` / `createdByName` strings in the mock data below, so
 // ownership checks (canEditProject, isAssignedRndOwner, ...) have someone
@@ -28,25 +20,6 @@ export const CURRENT_USER_NAME: Record<Role, string> = {
   CUSTOMER: "JYSK",
 };
 
-// Default contact info shown in the account dropdown / profile modal —
-// editable there (kept in RoleProvider, per role), but never used for
-// ownership/identity matching. That stays keyed on CURRENT_USER_NAME above.
-export const CURRENT_USER_EMAIL: Record<Role, string> = {
-  ADMIN: "minh@rattanco.vn",
-  RND: "an@rattanco.vn",
-  SALES: "ha@rattanco.vn",
-  MARKETING: "linh@rattanco.vn",
-  CUSTOMER: "purchasing@jysk.com",
-};
-
-export const CURRENT_USER_PHONE: Record<Role, string> = {
-  ADMIN: "090 123 4567",
-  RND: "090 234 5678",
-  SALES: "090 345 6789",
-  MARKETING: "090 456 7890",
-  CUSTOMER: "090 567 8901",
-};
-
 // Company roster — used to be a hardcoded mock array here. Now real: see
 // StaffProvider.tsx (fetches from /api/staff, backed by the `User` table)
 // — that file also re-exports the `StaffMember` shape callers used to
@@ -54,20 +27,22 @@ export const CURRENT_USER_PHONE: Record<Role, string> = {
 
 export const CUSTOMERS = ["JYSK", "ADE", "SCG", "Habitat"];
 
-// How a person's comment should be attributed, derived from whichever
-// role they're currently browsing as — keeps every feedback thread
-// (product, project, project-product) formatted the same way.
-export function feedbackIdentity(role: Role): { author: string; initials: string; tint: "accent" | "blue" | "green" | "amber" } {
-  const name = CURRENT_USER_NAME[role];
-  const tint: Record<Role, "accent" | "blue" | "green" | "amber"> = {
-    ADMIN: "accent",
-    RND: "blue",
-    SALES: "amber",
-    MARKETING: "accent",
-    CUSTOMER: "green",
-  };
-  const author = role === "CUSTOMER" ? `${name} Buyer` : `${name} (${ROLE_LABEL[role]})`;
-  return { author, initials: ROLE_INITIALS[role], tint: tint[role] };
+// Real per-person initials — an avatar bubble showing "who's about to
+// post this" should identify the actual signed-in person, not a fixed
+// per-role placeholder (every real R&D person used to show as the same
+// "AN" regardless of who they are). Reused server-side too, see
+// src/lib/server/identity.ts. Everyone at this company goes by a single
+// given name (Minh, An, Henry, ...), never "first + last" — taking one
+// letter from each of "first" and "last" word would double the same
+// letter for a one-word name ("Henry" -> "HH"), so a single-word name
+// takes its own first two letters instead ("Henry" -> "HE").
+export function initialsFromName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "??";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  const first = parts[0][0] ?? "";
+  const last = parts[parts.length - 1][0] ?? first;
+  return (first + last).toUpperCase();
 }
 
 export type ProductStatus =

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ROLE_INITIALS, type ProjectProductItem, type Product } from "@/lib/mock-data";
+import { initialsFromName, type ProjectProductItem, type Product } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { PhotoViewerModal } from "@/components/PhotoViewerModal";
@@ -51,7 +51,7 @@ export function ProjectProductQuickView({
   onEditProduct,
   onClose,
 }: ProjectProductQuickViewProps) {
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
   const { addProjectProductFeedback } = useProjects();
   const [commentText, setCommentText] = useState("");
   const [requestingChange, setRequestingChange] = useState(false);
@@ -283,7 +283,7 @@ export function ProjectProductQuickView({
 
             <div className="flex items-start gap-2.5 pt-1">
               <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10.5px] font-bold text-white">
-                {ROLE_INITIALS[role]}
+                {initialsFromName(effectiveUserName)}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea

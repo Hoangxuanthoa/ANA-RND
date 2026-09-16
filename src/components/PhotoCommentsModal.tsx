@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ROLE_INITIALS, type ProjectPhoto } from "@/lib/mock-data";
+import { initialsFromName, type ProjectPhoto } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 
@@ -16,7 +16,7 @@ interface PhotoCommentsModalProps {
 // small, self-contained item, so it gets a small, self-contained modal
 // rather than being folded into the (much heavier) photo viewer.
 export function PhotoCommentsModal({ photo, onAddComment, onClose }: PhotoCommentsModalProps) {
-  const { role } = useRole();
+  const { effectiveUserName } = useRole();
   const [commentText, setCommentText] = useState("");
 
   if (!photo) return null;
@@ -72,7 +72,7 @@ export function PhotoCommentsModal({ photo, onAddComment, onClose }: PhotoCommen
 
         <div className="flex items-start gap-2.5 border-t border-line p-4">
           <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10.5px] font-bold text-white">
-            {ROLE_INITIALS[role]}
+            {initialsFromName(effectiveUserName)}
           </div>
           <div className="flex flex-1 flex-col gap-2">
             <textarea

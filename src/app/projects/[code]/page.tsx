@@ -15,7 +15,7 @@ import { BulkUploadModal } from "@/components/BulkUploadModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
 import { ProjectPhotosTab } from "@/components/ProjectPhotosTab";
 import { useProjectPhotos } from "@/components/ProjectPhotosProvider";
-import { ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
+import { initialsFromName, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
   projectStatusBadge,
   projectTypeBadge,
@@ -434,7 +434,7 @@ export default function ProjectDetailPage() {
             )}
             <div className="flex items-start gap-2.5">
               <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
-                {ROLE_INITIALS[role]}
+                {initialsFromName(effectiveUserName)}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea

@@ -7,11 +7,9 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useNotifications } from "@/components/NotificationsProvider";
 import { ProfileModal } from "@/components/ProfileModal";
-import { ROLE_LABEL, ROLE_INITIALS, type Role } from "@/lib/mock-data";
+import { ROLE_LABEL, initialsFromName } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections } from "@/lib/permissions";
-
-const ROLES: Role[] = ["ADMIN", "RND", "SALES", "MARKETING", "CUSTOMER"];
 
 function NavLink({
   href,
@@ -44,7 +42,7 @@ function NavLink({
 }
 
 export function TopNav() {
-  const { role, setRole, isRealAdmin, isPreviewingSelf, effectiveUserName, profile, updateProfile, signOut } = useRole();
+  const { role, effectiveUserName, profile, updateProfile, signOut } = useRole();
   const { products } = useProducts();
   const { notifications, markNotificationRead } = useNotifications();
   const router = useRouter();
@@ -101,25 +99,6 @@ export function TopNav() {
       </div>
 
       <div className="flex items-center gap-3.5">
-        {isRealAdmin && (
-          <>
-            <span className="text-[11px] font-semibold text-text-faint">Xem thử vai trò:</span>
-            <div className="flex rounded-lg border border-line bg-bg p-0.5">
-              {ROLES.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setRole(r)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-bold ${
-                    role === r ? "bg-surface text-text shadow-sm" : "text-text-faint"
-                  }`}
-                >
-                  {ROLE_LABEL[r]}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
         <div className="relative" ref={bellRef}>
           <button
             onClick={() => setBellOpen((v) => !v)}
@@ -171,7 +150,7 @@ export function TopNav() {
             onClick={() => setAccountOpen((v) => !v)}
             className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white ${TINT_AVATAR_BG[role]}`}
           >
-            {ROLE_INITIALS[role]}
+            {initialsFromName(userName)}
           </button>
 
           {accountOpen && (
@@ -221,7 +200,6 @@ export function TopNav() {
         name={userName}
         email={profile.email}
         phone={profile.phone}
-        emailEditable={!isPreviewingSelf}
         onSave={(patch) => {
           updateProfile(patch);
           setProfileModalOpen(false);

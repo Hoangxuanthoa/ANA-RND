@@ -10,7 +10,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UploadVersionModal } from "@/components/UploadVersionModal";
-import { ROLE_INITIALS, formatSizeVariantDimensions, type VersionItem } from "@/lib/mock-data";
+import { initialsFromName, formatSizeVariantDimensions, type VersionItem } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -425,7 +425,7 @@ export default function ProductDetailPage() {
             )}
             <div className="flex items-start gap-2.5 pt-1.5">
               <div className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-bold text-white">
-                {ROLE_INITIALS[role]}
+                {initialsFromName(effectiveUserName)}
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <textarea

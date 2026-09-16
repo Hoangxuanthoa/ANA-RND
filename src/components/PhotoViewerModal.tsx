@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ROLE_INITIALS, type FeedbackItem } from "@/lib/mock-data";
+import { initialsFromName, type FeedbackItem } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { TINT_BG, TINT_FG } from "@/lib/badges";
 
@@ -44,7 +44,7 @@ const MAX_ZOOM = 3;
 // just removes the outer padding/max-width/rounding and lets it fill
 // the viewport instead.
 export function PhotoViewerModal({ photos, index, onIndexChange, onClose, comments }: PhotoViewerModalProps) {
-  const { role } = useRole();
+  const { effectiveUserName } = useRole();
   const [zoom, setZoom] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [commentText, setCommentText] = useState("");
@@ -218,7 +218,7 @@ export function PhotoViewerModal({ photos, index, onIndexChange, onClose, commen
               </div>
               <div className="flex flex-shrink-0 items-start gap-2.5 border-t border-line p-4">
                 <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent text-[10.5px] font-bold text-white">
-                  {ROLE_INITIALS[role]}
+                  {initialsFromName(effectiveUserName)}
                 </div>
                 <div className="flex flex-1 flex-col gap-2">
                   <textarea
