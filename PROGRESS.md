@@ -1192,6 +1192,32 @@ the same passive-`onWheel` background-scroll-leak bug already fixed in
 `PhotoViewerModal` this session — console showed repeated
 "Unable to preventDefault inside passive event listener" while testing.
 
+**Follow-up (2026-09-16) — stacked-modal close bug + comment sidebar in
+image zoom:** the user found the new product-thumbnail zoom viewer had
+a real bug: since it renders nested inside `ProjectProductQuickView`'s
+own backdrop (so it can stack visually on top), a click on the
+viewer's own backdrop bubbled up through the unstopped click event to
+the parent quick view's backdrop `onClick`, closing both modals at
+once when the user only meant to dismiss the zoomed image. Fixed by
+adding `e.stopPropagation()` before calling `onClose` on
+`PhotoViewerModal`'s backdrop click — harmless for its other, unnested
+usage in `ProjectPhotosTab`.
+Same message also proposed adding a comment column right in the image
+viewer, so a reviewer doesn't have to bounce between the zoomed image
+and the status quick view's feedback thread below it — agreed this was
+reasonable and implemented it as an optional `comments` prop on
+`PhotoViewerModal` (`{ items: FeedbackItem[], onAdd }`), rendered as a
+`w-[300px]` bordered side column with the same avatar/tint/textarea
+markup as every other feedback thread in the app. Only
+`ProjectProductQuickView` passes it in (wired to the same
+`item.feedback` / `addProjectProductFeedback` already backing its own
+feedback section), so writing a comment from either place updates the
+same list — verified in the browser: posted one comment from the
+status quick view, opened the zoom viewer and saw it already there,
+posted a second comment from inside the zoom sidebar, closed the
+viewer (confirmed only the viewer closed, quick view stayed open) and
+saw both comments present in the quick view's own feedback list.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
