@@ -1239,6 +1239,67 @@ user-facing string naming the old tabs (both `ConfirmDialog`
 descriptions in `ProjectPhotosTab`, the PPTX/PDF export
 `collectionName` in `PhotoExportModal`) plus two stale code comments.
 
+## Backend wiring: Products module goes real (2026-09-16)
+
+The user decided features are "good enough for now" and asked to wire
+the backend for real so the team can start using it and give feedback
+from actual usage, instead of only his own judgment. Planned (in plan
+mode, approved) and built the first slice: a Cloudflare R2 storage
+foundation, then the full **Products** module — matching the migration
+order already set (Products → Projects → Collections → RndTasks →
+Notifications → Settings). Real Products/Category/Material/Size/Color
+data start **empty** (user's choice) except the lookup taxonomy itself
+and 4 seeded Customers (`scripts/seed-catalog.mjs`) — real company
+data, not demo content.
+
+**R2 setup note:** the user already runs other sites on this Cloudflare
+account, so R2 was set up with an isolated bucket + a token scoped to
+only that bucket (never "all buckets") to avoid any risk to the other
+sites — walked through step-by-step rather than navigated for them,
+since it touches a shared account.
+
+Full technical detail lives in the two commit messages (`8165cdd` R2
+foundation, `3d6b123` Products backend) — summary here:
+- `src/lib/storage/r2.ts` + `/api/upload`: generic, any-module-reusable
+  image upload over the S3-compatible protocol (not R2's own SDK), per
+  the portability rule already agreed for this app.
+- Full `/api/products/*` + `/api/categories|materials|sizes|colors/*`
+  route surface, same auth pattern as Staff/User (session checked via
+  Supabase, role re-checked server-side from Prisma, client role never
+  trusted). `ProductsProvider.tsx` rewritten to hit these instead of
+  mock arrays with **zero call-site changes** at ~15 consumers — still
+  addressed by business code everywhere, real UUID id never leaves the
+  server.
+- `RoleProvider` now exposes the real signed-in identity
+  (`effectiveUserName`) — the first real fix of the long-flagged
+  `CURRENT_USER_NAME` mock-identity gap, applied to every
+  Products-ownership check; Projects/Collections checks in the same
+  files deliberately keep the mock name until their own migration turn
+  (mixing real and mock ownership in one file needed care — documented
+  inline at each split).
+- Found and fixed a real bug this exposed: three product quick-view
+  modals (Library, Duyệt sản phẩm, Collection detail) held a frozen
+  `Product` snapshot from click-time instead of re-deriving it from the
+  live list, so a mutation made from inside the open modal (favoriting,
+  approving) didn't visibly update until closed and reopened. Now keyed
+  by code, re-derived every render — same pattern already used for
+  ProjectPhotosTab's photo quick views.
+
+**Verified end-to-end in the browser** against the real Supabase DB
+(logged in as Henry's real Admin account): created a product (server
+generated the code) → approved it → favorited it → posted a comment —
+each step survived a hard reload. Renamed a category, confirmed the
+rename persisted and cascaded into the already-fetched product list.
+Did not yet test real image upload/crop end-to-end — that needs the R2
+credentials the user is still gathering; code path is in place and
+will be verified once they land.
+
+**Deliberately not done this pass** (next module's turn): Projects +
+Ảnh dự án + the in-project approval pipeline, Collections, RndTasks,
+Notifications (Products still calls the old mock `addNotification()` —
+harmless, since that provider is 100% client-side and never depended
+on by anything real), Settings' PPTX template.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
