@@ -80,15 +80,32 @@ pass too, not deferred.
      22 models / 15 enums exist for real. This is migration `init`
      (`prisma/migrations/20260916034245_init/`) — treat it as the
      baseline; do not edit it after the fact, add new migrations instead.
+3. **App deployed to Vercel (2026-09-16)** —
+   [design-library-indol.vercel.app](https://design-library-indol.vercel.app),
+   GitHub repo `Hoangxuanthoa/design-library` connected for auto-deploy on
+   push to `main`. Deliberately Vercel **Hobby (free)** for now, not Pro —
+   the user knows this technically violates Vercel's ToS for a commercial/
+   company system (this is exactly why the plan moved to a VPS back on
+   2026-08-29, see the hosting-plan memory) and accepted that risk
+   short-term since the app isn't live for real company use yet. **This is
+   a temporary testing setup, not the final answer** — bring up migrating
+   to a real VPS once backend wiring + auth are done and the app is
+   heading toward real use; don't let it quietly become permanent by
+   default. All 6 env vars from `.env` were entered into the Vercel
+   project's Environment Variables (Production and Preview) by hand —
+   verified the deploy builds clean and the app loads/logs in identically
+   to local. Storage is still Cloudflare R2 per the hosting plan (already
+   signed up) — not wired into any code yet, comes up when the Products/
+   ProjectPhotos module needs real file uploads.
 
 **Not done yet — next candidates in order:**
-3. Real Auth via Supabase Auth (in scope for this pass — the user chose
+4. Real Auth via Supabase Auth (in scope for this pass — the user chose
    this over deferring it). Replace `/login`'s cosmetic flow and
    `RoleProvider`'s manual role switcher with a real session; map
    `auth.users` to the `User` table (`User.id` is designed to equal the
    matching `auth.users.id`, not independently generated — see the schema
    file header).
-4. Then module by module, in dependency order: Staff/User → Products →
+5. Then module by module, in dependency order: Staff/User → Products →
    Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) → Collections
    → RndTasks → Notifications → Settings. Each step: real API routes (or
    server actions), swap that Provider's `useState(INITIAL_X)` for a real
