@@ -1314,6 +1314,104 @@ Notifications (Products still calls the old mock `addNotification()` —
 harmless, since that provider is 100% client-side and never depended
 on by anything real), Settings' PPTX template.
 
+## Backend wiring: Notifications + Projects module go real (2026-09-16/17)
+
+User asked to finish this module fully and test it all in one pass
+("làm tiếp Projects đi bạn, bạn cứ hoàn thiện hết đi, test 1 thể").
+Rereading the module first surfaced that **Projects fires 8 of the
+app's 11 notification types** — by far the heaviest notification user
+in the app — and that the Products migration had silently dropped
+notifications entirely (its mutation logic moved server-side, so the
+old mock `addNotification()` calls embedded in that logic never fire
+anymore; no visible error, just a quietly regressed feature). Doing
+Projects the same way would make that regression obvious and painful
+(Sales wouldn't know when to review, R&D wouldn't know about a
+rejection), so **real Notifications** were built first as a small
+prerequisite, and Products' missing notification calls were patched
+retroactively in the same pass.
+
+**Notifications (new, real):** `src/lib/server/notify.ts` — one shared
+`notify({userId, type, title, message, link})` helper any route calls
+inline to create a real row, keyed by the actual recipient's user id
+(no more name-matching). `GET /api/notifications` (mine) + `PATCH
+/api/notifications/[id]` (mark read, ownership-checked).
+`NotificationsProvider.tsx` rewritten to fetch/mark-read for real;
+`addNotification()` is kept as a local-only, unsynced fallback (id
+prefixed `local-`) purely so still-mock Collections/RndTasks keep
+working unchanged until their own migration turn. Patched retroactively
+into Products' approve/reject/feedback routes (`PRODUCT_APPROVED`/
+`PRODUCT_REJECTED`/`NEW_FEEDBACK`), closing the regression above.
+
+**Projects module, full real backend:** same proven pattern as
+Products (session-derived identity, role re-checked server-side,
+Provider keeps its exact public interface so ~10 call-site files needed
+zero function-signature changes beyond `createProject` becoming
+`async`). Covers: Project CRUD + `close`/`complete`, the full
+ProjectProduct review state machine (creator/Sales approval → customer
+approval, reject/resubmit, auto-complete when every item is Approved,
+using the real `projectCreatorRole` role-branching logic — needed zero
+rewrite since both Project and Staff were already real by this point),
+and Ảnh dự án (ProjectPhoto: real raw-image upload replacing the old
+session-only `blob:` URL, delete, comments, and "Release" into a real
+Product). A small schema migration
+(`20260916160154_add_project_photo_comments`) added `Feedback.
+projectPhotoId` so photo comments persist for real — additive only,
+no data touched. Since `Feedback` is one shared flat table (not
+embedded per-parent), any type that embeds feedback/comments inline
+client-side (project products' feedback, photo comments) is served via
+a flat GET endpoint merged client-side in the provider, same approach
+Products already used.
+
+**Real bug found and fixed during testing — R2 free-tier CORS
+limitation:** cropping an already-uploaded (not freshly-picked) photo
+during Release draws it onto a `<canvas>`, which throws a "tainted
+canvas" `SecurityError` unless the image loaded with proper CORS.
+Configured the bucket's CORS Policy first, but direct
+`fetch(url, {mode:'cors'})` testing in the browser proved R2's free
+"Public Development URL" (`*.r2.dev`) doesn't send
+`Access-Control-Allow-Origin` **at all**, regardless of the bucket's
+CORS policy — only a custom domain would honor it, and one isn't set
+up yet. Fixed architecturally instead of waiting on a custom domain:
+new `GET /api/image-proxy?url=...` (auth-checked, only re-serves URLs
+under `R2_PUBLIC_URL`) re-fetches the image server-side and returns it
+same-origin; `cropImage.ts`'s `loadImage()` now routes any non-`blob:`
+URL through this proxy. The CORS Policy stays configured on the bucket
+as a no-op safety net for whenever a custom domain is added later, but
+the actual fix bypasses it entirely.
+
+**Verified end-to-end, both locally and on production
+(`ana-rnd.vercel.app`):** full project lifecycle (create → add product
+→ release from photo → approve with correct creator-role branching →
+auto-complete → comment → hard-reload persistence at every step);
+notifications arrive at the correct real recipient and are
+self-notify-suppressed; cross-page identity correctness (Dashboard
+greeting, My Task's mixed real/mock table). On production specifically:
+created a real project, uploaded a real image through `/api/upload` to
+R2, then exercised the Release/crop flow specifically to confirm the
+image-proxy fix also works inside a Vercel serverless function (not
+just local dev) — worked identically, image-proxy returned 200, crop
+modal rendered correctly, product landed in the correct review status.
+All production test data (project, product, ProjectPhoto, and both R2
+objects) was cleaned up afterward via a one-off script against the
+shared Supabase DB, same discipline as the Products-phase cleanup.
+
+**Not fully live-tested:** the Sales-creator review branch and
+reject/resubmit paths were verified via code-level porting (exact
+match to the existing state-machine logic, now driven by real
+`project.createdBy.role`) and `tsc --noEmit`, not via a full live E2E
+test logging in as a second real Sales-role account — Henry's own
+account is Admin, and the role-preview switcher only changes the
+client-side preview, not the server-authenticated identity used for
+`createdById`. Low risk since the logic is a direct port of what
+Products/the mock already proved out, but worth a real Sales-account
+smoke test whenever one is set up.
+
+**Deliberately not done this pass** (unchanged from the approved
+plan): Activity feed (stays static demo data — never had real logic to
+begin with), Project file attachments (stays cosmetic filename-only —
+never had real upload). Collections, RndTasks, Settings remain fully
+mock, next in the established migration order.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
