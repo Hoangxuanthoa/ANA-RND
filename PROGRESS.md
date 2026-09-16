@@ -1080,6 +1080,20 @@ deadline in this week), confirmed all 3 sections populate with the right
 rows and counts, confirmed "Xuất ảnh" copies correctly, and confirmed
 switching to an R&D role shows the original unchanged form.
 
+**Follow-up (2026-09-16) — Ảnh dự án's photo viewer, smaller + wheel
+zoom:** the user found the original `PhotoViewerModal` (full-screen dark
+overlay) too heavy just to glance at one photo, and clicking +/- for
+every zoom step "hơi bất tiện". Rebuilt to match the same bounded
+quick-view sizing every other modal in this app uses (`ProductQuickView`'s
+`max-w-[720px]` card on a light `bg-black/30` backdrop, click-outside to
+close) instead of a bespoke full-screen dark viewer. Added scroll-wheel
+zoom (`onWheel`, `e.preventDefault()` + adjust `zoom` state by a step
+per wheel tick, clamped to the same `[1, 3]` range as the existing
++/- buttons) — the buttons stay too, wheel is just the fast path.
+Next/Back, Escape, and arrow-key navigation are unchanged. Verified in
+the browser: modal renders as a small centered card (not full-screen),
+scroll-wheel over the image changes its `transform: scale(...)` live.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
