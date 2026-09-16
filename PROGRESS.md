@@ -1570,9 +1570,14 @@ console errors, confirming it was a stale Turbopack HMR artifact from
 editing the file repeatedly in place, not a real regression — `grep`
 across the whole `src/` tree turned up no remaining reference to fix.
 
-**Not yet tested on production** — pending, same discipline as the
-prior three modules (create real data, exercise the field edits, clean
-up afterward).
+**Verified on production too, same day:** created a real task via
+`/api/rnd-tasks` (real owner "Henry", real requester "Minh"), patched
+both `needsSupport` and `importantNote` in one call and confirmed
+`GET /api/notifications` came back empty (self-notification correctly
+skipped on production too), then deleted it via `DELETE
+/api/rnd-tasks/[id]` — no leftover-data cleanup script needed this
+time, the API itself round-tripped cleanly. Confirmed the page returns
+to its empty state afterward.
 
 **Deliberately not done this pass:** Settings (Category/Material/Size/
 Color/AppSettings lookup tables + the "Mẫu PPTX" tab) is now the only
