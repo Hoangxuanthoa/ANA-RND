@@ -858,6 +858,30 @@ export function nextProjectCode(type: ProjectType, projects: Project[]): string 
   return `PRJ-${new Date().getFullYear()}-${String(next).padStart(3, "0")}`;
 }
 
+// Monday-start week boundaries relative to today (both ends inclusive,
+// at midnight) — offsetWeeks 0 is this week, -1 is last week. Backs
+// Admin's Check-in "Trọng tâm" digest, which buckets work by which week
+// a deadline/completion date falls in.
+export function weekRange(offsetWeeks: number): { start: Date; end: Date } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = today.getDay(); // 0 = Sunday
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const start = new Date(today);
+  start.setDate(today.getDate() + diffToMonday + offsetWeeks * 7);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start, end };
+}
+
+export function isDDMMYYYYInRange(value: string | undefined, range: { start: Date; end: Date }): boolean {
+  if (!value) return false;
+  const d = parseDDMMYYYY(value);
+  if (!d) return false;
+  const t = d.getTime();
+  return t >= range.start.getTime() && t <= range.end.getTime();
+}
+
 export function getProjectProducts(projectCode: string) {
   return PROJECT_PRODUCTS.filter((pp) => pp.projectCode === projectCode);
 }

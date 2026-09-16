@@ -15,6 +15,8 @@ import {
   daysUntil,
   parseDDMMYYYY,
   todayDDMMYYYY,
+  weekRange,
+  isDDMMYYYYInRange,
   TASK_CATEGORIES,
   TASK_PRIORITIES,
   type TaskCategory,
@@ -201,6 +203,49 @@ function TaskNameMenu({ title, onEdit, onDelete }: { title: string; onEdit: () =
   );
 }
 
+// One group inside Admin's "Trọng tâm" Check-in digest — same row shape
+// (STT/Tên công việc/Người làm/date column) reused for all 3 sections,
+// only the date column's label and value differ per section.
+function CheckinSection({
+  title,
+  rows,
+  dateLabel,
+  dateValue,
+  emptyText,
+}: {
+  title: string;
+  rows: TodoRow[];
+  dateLabel: string;
+  dateValue: (row: TodoRow) => string;
+  emptyText: string;
+}) {
+  return (
+    <div className="mt-4 first:mt-0">
+      <h3 className="mb-2 text-[12.5px] font-extrabold">
+        {title} <span className="font-semibold text-text-faint">({rows.length})</span>
+      </h3>
+      <div className="grid grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 border-b border-line pb-1.5 text-[10.5px] font-bold tracking-wide text-text-faint uppercase">
+        <span>STT</span>
+        <span>Tên công việc</span>
+        <span>Người làm</span>
+        <span>{dateLabel}</span>
+      </div>
+      {rows.map((row, i) => (
+        <div
+          key={row.key}
+          className="grid grid-cols-[32px_minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 border-b border-line py-2 text-[12.5px] last:border-b-0"
+        >
+          <span className="text-text-faint">{i + 1}</span>
+          <span className="truncate font-bold">{row.title}</span>
+          <span className="truncate text-text-muted">{row.doer}</span>
+          <span className="text-text-muted">{dateValue(row)}</span>
+        </div>
+      ))}
+      {rows.length === 0 && <p className="py-3 text-center text-[12px] text-text-faint">{emptyText}</p>}
+    </div>
+  );
+}
+
 export default function MyTasksPage() {
   const { role } = useRole();
   const userName = CURRENT_USER_NAME[role];
@@ -301,6 +346,18 @@ export default function MyTasksPage() {
     return (a.daysLeft ?? Infinity) - (b.daysLeft ?? Infinity);
   });
   const checkinRows = allRows.filter((r) => !r.isDone);
+
+  // Admin's Check-in is a completely different form from R&D's — a
+  // weekly "Trọng tâm" report for the boss (công việc hoàn thành tuần
+  // trước / chưa hoàn thành / kế hoạch tuần này), scoped to every
+  // person's Trọng tâm work (allRows already spans everyone for Admin),
+  // not just Admin's own. R&D's Check-in tab is untouched below.
+  const priorityRows = allRows.filter((r) => r.priority === "Trọng tâm");
+  const thisWeek = weekRange(0);
+  const lastWeek = weekRange(-1);
+  const doneLastWeek = priorityRows.filter((r) => r.isDone && isDDMMYYYYInRange(r.completedAt, lastWeek));
+  const notDoneTrongTam = priorityRows.filter((r) => !r.isDone);
+  const dueThisWeek = priorityRows.filter((r) => !r.isDone && isDDMMYYYYInRange(r.deadline, thisWeek));
 
   // Admin's department overview — deliberately computed off allRows (every
   // filter ignored) rather than preStatusFiltered, so the per-person
@@ -795,13 +852,15 @@ export default function MyTasksPage() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <p className="text-[12.5px] text-text-muted">
-                {checkinRows.length} việc đang làm — xuất ảnh để dán vào nhóm check-in.
+                {isAdmin
+                  ? `Trọng tâm: ${doneLastWeek.length} xong tuần trước · ${notDoneTrongTam.length} chưa hoàn thành · ${dueThisWeek.length} kế hoạch tuần này.`
+                  : `${checkinRows.length} việc đang làm — xuất ảnh để dán vào nhóm check-in.`}
               </p>
               <div className="flex items-center gap-3">
                 {exportMsg && <span className="text-[12px] font-semibold text-accent">{exportMsg}</span>}
                 <button
                   onClick={handleExportImage}
-                  disabled={exporting || checkinRows.length === 0}
+                  disabled={exporting || (isAdmin ? priorityRows.length === 0 : checkinRows.length === 0)}
                   className="inline-flex h-[34px] items-center gap-1.5 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
                 >
                   {exporting ? "Đang xuất…" : "Xuất ảnh"}
@@ -810,32 +869,65 @@ export default function MyTasksPage() {
             </div>
 
             <div ref={checkinRef} className="overflow-hidden rounded-xl border border-line bg-white p-5">
-              <p className="mb-3 text-[13px] font-bold">
-                Check-in — {userName} — {todayDDMMYYYY()}
-              </p>
-              <div className="grid grid-cols-[36px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-2 border-b border-line pb-2 text-[11px] font-bold tracking-wide text-text-faint uppercase">
-                <span>STT</span>
-                <span>Tên công việc</span>
-                <span>Người yêu cầu</span>
-                <span>Mức độ</span>
-                <span>Deadline</span>
-              </div>
-              {checkinRows.map((row, i) => {
-                const priority = taskPriorityBadge(row.priority);
-                return (
-                  <div
-                    key={row.key}
-                    className="grid grid-cols-[36px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-2 border-b border-line py-2.5 text-[13px] last:border-b-0"
-                  >
-                    <span className="text-text-faint">{i + 1}</span>
-                    <span className="truncate font-bold">{row.title}</span>
-                    <span className="truncate text-text-muted">{row.requester}</span>
-                    <span className={priority.className}>{priority.label}</span>
-                    <span className="text-text-muted">{row.deadline}</span>
+              {isAdmin ? (
+                <>
+                  <p className="mb-3 text-[13px] font-bold">
+                    Check-in Trọng tâm — {userName} — {todayDDMMYYYY()}
+                  </p>
+                  <CheckinSection
+                    title="Công việc hoàn thành tuần trước"
+                    rows={doneLastWeek}
+                    dateLabel="Hoàn thành"
+                    dateValue={(row) => row.completedAt ?? "—"}
+                    emptyText="Không có việc Trọng tâm nào hoàn thành tuần trước."
+                  />
+                  <CheckinSection
+                    title="Công việc chưa hoàn thành"
+                    rows={notDoneTrongTam}
+                    dateLabel="Còn lại"
+                    dateValue={(row) => daysLeftLabel(row).text}
+                    emptyText="Không có việc Trọng tâm nào đang làm."
+                  />
+                  <CheckinSection
+                    title="Công việc hoàn thành tuần này (kế hoạch)"
+                    rows={dueThisWeek}
+                    dateLabel="Deadline"
+                    dateValue={(row) => row.deadline}
+                    emptyText="Không có việc Trọng tâm nào đến hạn tuần này."
+                  />
+                </>
+              ) : (
+                <>
+                  <p className="mb-3 text-[13px] font-bold">
+                    Check-in — {userName} — {todayDDMMYYYY()}
+                  </p>
+                  <div className="grid grid-cols-[36px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-2 border-b border-line pb-2 text-[11px] font-bold tracking-wide text-text-faint uppercase">
+                    <span>STT</span>
+                    <span>Tên công việc</span>
+                    <span>Người yêu cầu</span>
+                    <span>Mức độ</span>
+                    <span>Deadline</span>
                   </div>
-                );
-              })}
-              {checkinRows.length === 0 && <p className="py-8 text-center text-sm text-text-faint">Không có việc nào đang làm.</p>}
+                  {checkinRows.map((row, i) => {
+                    const priority = taskPriorityBadge(row.priority);
+                    return (
+                      <div
+                        key={row.key}
+                        className="grid grid-cols-[36px_minmax(0,2.2fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.9fr)] items-center gap-2 border-b border-line py-2.5 text-[13px] last:border-b-0"
+                      >
+                        <span className="text-text-faint">{i + 1}</span>
+                        <span className="truncate font-bold">{row.title}</span>
+                        <span className="truncate text-text-muted">{row.requester}</span>
+                        <span className={priority.className}>{priority.label}</span>
+                        <span className="text-text-muted">{row.deadline}</span>
+                      </div>
+                    );
+                  })}
+                  {checkinRows.length === 0 && (
+                    <p className="py-8 text-center text-sm text-text-faint">Không có việc nào đang làm.</p>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}

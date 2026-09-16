@@ -400,11 +400,15 @@ read it before changing any access-control logic. Highlights:
   wanted directly from these pages, it should reuse Library's own
   filter/search, not a second parallel picker.
 - **My Task** (`/my-tasks`) — a personal work hub for R&D and Admin (see
-  the dated entry below for the 2026-09-11 rebuild): To do list (every
+  the dated entries below for the 2026-09-11 rebuild): To do list (every
   project you're rndOwner of, one row each, plus ad-hoc tasks you add
-  yourself), Check-in (today's "Đang làm" items + an image export to
-  paste into a chat group), and "Thêm công việc" to add an ad-hoc task.
-  "Đăng ký KPI"/"Kết quả KPI" are planned tabs, not built yet.
+  yourself), Check-in, and "Thêm công việc" to add an ad-hoc task.
+  "Đăng ký KPI"/"Kết quả KPI" are planned tabs, not built yet. Check-in
+  is two genuinely different forms depending on role (see the 2026-09-16
+  entry near the bottom): R&D gets today's "Đang làm" items + an image
+  export to paste into a chat group; Admin gets a weekly "Trọng tâm"
+  report for their own boss (hoàn thành tuần trước / chưa hoàn thành /
+  kế hoạch tuần này), scoped across everyone, not just their own work.
 - **Review** (`/review`, "Duyệt sản phẩm") — Admin-only catalog approval
   queue for `PENDING_REVIEW` products.
 - **Settings** (`/settings`) — Admin-only CRUD for Category/Material/Size/
@@ -824,6 +828,43 @@ Release (both land as "Thiếu thông tin" placeholders), ZIP (network tab
 shows both blob fetches resolving), PDF export (fonts fetch fine, no
 console errors), delete, and confirmed Sales (non-RND/ADMIN) sees only
 view/zip/export with no upload/Release/delete controls.
+
+**Admin's Check-in is now a completely different form from R&D's
+(2026-09-16):** the user's actual boss asks for a weekly report with 3
+fixed sections — công việc hoàn thành tuần trước / chưa hoàn thành / kế
+hoạch tuần này — nothing like R&D's daily "what I'm doing right now"
+snapshot. Brainstormed the exact meaning of each section before coding
+(the literal wording was ambiguous on a couple of points); confirmed
+with the user: scoped to **Mức độ = Trọng tâm only**, across **everyone**
+(Admin + R&D, reusing the same aggregated `allRows` Admin's To Do List
+already computes — not just Admin's own work), computed as:
+- Hoàn thành tuần trước: Trọng tâm rows where `completedAt` falls in last
+  week (Mon–Sun).
+- Chưa hoàn thành: every Trọng tâm row still `!isDone`, no deadline
+  filter — the user explicitly wants the full backlog here, not just
+  what's overdue.
+- Hoàn thành tuần này (kế hoạch): Trọng tâm rows not yet done whose
+  `deadline` falls in the current week — read as "planned to finish this
+  week," not "already finished so far this week" (the user's answer was
+  ambiguous between the two; went with this reading and flagged it back
+  to them before building).
+
+New `weekRange(offsetWeeks)` / `isDDMMYYYYInRange()` in `mock-data.ts` —
+Monday-start week boundaries computed off today's real date, kept as
+generic date helpers (not Admin/Check-in-specific) alongside
+`daysUntil`/`parseDDMMYYYY`. `role === "ADMIN"` branches the Check-in
+tab's whole render: a new `CheckinSection` component (STT/Tên công
+việc/Người làm + one date column whose label and value differ per
+section — Hoàn thành / Còn lại / Deadline) renders the 3 groups; R&D's
+existing single-table Check-in is completely untouched below the branch.
+Both variants still share the same `checkinRef`-based "Xuất ảnh"
+(`html2canvas-pro` capture, clipboard-first with file-download fallback)
+with no changes to that mechanism — it just captures whichever markup is
+currently rendered. Verified in the browser: set 2 project rows and 1
+new ad-hoc task to Trọng tâm (with `completedAt` in last week, one
+deadline in this week), confirmed all 3 sections populate with the right
+rows and counts, confirmed "Xuất ảnh" copies correctly, and confirmed
+switching to an R&D role shows the original unchanged form.
 
 ## Workflow
 
