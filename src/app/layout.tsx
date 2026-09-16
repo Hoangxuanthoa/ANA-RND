@@ -17,7 +17,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Design Library — Artex Nam An",
+  title: "ANA-RND — Artex Nam An",
   description: "Thư viện thiết kế nội bộ — quản lý sản phẩm 3D, dự án và phản hồi khách hàng.",
 };
 

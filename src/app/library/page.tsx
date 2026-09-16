@@ -129,7 +129,7 @@ export default function LibraryPage() {
           </div>
           <h2 className="text-[17px] font-extrabold">Không có quyền truy cập</h2>
           <p className="max-w-[360px] text-center text-sm text-text-muted">
-            Design Library nội bộ dành cho R&amp;D, Sales và Admin. Bạn chỉ xem được sản phẩm
+            Library nội bộ dành cho R&amp;D, Sales và Admin. Bạn chỉ xem được sản phẩm
             được chia sẻ trong dự án của mình.
           </p>
           <Link
@@ -215,7 +215,7 @@ export default function LibraryPage() {
         <div className="flex flex-1 flex-col gap-5">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="mb-1 text-[22px] font-extrabold">Design Library</h1>
+              <h1 className="mb-1 text-[22px] font-extrabold">Library</h1>
               <p className="text-[13.5px] text-text-muted">{filtered.length} sản phẩm</p>
             </div>
             <div className="flex items-center gap-2.5">

@@ -96,7 +96,7 @@ export default function ProductDetailPage() {
       <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-5 p-7">
         <div className="text-[13px] text-text-faint">
           <Link href="/library" className="text-accent hover:text-accent-hover">
-            Design Library
+            Library
           </Link>{" "}
           / <span className="text-text">{product.code}</span>
         </div>

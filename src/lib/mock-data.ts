@@ -567,7 +567,7 @@ export const PROJECTS: Project[] = [
     createdAt: "15/07/2026",
     status: "DEVELOPING",
     deadline: "20/09/2026",
-    brief: "Bộ sưu tập giỏ đựng đồ & kệ lưu trữ mây tre cho dòng Storage Q1 2025 — 4 sản phẩm, ưu tiên tái sử dụng từ Design Library hiện có.",
+    brief: "Bộ sưu tập giỏ đựng đồ & kệ lưu trữ mây tre cho dòng Storage Q1 2025 — 4 sản phẩm, ưu tiên tái sử dụng từ Library hiện có.",
     isMine: true,
     attachments: ["brief-jysk-storage-2025.pdf", "moodboard.jpg"],
   },

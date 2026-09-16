@@ -13,6 +13,17 @@ bamboo / water hyacinth), manage customer projects, and collect feedback from
 designers, sales, and customers. See [README.md](README.md) for tech stack
 and setup.
 
+**Renamed to "ANA-RND" (2026-09-16).** Was "Design Library" — that name
+collided with the in-app product catalog feature (same string used for both
+the overall app brand and the catalog nav link/page), so the rename kept
+"Library" as the catalog's own label (TopNav nav link, `/library` page
+heading, breadcrumbs, "released into ___" messages) while everything that's
+actually the app's identity (page `<title>`, TopNav's logo text, `package.json`
+name, README title) became "ANA-RND". Renamed everywhere: GitHub repo,
+Vercel project (and its live URL), Supabase project display name, in-app
+branding. The local folder path (`design-library`) was deliberately left
+unchanged — purely local, not worth the disruption of a mid-session rename.
+
 ## Current state (important — read before assuming anything is "real")
 
 **The frontend is still 100% mock data — backend wiring just started

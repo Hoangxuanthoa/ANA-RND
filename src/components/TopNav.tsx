@@ -79,11 +79,11 @@ export function TopNav() {
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Artex Nam An" className="h-7 w-auto" />
-          <span className="text-[15px] font-bold">Design Library</span>
+          <span className="text-[15px] font-bold">ANA-RND</span>
         </div>
         <nav className="flex gap-1">
           <NavLink href="/dashboard">Dashboard</NavLink>
-          {canViewLibrary(role) && <NavLink href="/library">Design Library</NavLink>}
+          {canViewLibrary(role) && <NavLink href="/library">Library</NavLink>}
           <NavLink href="/projects">Projects</NavLink>
           {canViewMyTasks(role) && <NavLink href="/my-tasks">My Task</NavLink>}
           {canManageCollections(role) && <NavLink href="/collections">Collections</NavLink>}

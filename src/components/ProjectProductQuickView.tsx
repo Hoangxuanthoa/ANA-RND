@@ -114,7 +114,7 @@ export function ProjectProductQuickView({
 
         {canRelease && (
           <div className="flex items-center justify-between gap-3 border-b border-line bg-green-soft px-5 py-3">
-            <span className="text-[12.5px] font-bold text-green">Đã duyệt xong — sẵn sàng đưa vào Design Library.</span>
+            <span className="text-[12.5px] font-bold text-green">Đã duyệt xong — sẵn sàng đưa vào Library.</span>
             <button
               onClick={onRelease}
               className="h-8 flex-shrink-0 rounded-md bg-green px-3 text-[12px] font-bold text-white hover:opacity-90"

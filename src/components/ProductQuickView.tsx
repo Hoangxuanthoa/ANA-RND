@@ -86,7 +86,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
         {canReview && (
           <div className="flex items-center justify-between gap-3 border-b border-line bg-amber-soft px-5 py-3">
             <span className="text-[12.5px] font-bold text-amber">
-              {product.sourceProjectName ? `Release từ dự án: ${product.sourceProjectName}` : "Nộp trực tiếp từ Design Library"}
+              {product.sourceProjectName ? `Release từ dự án: ${product.sourceProjectName}` : "Nộp trực tiếp từ Library"}
             </span>
             <div className="flex gap-2">
               <button

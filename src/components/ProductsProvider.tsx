@@ -161,7 +161,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
       addNotification({
         type: "PRODUCT_APPROVED",
         title: `${product.name} đã được duyệt`,
-        message: "Sản phẩm đã Released vào Design Library.",
+        message: "Sản phẩm đã Released vào Library.",
         link: `/library/${code}`,
         recipientName: product.designer,
       });

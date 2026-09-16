@@ -1,4 +1,4 @@
-// R&D Design Library — Database Schema V2
+// ANA-RND — Database Schema V2
 // Source of truth: mock data in src/lib/mock-data.ts + the providers that
 // mutate it, audited field-by-field against this schema on 2026-09-16
 // (V1 predated most of the features below — My Task, Ảnh dự án, the

@@ -245,7 +245,7 @@ export default function CollectionDetailPage() {
           <div className="py-16 text-center text-sm text-text-faint">
             Chưa có sản phẩm nào. Vào{" "}
             <Link href="/library" className="text-accent hover:text-accent-hover">
-              Design Library
+              Library
             </Link>{" "}
             và chọn &quot;Add to Collection&quot; trên sản phẩm đã Released.
           </div>
