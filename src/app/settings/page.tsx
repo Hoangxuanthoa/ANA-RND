@@ -153,7 +153,7 @@ function TagListEditor({
 }
 
 function UserTab() {
-  const { staff, addStaff, updateStaffRole, removeStaff } = useStaff();
+  const { staff, addStaff, updateStaffRole, removeStaff, resetPassword } = useStaff();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -162,6 +162,33 @@ function UserTab() {
   const [creating, setCreating] = useState(false);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const removeTarget = staff.find((s) => s.id === removeId) ?? null;
+  // Which row's "Đặt lại mật khẩu" form is open — at most one at a time.
+  const [resetTargetId, setResetTargetId] = useState<string | null>(null);
+  const [resetValue, setResetValue] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+
+  function openReset(id: string) {
+    setResetTargetId(id);
+    setResetValue("");
+    setResetError(null);
+  }
+
+  async function handleResetPassword(id: string) {
+    if (!resetValue.trim()) {
+      setResetError("Nhập mật khẩu mới.");
+      return;
+    }
+    setResetError(null);
+    setResetting(true);
+    const { error } = await resetPassword(id, resetValue.trim());
+    setResetting(false);
+    if (error) {
+      setResetError(error);
+      return;
+    }
+    setResetTargetId(null);
+  }
 
   async function handleAdd() {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -230,34 +257,74 @@ function UserTab() {
 
       <div className="overflow-hidden rounded-xl border border-line bg-surface">
         {staff.map((s, i) => (
-          <div key={s.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-            <div>
-              <div className="text-[13.5px] font-semibold">{s.name}</div>
-              <div className="text-[11.5px] text-text-faint">{s.email}</div>
+          <div key={s.id} className={i > 0 ? "border-t border-line" : ""}>
+            <div className="flex items-center justify-between gap-3 px-4 py-3">
+              <div>
+                <div className="text-[13.5px] font-semibold">{s.name}</div>
+                <div className="text-[11.5px] text-text-faint">{s.email}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={s.role}
+                  onChange={(e) => updateStaffRole(s.id, e.target.value as Exclude<Role, "CUSTOMER">)}
+                  className="h-8 rounded-md border border-line px-2 text-[12.5px] focus:border-accent focus:outline-none"
+                >
+                  {STAFF_ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {ROLE_LABEL[r]}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => (resetTargetId === s.id ? setResetTargetId(null) : openReset(s.id))}
+                  title="Đặt lại mật khẩu"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="11" width="18" height="10" rx="2" />
+                    <path d="M7 11V7a5 5 0 0110 0v4" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setRemoveId(s.id)}
+                  title="Xóa"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={s.role}
-                onChange={(e) => updateStaffRole(s.id, e.target.value as Exclude<Role, "CUSTOMER">)}
-                className="h-8 rounded-md border border-line px-2 text-[12.5px] focus:border-accent focus:outline-none"
-              >
-                {STAFF_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {ROLE_LABEL[r]}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => setRemoveId(s.id)}
-                title="Xóa"
-                className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M3 6h18" />
-                  <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
-                </svg>
-              </button>
-            </div>
+
+            {resetTargetId === s.id && (
+              <div className="flex items-center gap-2 border-t border-line bg-bg px-4 py-3">
+                <span className="text-[12.5px] font-semibold text-text-muted">Mật khẩu mới cho {s.name}:</span>
+                <input
+                  autoFocus
+                  value={resetValue}
+                  onChange={(e) => setResetValue(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleResetPassword(s.id)}
+                  placeholder="Mật khẩu mới…"
+                  className="h-8 w-44 rounded-md border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+                />
+                <button
+                  onClick={() => handleResetPassword(s.id)}
+                  disabled={resetting}
+                  className="h-8 rounded-md bg-accent px-3 text-[12px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
+                >
+                  {resetting ? "Đang lưu…" : "Lưu"}
+                </button>
+                <button
+                  onClick={() => setResetTargetId(null)}
+                  className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
+                >
+                  Hủy
+                </button>
+                {resetError && <span className="text-[12px] font-semibold text-red">{resetError}</span>}
+              </div>
+            )}
           </div>
         ))}
       </div>

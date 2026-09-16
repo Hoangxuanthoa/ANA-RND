@@ -31,6 +31,11 @@ interface StaffContextValue {
   // real account has real history (Designer, rndOwner, ...) that can't
   // just disappear.
   removeStaff: (id: string) => void;
+  // Admin setting someone ELSE's password directly (forgot it, first-day
+  // setup, ...) — distinct from the self-service change in ProfileModal,
+  // which is the signed-in user changing their own via a real Supabase
+  // client call and needs their current password to do it.
+  resetPassword: (id: string, password: string) => Promise<{ error?: string }>;
 }
 
 const StaffContext = createContext<StaffContextValue | null>(null);
@@ -99,8 +104,21 @@ export function StaffProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  async function resetPassword(id: string, password: string) {
+    const res = await fetch(`/api/staff/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}) as { error?: string });
+      return { error: body.error ?? "Không đặt lại được mật khẩu." };
+    }
+    return {};
+  }
+
   return (
-    <StaffContext.Provider value={{ staff, loading, addStaff, updateStaffRole, removeStaff }}>
+    <StaffContext.Provider value={{ staff, loading, addStaff, updateStaffRole, removeStaff, resetPassword }}>
       {children}
     </StaffContext.Provider>
   );

@@ -221,6 +221,32 @@ pass too, not deferred.
      not just a client-side hide); confirmed New Project's Sales/R&D
      owner dropdowns reflect the real roster.
 
+   **Follow-up same day — Admin password reset:** the user pointed out
+   Settings' User tab had no way for Admin to reset someone else's
+   password (needed immediately — they were about to add real personal
+   accounts). Added: `PATCH /api/staff/[id]` now also accepts a
+   `password` field (goes straight to
+   `getSupabaseAdmin().auth.admin.updateUserById` — no "current password"
+   check, since this is Admin resetting someone ELSE's, unlike the
+   self-service change in `/api/me`/`ProfileModal` which needs your own).
+   `useStaff()` gained `resetPassword(id, password)`. UI: a small key
+   icon per row in Settings' User tab opens an inline "Mật khẩu mới cho
+   ___:" form (matches the app's established inline-edit convention, see
+   `my-tasks/page.tsx`'s `StagedTextCell`) instead of a separate modal.
+   Also created the user's own first real (non-`@rattanco.vn`) account
+   through this exact flow — `henry@artexnaman.com`, Admin — as the
+   template for the real emails they'll add for everyone else going
+   forward. Verified end-to-end: reset a real account's password via the
+   UI, signed out, signed back in with the new password successfully.
+
+   **Observed and flagged to the user:** logging in as `henry@artexnaman.com`
+   (a second, distinct ADMIN account alongside Minh) still greets "Chào
+   buổi sáng, Minh" on the dashboard — confirms in practice the
+   `CURRENT_USER_NAME[role]` mock-mapping gap called out in the Auth
+   entry above (one fixed display name per role, not per real account).
+   Not a new bug, not fixed here — flagged as it'll only get more visible
+   as more real people log in before Products/Projects migrate.
+
 **Not done yet — next candidates in order:**
 6. Products → Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) →
    Collections → RndTasks → Notifications → Settings (Category/Material/
