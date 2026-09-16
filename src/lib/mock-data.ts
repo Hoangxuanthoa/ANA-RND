@@ -1081,7 +1081,11 @@ export interface NotificationItem {
   title: string;
   message: string;
   link: string;
-  recipientName: string;
+  // Only set on notifications added locally (Collections/RndTasks,
+  // still mock) — matched against the viewer's name at render time.
+  // Real notifications (Products/Projects) arrive already filtered to
+  // "mine" by the server, so this is absent for those.
+  recipientName?: string;
   isRead: boolean;
   time: string;
 }

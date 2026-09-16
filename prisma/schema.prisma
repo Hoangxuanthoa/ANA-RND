@@ -376,6 +376,8 @@ model ProjectPhoto {
   releasedProduct   Product? @relation(fields: [releasedProductId], references: [id])
   createdAt         DateTime @default(now())
 
+  comments Feedback[]
+
   @@map("project_photos")
 }
 
@@ -484,6 +486,10 @@ model Feedback {
   product   Product?        @relation(fields: [productId], references: [id])
   versionId String?         @db.Uuid
   version   ProductVersion? @relation(fields: [versionId], references: [id])
+  // A row with only this FK set is a comment on an unreleased Ảnh dự án
+  // photo — distinct from project/product feedback above.
+  projectPhotoId String?      @db.Uuid
+  projectPhoto   ProjectPhoto? @relation(fields: [projectPhotoId], references: [id], onDelete: Cascade)
   userId    String          @db.Uuid
   user      User            @relation(fields: [userId], references: [id])
   content   String

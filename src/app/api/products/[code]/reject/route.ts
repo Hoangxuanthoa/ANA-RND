@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { productInclude, serializeProduct } from "@/lib/server/serialize-product";
+import { notify } from "@/lib/server/notify";
 
 export async function POST(request: Request, { params }: { params: Promise<{ code: string }> }) {
   const me = await getSessionUser();
@@ -21,5 +22,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     data: { status: "DRAFT", lastRejectionReason: reason },
     include: productInclude(me.id),
   });
+
+  await notify({
+    userId: product.designerId,
+    type: "PRODUCT_REJECTED",
+    title: `${updated.name} bị từ chối`,
+    message: reason,
+    link: `/library/${code}`,
+  });
+
   return NextResponse.json(serializeProduct(updated));
 }

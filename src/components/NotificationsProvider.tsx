@@ -1,12 +1,20 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { INITIAL_NOTIFICATIONS, type NotificationItem, type NotificationType } from "@/lib/mock-data";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { NotificationItem, NotificationType } from "@/lib/mock-data";
 
-// A shared inbox every other provider (Products/Projects/Collections)
-// pushes into — kept separate from all of them, and above them in
-// layout.tsx, so none of the three needs to import from the others just
-// to raise a notification about its own events.
+// A shared inbox. Real notifications (Products/Projects) are fetched
+// from the server, already filtered to "mine" — every mutation that
+// generates one writes a real Notification row server-side instead of
+// calling anything here (see src/lib/server/notify.ts).
+//
+// addNotification() still exists purely as a **local, unsynced**
+// fallback for the modules not wired to a real backend yet
+// (Collections, RndTasks) — same shape as the old fully-mock provider,
+// kept so those two don't need to change until their own turn. Locally
+// added entries carry `recipientName` and get matched against the
+// viewer's name at render time (see TopNav); real ones don't need
+// that, the server already scoped them.
 interface NotificationsContextValue {
   notifications: NotificationItem[];
   addNotification: (input: {
@@ -22,7 +30,13 @@ interface NotificationsContextValue {
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/notifications")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setNotifications);
+  }, []);
 
   function addNotification(input: {
     type: NotificationType;
@@ -31,12 +45,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     link: string;
     recipientName: string;
   }) {
-    const id = `${input.type}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setNotifications((prev) => [{ id, isRead: false, time: "Vừa xong", ...input }, ...prev]);
   }
 
   function markNotificationRead(id: string) {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    if (!id.startsWith("local-")) {
+      fetch(`/api/notifications/${id}`, { method: "PATCH" }).catch(() => {});
+    }
   }
 
   return (

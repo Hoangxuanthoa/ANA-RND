@@ -7,7 +7,7 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useNotifications } from "@/components/NotificationsProvider";
 import { ProfileModal } from "@/components/ProfileModal";
-import { ROLE_LABEL, ROLE_INITIALS, CURRENT_USER_NAME, type Role } from "@/lib/mock-data";
+import { ROLE_LABEL, ROLE_INITIALS, type Role } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
 import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections } from "@/lib/permissions";
 
@@ -44,7 +44,7 @@ function NavLink({
 }
 
 export function TopNav() {
-  const { role, setRole, isRealAdmin, isPreviewingSelf, profile, updateProfile, signOut } = useRole();
+  const { role, setRole, isRealAdmin, isPreviewingSelf, effectiveUserName, profile, updateProfile, signOut } = useRole();
   const { products } = useProducts();
   const { notifications, markNotificationRead } = useNotifications();
   const router = useRouter();
@@ -55,8 +55,12 @@ export function TopNav() {
   const accountRef = useRef<HTMLDivElement>(null);
 
   const pendingCount = products.filter((p) => p.status === "PENDING_REVIEW").length;
-  const userName = CURRENT_USER_NAME[role];
-  const myNotifications = notifications.filter((n) => n.recipientName.startsWith(userName));
+  const userName = effectiveUserName;
+  // Real notifications (Products/Projects) arrive from the server
+  // already scoped to "mine" (no recipientName at all); only the
+  // still-mock Collections/RndTasks ones carry a recipientName that
+  // needs matching against who's currently being viewed as.
+  const myNotifications = notifications.filter((n) => !n.recipientName || n.recipientName.startsWith(userName));
   const unreadCount = myNotifications.filter((n) => !n.isRead).length;
 
   useEffect(() => {

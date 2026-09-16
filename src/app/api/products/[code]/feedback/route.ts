@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { relativeTimeVi } from "@/lib/mock-data";
 import { feedbackAuthor } from "@/lib/server/identity";
+import { notify } from "@/lib/server/notify";
 
 export async function POST(request: Request, { params }: { params: Promise<{ code: string }> }) {
   const me = await getSessionUser();
@@ -19,6 +20,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
   const created = await prisma.feedback.create({
     data: { productId: product.id, userId: me.id, content },
   });
+
+  if (product.designerId !== me.id) {
+    await notify({
+      userId: product.designerId,
+      type: "NEW_FEEDBACK",
+      title: `Bình luận mới trên ${product.name}`,
+      message: content,
+      link: `/library/${code}`,
+    });
+  }
+
   return NextResponse.json({
     productCode: code,
     content: created.content,
