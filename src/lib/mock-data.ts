@@ -706,7 +706,7 @@ export const INITIAL_RND_TASKS: RndTask[] = [
 // PROJECT_PRODUCTS is global (spans every project), keyed by
 // (projectCode, productCode) — NOT a per-project copy. This is what lets
 // "Used in Projects" on a product page, the Reused count, and a
-// project's own "Product Development" tab all read the same truth
+// project's own "Sản phẩm dạng up" tab all read the same truth
 // instead of drifting apart.
 export interface ProjectProductItem {
   projectCode: string;

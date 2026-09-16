@@ -46,7 +46,7 @@ export function PhotoExportModal({ open, photos, projectName, defaultCustomer, o
     setPptxBusy(true);
     try {
       await generateCollectionPptx({
-        collectionName: `${projectName} — Ảnh dự án`,
+        collectionName: `${projectName} — Sản phẩm dạng ảnh`,
         customer,
         date: todayDDMMYYYY(),
         items,
@@ -65,7 +65,7 @@ export function PhotoExportModal({ open, photos, projectName, defaultCustomer, o
     setPdfBusy(true);
     try {
       await generateCollectionPdf({
-        collectionName: `${projectName} — Ảnh dự án`,
+        collectionName: `${projectName} — Sản phẩm dạng ảnh`,
         customer,
         date: todayDDMMYYYY(),
         items,

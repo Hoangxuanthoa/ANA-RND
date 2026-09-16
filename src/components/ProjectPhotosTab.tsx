@@ -106,7 +106,7 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
 
   // Photos in the folder keep their original aspect ratio, but a
   // released product's main image is displayed in a fixed square frame
-  // everywhere (Product Development grid, Library) — same auto-crop
+  // everywhere (Sản phẩm dạng up grid, Library) — same auto-crop
   // "Up hàng loạt" already applies, so released products look consistent
   // no matter which path created them.
   async function openRelease(p: ProjectPhoto) {
@@ -211,7 +211,7 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
               onKeyDown={(e) => e.key === "Enter" && setViewerIndex(photoIndex)}
               className="group flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent/40"
             >
-              <div className="relative h-36 overflow-hidden bg-bg">
+              <div className="relative aspect-square overflow-hidden bg-bg">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.url} alt={p.fileName} className="h-full w-full object-cover" />
                 <button
@@ -333,7 +333,7 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
         open={!!deleteTarget}
         danger
         title="Xóa ảnh?"
-        description={`"${deleteTarget?.fileName}" sẽ bị xóa khỏi Ảnh dự án, không khôi phục được.`}
+        description={`"${deleteTarget?.fileName}" sẽ bị xóa khỏi Sản phẩm dạng ảnh, không khôi phục được.`}
         confirmLabel="Xóa"
         onCancel={() => setDeleteTarget(null)}
         onConfirm={() => {
@@ -345,7 +345,7 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
       <ConfirmDialog
         open={bulkConfirmOpen}
         title="Release hàng loạt?"
-        description={`${selectedUnreleased.length} ảnh đã chọn sẽ trở thành sản phẩm mới (thiếu thông tin, điền chi tiết sau) trong Product Development.`}
+        description={`${selectedUnreleased.length} ảnh đã chọn sẽ trở thành sản phẩm mới (thiếu thông tin, điền chi tiết sau) trong Sản phẩm dạng up.`}
         confirmLabel={bulkReleasing ? "Đang xử lý…" : "Release"}
         confirmDisabled={bulkReleasing}
         onCancel={() => setBulkConfirmOpen(false)}

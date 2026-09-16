@@ -42,8 +42,8 @@ import {
 } from "@/lib/permissions";
 
 const TABS = [
-  { key: "products", label: "Product Development" },
-  { key: "photos", label: "Ảnh dự án" },
+  { key: "products", label: "Sản phẩm dạng up" },
+  { key: "photos", label: "Sản phẩm dạng ảnh" },
   { key: "feedback", label: "General Feedback" },
   { key: "activity", label: "Activity" },
 ] as const;
@@ -324,7 +324,7 @@ export default function ProjectDetailPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               {items.map((i) => {
                 const product = products.find((p) => p.code === i.productCode);
                 if (!product) return null;
