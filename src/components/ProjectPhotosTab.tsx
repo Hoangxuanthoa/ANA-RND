@@ -293,12 +293,16 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
         onClose={() => setCommentsTargetId(null)}
       />
 
-      {viewerIndex !== null && (
+      {viewerIndex !== null && photos[viewerIndex] && (
         <PhotoViewerModal
           photos={photos}
           index={viewerIndex}
           onIndexChange={setViewerIndex}
           onClose={() => setViewerIndex(null)}
+          comments={{
+            items: photos[viewerIndex].comments,
+            onAdd: (content) => addPhotoComment(photos[viewerIndex].id, content),
+          }}
         />
       )}
 
