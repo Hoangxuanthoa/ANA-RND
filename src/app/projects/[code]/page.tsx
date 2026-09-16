@@ -13,6 +13,8 @@ import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProductModal } from "@/components/NewProductModal";
 import { BulkUploadModal } from "@/components/BulkUploadModal";
 import { ProjectProductQuickView } from "@/components/ProjectProductQuickView";
+import { ProjectPhotosTab } from "@/components/ProjectPhotosTab";
+import { useProjectPhotos } from "@/components/ProjectPhotosProvider";
 import { CURRENT_USER_NAME, ROLE_INITIALS, PROJECT_ACTIVITY } from "@/lib/mock-data";
 import {
   projectStatusBadge,
@@ -41,6 +43,7 @@ import {
 
 const TABS = [
   { key: "products", label: "Product Development" },
+  { key: "photos", label: "Ảnh dự án" },
   { key: "feedback", label: "General Feedback" },
   { key: "activity", label: "Activity" },
 ] as const;
@@ -66,6 +69,7 @@ export default function ProjectDetailPage() {
   } = useProjects();
   const { products, releaseToLibrary, setReusePermission, createProductsBulk } = useProducts();
   const { collections, createCollection, addProductToCollection } = useCollections();
+  const { photos } = useProjectPhotos();
   const userName = CURRENT_USER_NAME[role];
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
@@ -232,7 +236,14 @@ export default function ProjectDetailPage() {
                 tab === t.key ? "border-accent text-text" : "border-transparent text-text-faint"
               }`}
             >
-              {t.label} {t.key === "products" ? `(${items.length})` : t.key === "feedback" ? `(${feedback.length})` : ""}
+              {t.label}{" "}
+              {t.key === "products"
+                ? `(${items.length})`
+                : t.key === "photos"
+                  ? `(${photos.filter((p) => p.projectCode === project.code).length})`
+                  : t.key === "feedback"
+                    ? `(${feedback.length})`
+                    : ""}
             </button>
           ))}
         </div>
@@ -399,6 +410,8 @@ export default function ProjectDetailPage() {
             )}
           </div>
         )}
+
+        {tab === "photos" && <ProjectPhotosTab project={project} role={role} userName={userName} />}
 
         {tab === "feedback" && (
           <div className="flex max-w-[720px] flex-col gap-4">

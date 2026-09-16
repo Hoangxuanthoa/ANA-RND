@@ -82,6 +82,11 @@ read it before changing any access-control logic. Highlights:
   chosen Sales rep becomes its real owner (`createdByName`) from creation,
   not the customer. EditProjectModal can now also assign/reassign a
   project's `rndOwner` after creation (didn't exist before at all).
+  R&D-owner pickers (New/EditProjectModal) now also list Admin, not just
+  RND staff — Admin does hands-on R&D work too (see the 2026-09-11 My
+  Task entry below). A new "Ảnh dự án" tab (see the dated entry near the
+  bottom of this file) holds a raw, un-vetted photo folder per project,
+  separate from the real Product-based Product Development tab.
 
   **Product Development tab redone as a grid (2026-09-10):** was a
   vertical list of full-width rows with every status/action inline;
@@ -738,6 +743,87 @@ data was correct, layout was not). Fixed by defining two full literal
 constants (`GRID_COLS_ADMIN`, `GRID_COLS_DEFAULT`) and picking between
 them with a plain ternary — never build a Tailwind arbitrary-value class
 by interpolation, even inside a helper function.
+
+**New "Ảnh dự án" tab — a raw photo folder per project (2026-09-16):**
+before this, the only way to get an image into a project was "Up hàng
+loạt" (BulkUploadModal), which turns every image into a real `Product`
+immediately (placeholder, `incomplete: true`, straight into Product
+Development). The user wanted a lighter first step: dump reference/
+factory photos into a folder, browse them, and only decide later which
+ones become real products. Brainstormed the shape with the user before
+building (their explicit ask going in): grid view, click-to-view with
+Next/Back + zoom, still exportable as a Collection-style file or a plain
+ZIP, and a "Release Library" action per photo that pre-attaches the image
+to the New Product form.
+
+New `ProjectPhoto` type + `ProjectPhotosProvider` (`src/lib/mock-data.ts`,
+`src/components/ProjectPhotosProvider.tsx`) — deliberately NOT reusing
+`Product`: no category/material, not part of the approval pipeline, just
+`{id, projectCode, fileName, url, uploadedAt, releasedProductCode?}`.
+Uploads keep the original image aspect ratio (no auto-square-crop like
+Up hàng loạt — these are reference photos, not final product shots);
+thumbnails still display via CSS `object-cover` in the grid the same as
+every other card grid in the app, that's just a display-time crop, not a
+destructive one. `PhotoViewerModal.tsx` is a new full-screen viewer
+(Next/Back cycles through the whole folder, +/- zoom via a CSS
+`transform: scale()`, arrow keys and Escape wired up) — deliberately not
+built on `ProjectProductQuickView`, which is tightly coupled to the
+product-approval workflow and has no notion of a bare image.
+
+**Release, one at a time or in bulk, both land in the same place:**
+clicking "Release" on a single photo opens `NewProductModal` (a new
+`initialMainImage` prop seeds `mainImage` when creating, not editing) so
+the user fills in the rest of a real product form in one pass. Selecting
+several photos (checkboxes, always visible — not gated behind a
+"select mode" toggle) and clicking "Release hàng loạt" instead reuses
+`createProductsBulk`/`addProductsToProjectBulk` verbatim — same
+placeholder-with-"Thiếu thông tin" path as Up hàng loạt, since the point
+of doing several at once is speed, not a full form per photo. Either way
+the photo stays in the folder afterward (`markPhotoReleased` tags it with
+the resulting product code, shown as "Đã release → CODE" instead of the
+Release button) rather than disappearing — the user wanted to still be
+able to see the original, and avoid a photo silently vanishing looking
+like data loss.
+
+**Deliberately did NOT let this feed the real Collection system:**
+discussed directly with the user whether one Collection export could mix
+raw photos with picked/bulk-uploaded products. Collections are a list of
+real `productCodes` used for an actual pitch (share link, pitch log) —
+teaching that machinery to also accept bare, un-vetted images would mean
+changing the Collection data model everywhere it's read (detail page,
+share page, both exports), for photos that haven't been vetted as real
+designs yet. Landed on: "Xuất ảnh" (`PhotoExportModal.tsx`) reuses the
+existing PPTX/PDF generators (`generateCollectionPptx`/
+`generateCollectionPdf`) 100% as-is, in the image-only mode those already
+supported (`InfoVisibility` all `false` — this path already existed for
+Collections' own "hide all fields" toggle, just never had a caller with
+no real product data at all) — but it's a one-off file, no `Collection`
+row created, no share link, no pitch log. If the user wants one file
+mixing real products and specific photos, the answer is "Release those
+photos first" — once released they're real Products and automatically
+show up in the project's normal "Xuất Collection" alongside everything
+else, no separate merge path needed.
+
+Also added: "Tải ZIP" downloads the folder (or just the current
+selection) as a real .zip — new `jszip` dependency, fetches each
+`blob:` URL back into a `Blob` and zips them client-side, no server
+involved, matching how every other export in this app works. A
+lightweight per-photo delete (`ConfirmDialog`, matching every other
+delete in the app) was added even though not explicitly requested — an
+upload mistake needed some way to be removed, and every other list in
+this app has one.
+
+Every management action (upload, release single/bulk, delete) is gated
+behind `canCreateProduct(role)` (RND/ADMIN only, reusing the existing
+permission — no new one needed); viewing, zip, and photo-only export stay
+open to anyone who can see the project page, same visibility as the rest
+of the project detail page. Verified in the browser end-to-end: upload,
+viewer Next/Back/zoom, single Release (product lands in Product
+Development with the picked image, needs-review flag included), bulk
+Release (both land as "Thiếu thông tin" placeholders), ZIP (network tab
+shows both blob fetches resolving), PDF export (fonts fetch fine, no
+console errors), delete, and confirmed Sales (non-RND/ADMIN) sees only
+view/zip/export with no upload/Release/delete controls.
 
 ## Workflow
 

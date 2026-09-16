@@ -25,6 +25,10 @@ interface NewProductModalProps {
   // Standalone Library/Dashboard creation submits straight for review
   // instead of leaving a manual "Nộp duyệt" step. Ignored when editing.
   autoSubmit?: boolean;
+  // Pre-attaches an already-picked image as the main image when creating
+  // (not editing) — used by the "Release Library" flow on a project's raw
+  // photo folder, so the user only has to fill in the rest of the form.
+  initialMainImage?: string;
   onCancel: () => void;
   onCreate: (code: string) => void;
 }
@@ -71,7 +75,16 @@ function PickImageTile({ label, onPick }: { label: string; onPick: (file: File) 
   );
 }
 
-export function NewProductModal({ open, title, projectCustomer, product, autoSubmit, onCancel, onCreate }: NewProductModalProps) {
+export function NewProductModal({
+  open,
+  title,
+  projectCustomer,
+  product,
+  autoSubmit,
+  initialMainImage,
+  onCancel,
+  onCreate,
+}: NewProductModalProps) {
   const { products, categories, materials, sizes, colors, createProduct, updateProduct } = useProducts();
   const isEditing = !!product;
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
@@ -81,7 +94,7 @@ export function NewProductModal({ open, title, projectCustomer, product, autoSub
     setCropTarget({ src: URL.createObjectURL(file), onDone });
   }
   const [name, setName] = useState(product?.name ?? "");
-  const [mainImage, setMainImage] = useState<string | undefined>(product?.mainImage);
+  const [mainImage, setMainImage] = useState<string | undefined>(product?.mainImage ?? initialMainImage);
   const [images, setImages] = useState<string[]>(product?.images ?? []);
   const [category, setCategory] = useState(product?.category ?? categories[0] ?? "");
   const [material, setMaterial] = useState(product?.material ?? materials[0] ?? "");

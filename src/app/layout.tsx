@@ -7,6 +7,7 @@ import { ProductsProvider } from "@/components/ProductsProvider";
 import { SettingsProvider } from "@/components/SettingsProvider";
 import { CollectionsProvider } from "@/components/CollectionsProvider";
 import { RndTasksProvider } from "@/components/RndTasksProvider";
+import { ProjectPhotosProvider } from "@/components/ProjectPhotosProvider";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -34,7 +35,9 @@ export default function RootLayout({
               <ProjectsProvider>
                 <ProductsProvider>
                   <CollectionsProvider>
-                    <RndTasksProvider>{children}</RndTasksProvider>
+                    <RndTasksProvider>
+                      <ProjectPhotosProvider>{children}</ProjectPhotosProvider>
+                    </RndTasksProvider>
                   </CollectionsProvider>
                 </ProductsProvider>
               </ProjectsProvider>

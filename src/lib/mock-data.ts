@@ -674,6 +674,23 @@ export const PROJECTS: Project[] = [
   },
 ];
 
+// A lightweight, un-vetted image dump attached to a Project — distinct
+// from a real Product: no category/material, not part of the approval
+// pipeline. Lets R&D dump reference/factory photos first and decide
+// later (via "Release Library") which ones become real products; a
+// released photo keeps its entry here too, tagged with the resulting
+// product code so it's never accidentally released twice.
+export interface ProjectPhoto {
+  id: string;
+  projectCode: string;
+  fileName: string;
+  url: string;
+  uploadedAt: string;
+  releasedProductCode?: string;
+}
+
+export const INITIAL_PROJECT_PHOTOS: ProjectPhoto[] = [];
+
 export const INITIAL_RND_TASKS: RndTask[] = [
   {
     id: "task-1",
