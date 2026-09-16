@@ -1094,6 +1094,38 @@ Next/Back, Escape, and arrow-key navigation are unchanged. Verified in
 the browser: modal renders as a small centered card (not full-screen),
 scroll-wheel over the image changes its `transform: scale(...)` live.
 
+**Follow-up again same day — bigger still, fullscreen toggle, fixed a
+real background-scroll bug:** the user tried it and asked for 3 things:
+taller (the `max-w-[1400px]`/`h-[70vh]` bump wasn't enough), a
+fullscreen option alongside the existing bounded size, and — a real bug,
+not a preference — scrolling to zoom the photo was *also* scrolling the
+project page underneath the modal.
+
+- Height: `h-[85vh]` (capped `max-h-[950px]`), up from `70vh`/`960px`.
+- Fullscreen toggle: new button next to the zoom +/- icons. Rebuilt the
+  layout around this rather than bolting it on — the image area is now
+  `flex-1` (fills whatever space is left) instead of a fixed/vh height,
+  so the bounded mode (`h-[85vh] max-w-[1400px]`, rounded, padded) and
+  fullscreen mode (`h-full`, no max-width/rounding/padding) are just two
+  sets of classes on the same layout, not two different layouts to keep
+  in sync.
+- The background-scroll bug was real and root-caused: a plain React
+  `onWheel={...}` handler's `e.preventDefault()` does **not** reliably
+  stop the page behind a modal from scrolling too, because React
+  attaches wheel listeners passively by default and a passive listener
+  can't block the browser's native scroll action. Fixed by attaching a
+  real native `wheel` listener via `useEffect` + a ref with
+  `{ passive: false }` explicitly — this is the only way
+  `preventDefault()` on wheel actually takes effect. **Worth remembering
+  for any future wheel-driven interaction in this app** — reach for a
+  manual non-passive native listener from the start, not `onWheel`.
+
+Verified in the browser: taller card measured correctly; fullscreen
+toggle swaps between the bounded card and a full-viewport view (icon and
+title swap too) and back; scroll-zoomed while fullscreen and confirmed
+both the image's `transform: scale(...)` changed **and**
+`window.scrollY` stayed at 0 throughout.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
