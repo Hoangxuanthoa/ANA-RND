@@ -26,34 +26,45 @@ unchanged — purely local, not worth the disruption of a mid-session rename.
 
 ## Current state (important — read before assuming anything is "real")
 
-**The frontend is still 100% mock data — backend wiring just started
-(2026-09-16), schema + real DB only, no API routes or auth yet.** Every page
-still runs on in-memory mock state today: there is no live database traffic
-from the app, no auth check, no persistence across a page reload. That is
-actively being changed, module by module — see "Backend wiring" below for
-exactly how far it's gotten.
+**Backend wiring is done, as of 2026-09-17.** Started 2026-09-16 with
+schema + real DB only; by 2026-09-17 every module (Auth, Staff/User,
+Products, Projects, Collections, RndTasks, Settings) had been migrated
+off mock in-memory state onto the real Supabase/Prisma/R2 stack. See
+"Backend wiring" below for the full history of how each module got
+there and what was verified — kept for context, not because any of it
+is still "in progress."
 
-- All data still lives in [src/lib/mock-data.ts](src/lib/mock-data.ts) and is
-  mutated through React Context providers (`ProductsProvider`,
+- Real data lives in Postgres (Supabase), read/written through
+  `src/app/api/**` routes and real Prisma calls — `src/lib/mock-data.ts`
+  is now **only** types, pure formatting helpers (`formatDDMMYYYY`,
+  `daysUntil`, etc.), and a couple of genuinely-cosmetic constants
+  (`CURRENT_USER_NAME` still backs the Admin role-preview switcher,
+  since previewing a role that isn't your own real account has no real
+  identity to show). No module still holds its working data as a bare
+  `useState(INITIAL_X)` array. Every provider (`ProductsProvider`,
   `ProjectsProvider`, `CollectionsProvider`, `SettingsProvider`,
-  `RoleProvider`, `RndTasksProvider`, `ProjectPhotosProvider`). Reload the
-  page and every edit is gone — **this has not changed yet**, providers
-  aren't calling any API.
-- [src/app/login/page.tsx](src/app/login/page.tsx) is still cosmetic: it does
-  not check credentials, just `setTimeout` then redirects to `/dashboard`.
-  `RoleProvider` is what actually controls which role you're "logged in" as
-  (there's a role switcher for testing — not real auth). Real Supabase Auth
-  is planned next (see "Backend wiring") but not built yet.
-- `prisma/schema.prisma` is now a real, live schema pushed to a real Supabase
-  Postgres project (not just a design doc) — see "Backend wiring" below.
-  `src/lib/prisma.ts` and `src/lib/supabase/*` are now actually in use for
-  real login (see "Backend wiring" — Auth is done); the rest of the app's
-  data (Products/Projects/etc.) still doesn't call them.
-- Real Auth is done (Supabase Auth, see "Backend wiring") — README now
-  reflects this correctly. If you see anything claiming "Custom JWT via
-  jose" anywhere, it's stale leftover text that should be fixed on sight.
+  `RndTasksProvider`, `StaffProvider`, `NotificationsProvider`,
+  `ProjectPhotosProvider`) fetches on mount and persists real mutations —
+  reload the page and everything is still there.
+- [src/app/login/page.tsx](src/app/login/page.tsx) calls real Supabase
+  Auth (`supabase.auth.signInWithPassword`); `src/middleware.ts` gates
+  every route except `/login` and the one deliberately public surface
+  (`/share/collection/[slug]`, Collections' customer-facing link —
+  see the Collections entry below) behind a real, server-revalidated
+  session. `RoleProvider`'s "Xem thử vai trò" switcher still exists,
+  Admin-only, for previewing another role's UI — it changes what the
+  UI shows, never the real authenticated identity used server-side.
+- Real, live data starts from wherever each module's own migration
+  entry below left it (several were deliberately seeded empty; Staff
+  has the real company roster). There's no bulk "demo data" seed script
+  and none is planned — this is meant to be used for real from here.
+- File uploads (product photos, project photos, PPTX template images)
+  go to a real Cloudflare R2 bucket via `/api/upload`; R2's CORS
+  limitation and its fix (`/api/image-proxy`) are documented in the
+  Projects and Settings entries below — read those before touching any
+  code that draws an uploaded image onto a `<canvas>`.
 
-## Backend wiring (in progress, started 2026-09-16)
+## Backend wiring (started 2026-09-16, completed 2026-09-17)
 
 Real infra now exists: a Supabase project (`design-library`, Singapore
 region) with a live Postgres database. Credentials live in `.env` (gitignored
@@ -247,15 +258,10 @@ pass too, not deferred.
    Not a new bug, not fixed here — flagged as it'll only get more visible
    as more real people log in before Products/Projects migrate.
 
-**Not done yet — next candidates in order:**
-6. Products → Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) →
-   Collections → RndTasks → Notifications → Settings (Category/Material/
-   Size/Color/AppSettings — the lookup tables, distinct from the Staff/
-   User work just finished). Each step: real API routes (or server
-   actions), swap that Provider's `useState(INITIAL_X)` for a real fetch +
-   real mutations, **keep the Provider's public hook interface unchanged**
-   (`useProducts()` etc.) so page components need zero changes. Products
-   should go first since Projects/Collections/RndTasks all reference it.
+6. ~~Products → Projects (+ProjectProduct/ProjectPhoto/ProjectAttachment) →
+   Collections → RndTasks → Notifications → Settings~~ — **done**, see
+   each module's own dated entry further down in "Backend wiring" for
+   what actually shipped and how it was verified.
 
 ## Business rules worth knowing (so you don't re-derive them)
 
@@ -737,10 +743,10 @@ a real notification with the note's content in their bell inbox.
    gap found: Customer couldn't originate a project at all. Fixed by adding
    a request-intake flow (see Projects above) rather than just reviewing
    the prior read-only experience.
-4. Wiring the real backend (Prisma/Supabase/auth) — **started 2026-09-16**,
-   see the "Backend wiring" section right after "Current state" near the
-   top of this file for exactly what's done vs. still pending. Continue
-   there, module by module, rather than treating this as a fresh decision.
+4. ~~Wiring the real backend (Prisma/Supabase/auth)~~ — **done
+   2026-09-16 → 2026-09-17**, see the "Backend wiring" section right
+   after "Current state" near the top of this file for the full history
+   of every module's migration and how each was verified.
 5. ~~Possible future feature: per-product (not just per-project) R&D
    assignment~~ — **ruled out 2026-09-13**. User confirmed the real
    workflow is always 1 project → 1 R&D owner; no need to build a
@@ -1582,6 +1588,82 @@ to its empty state afterward.
 **Deliberately not done this pass:** Settings (Category/Material/Size/
 Color/AppSettings lookup tables + the "Mẫu PPTX" tab) is now the only
 module left fully mock — its own turn next.
+
+## Backend wiring: Settings module goes real — the last one (2026-09-17)
+
+Last module in the established migration order (Products → Projects →
+Collections → RndTasks → **Settings**). Turned out to be much smaller
+than the prior four: **Category/Material/Size/Color were already real**
+— built during the very first Products pass on 2026-09-16
+(`useLookupField` in `ProductsProvider.tsx`, backing `/api/categories|
+materials|sizes|colors`) and Settings' own tabs for them were already
+just reading from `useProducts()`. The only piece still mock was the
+**"Mẫu PPTX" tab** (`AppSettings` — cover/closing template images +
+closing text for the Collection PPTX/PDF export), which is what this
+pass actually wired up. No schema migration needed; `AppSettings` was
+already designed in.
+
+`GET/PATCH /api/settings` — a genuine singleton row (`findFirst()`,
+created on first `PATCH` if it doesn't exist yet), readable by any
+signed-in role (the export page needs it and isn't Admin-only) but
+writable by Admin only, matching the page's own gate.
+`SettingsProvider.tsx` rewritten to fetch-on-mount + optimistic PATCH,
+same shape as the other providers, with the exact same public
+interface so `collections/[id]/export/page.tsx` (the only other
+consumer) needed zero changes. The cover/closing image pickers now
+call the shared `uploadFile()` (real R2 upload, same helper Products/
+ProjectPhotos already use) instead of `URL.createObjectURL()`, with a
+busy/error state on the picker itself. The closing-text input switched
+from firing a PATCH on every keystroke to a staged-locally/save-on-blur
+pattern (same reasoning as `my-tasks/page.tsx`'s `StagedTextCell` —
+this is a real network write now, not free local state).
+
+**A real, currently-live bug was found and fixed as a direct
+consequence of this change, not something newly introduced by it:**
+tracing through how the cover/closing template image would render once
+it became a real R2 URL led straight to `pdfExport.ts`'s
+`coverImageDataUrl()`, which draws a URL onto a `<canvas>` and calls
+`canvas.toDataURL()` — the exact "tainted canvas" pattern already
+diagnosed and fixed once before, for Ảnh dự án's crop flow, during the
+Projects phase (R2's free public URL doesn't send
+`Access-Control-Allow-Origin`, so a same-origin-only canvas read throws
+`SecurityError`). The call is wrapped in a try/catch that silently
+falls back to a flat color box — which means **Collections' PDF export
+has likely been silently dropping every real product photo (not just
+template images) since Products went real on 2026-09-16**, with zero
+visible error to anyone who exported a PDF and just saw a plain-colored
+box where a photo should be. Not something anyone had reported —
+found by tracing the code path, not from a bug report. Fixed the same
+way as before: `pdfExport.ts`'s own `loadImage()` now routes any real
+http(s) URL through `/api/image-proxy` first (blob: URLs and the
+root-relative `/logo.png` asset still load directly). PPTX export and
+the on-page slide-deck preview were never affected — pptxgenjs's own
+image loader and a plain `<img>` tag don't touch a canvas at all.
+
+**Verified end-to-end locally** (`tsc --noEmit` and eslint clean):
+uploaded a real cover image (a synthetic PNG injected into the file
+input, matching the technique used for prior modules' upload tests) —
+confirmed the real R2 URL persisted after a hard reload; edited the
+closing text and confirmed no `PATCH` fired while still typing, only
+on blur; **then actually exercised the fixed PDF export path** — built
+a real test Collection with a product, clicked "Xuất PDF", and
+confirmed via the network log that `/api/image-proxy` was called for
+the real cover image and returned 200, with zero console errors in a
+freshly opened tab (ruling out stale-history false positives). All
+test data (collection, product, the uploaded R2 image, `AppSettings`
+reset to default) cleaned up afterward.
+
+**Not yet tested on production** — pending, same discipline as the
+prior four modules.
+
+**This closes the full backend-wiring effort** — every module
+(Staff/User, Auth, Products, Projects, Collections, RndTasks, Settings)
+now runs on the real Supabase/Prisma/R2 stack, no module left on mock
+in-memory state. Deliberately still cosmetic/deferred, unchanged from
+each module's own pass (not newly discovered gaps): the Activity feed
+(static demo data), Project file attachments (filename-only, no real
+upload), and real password self-service change (`ProfileModal`'s
+password fields are still a no-op).
 
 ## Workflow
 

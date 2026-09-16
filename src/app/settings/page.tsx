@@ -9,6 +9,7 @@ import { useStaff } from "@/components/StaffProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ROLE_LABEL, type Role } from "@/lib/mock-data";
 import { canManageSettings } from "@/lib/permissions";
+import { uploadFile } from "@/lib/upload";
 
 const TABS = [
   { key: "category", label: "Category" },
@@ -353,9 +354,12 @@ function PptxBackgroundPicker({
 }: {
   label: string;
   image?: string;
-  onPick: (file: File) => void;
+  onPick: (file: File) => Promise<void>;
   onClear: () => void;
 }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[13px] font-bold">{label}</span>
@@ -378,53 +382,80 @@ function PptxBackgroundPicker({
             Mặc định (nền xanh thương hiệu)
           </div>
         )}
-        <label className="flex h-9 cursor-pointer items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg">
-          {image ? "Đổi ảnh" : "Tải ảnh lên"}
+        <label className="flex h-9 cursor-pointer items-center rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg has-disabled:cursor-not-allowed has-disabled:opacity-60">
+          {busy ? "Đang tải lên…" : image ? "Đổi ảnh" : "Tải ảnh lên"}
           <input
             type="file"
             accept="image/*"
+            disabled={busy}
             className="hidden"
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (file) onPick(file);
               e.target.value = "";
+              if (!file) return;
+              setError("");
+              setBusy(true);
+              try {
+                await onPick(file);
+              } catch {
+                setError("Tải ảnh lên thất bại — thử lại.");
+              } finally {
+                setBusy(false);
+              }
             }}
           />
         </label>
       </div>
+      {error && <p className="text-[12px] font-semibold text-red">{error}</p>}
     </div>
   );
 }
 
 function PptxTemplateTab() {
   const { pptxTemplate, updatePptxTemplate } = useSettings();
+  // Staged locally, saved on blur — same reasoning as my-tasks/page.tsx's
+  // StagedTextCell: this is a real network write now, not free local
+  // state, so it shouldn't fire on every keystroke. Re-synced from the
+  // real value whenever it's not the field currently being edited.
+  const [closingTextDraft, setClosingTextDraft] = useState(pptxTemplate.closingText);
+  const [closingTextFocused, setClosingTextFocused] = useState(false);
+  if (!closingTextFocused && closingTextDraft !== pptxTemplate.closingText) {
+    setClosingTextDraft(pptxTemplate.closingText);
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <p className="text-[12.5px] text-text-faint">
         Áp dụng cho mọi lượt xuất PPTX của cả team (trang thông tin sản phẩm giữ nguyên bố cục cố định, không
-        chỉnh ở đây). Ảnh lưu tạm trong trình duyệt — mất khi tải lại trang, giống ảnh sản phẩm.
+        chỉnh ở đây).
       </p>
 
       <PptxBackgroundPicker
         label="Ảnh nền trang bìa"
         image={pptxTemplate.coverImage}
-        onPick={(file) => updatePptxTemplate({ coverImage: URL.createObjectURL(file) })}
+        onPick={async (file) => updatePptxTemplate({ coverImage: await uploadFile(file, "settings") })}
         onClear={() => updatePptxTemplate({ coverImage: undefined })}
       />
 
       <PptxBackgroundPicker
         label="Ảnh nền trang cuối"
         image={pptxTemplate.closingImage}
-        onPick={(file) => updatePptxTemplate({ closingImage: URL.createObjectURL(file) })}
+        onPick={async (file) => updatePptxTemplate({ closingImage: await uploadFile(file, "settings") })}
         onClear={() => updatePptxTemplate({ closingImage: undefined })}
       />
 
       <label className="flex max-w-sm flex-col gap-1.5">
         <span className="text-[13px] font-bold">Chữ trang cuối</span>
         <input
-          value={pptxTemplate.closingText}
-          onChange={(e) => updatePptxTemplate({ closingText: e.target.value })}
+          value={closingTextDraft}
+          onChange={(e) => setClosingTextDraft(e.target.value)}
+          onFocus={() => setClosingTextFocused(true)}
+          onBlur={() => {
+            setClosingTextFocused(false);
+            if (closingTextDraft.trim() && closingTextDraft !== pptxTemplate.closingText) {
+              updatePptxTemplate({ closingText: closingTextDraft.trim() });
+            }
+          }}
           className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
         />
       </label>

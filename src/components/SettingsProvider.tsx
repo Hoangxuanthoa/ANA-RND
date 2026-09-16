@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 // Cover/closing slide look for the Collection PPTX export — Admin-wide,
 // applies to every export. Product-info slides are NOT customizable here
@@ -27,8 +27,22 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [pptxTemplate, setPptxTemplate] = useState<PptxTemplateSettings>(DEFAULT_PPTX_TEMPLATE);
 
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setPptxTemplate(data));
+  }, []);
+
   function updatePptxTemplate(patch: Partial<PptxTemplateSettings>) {
     setPptxTemplate((prev) => ({ ...prev, ...patch }));
+    fetch("/api/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch, (_key, v) => (v === undefined ? null : v)),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setPptxTemplate(data))
+      .catch(() => {});
   }
 
   return (

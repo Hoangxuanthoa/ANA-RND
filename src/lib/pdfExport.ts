@@ -47,12 +47,21 @@ async function fetchAsBase64(url: string): Promise<string> {
   });
 }
 
+// Any real http(s) image (a product photo, or a PPTX-template cover/
+// closing image — both R2-hosted) has to go through our own image proxy
+// before it's safe to read back off a canvas — see cropImage.ts's
+// loadImage for the full story: R2's free public URL doesn't send
+// Access-Control-Allow-Origin, so drawing one straight onto a canvas
+// taints it and canvas.toDataURL() throws. blob: URLs (session-only
+// picks) and root-relative paths (the /logo.png asset) are already
+// same-origin and load directly.
 function loadImage(url: string): Promise<HTMLImageElement> {
+  const src = url.startsWith("blob:") || url.startsWith("/") ? url : `/api/image-proxy?url=${encodeURIComponent(url)}`;
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image ${url}`));
-    img.src = url;
+    img.src = src;
   });
 }
 
