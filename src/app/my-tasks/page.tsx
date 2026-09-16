@@ -470,8 +470,8 @@ export default function MyTasksPage() {
   return (
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
-      <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 p-7">
-        <div className="flex items-center justify-between border-b border-line">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 p-4 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
           <div className="flex gap-6">
             {TABS.map((t) => (
               <button
@@ -500,7 +500,7 @@ export default function MyTasksPage() {
           <>
             {isAdmin && (
               <div className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="text-[13px] font-extrabold">Tổng quan phòng</h2>
                   <p className="text-[12px] text-text-muted">
                     {overviewTotals.active} đang làm ·{" "}

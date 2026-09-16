@@ -124,7 +124,7 @@ export default function DashboardPage() {
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
 
-      <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-7 p-7">
+      <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-5 p-4 sm:gap-7 sm:p-7">
         <div>
           <h1 className="mb-1 text-[22px] font-extrabold">
             Chào buổi sáng, {isCustomer ? "JYSK Buyer" : effectiveUserName}
@@ -134,7 +134,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className={`grid gap-4 ${isCustomer ? "grid-cols-2" : "grid-cols-4"}`}>
+        <div className={`grid grid-cols-2 gap-3 sm:gap-4 ${isCustomer ? "" : "lg:grid-cols-4"}`}>
           {isCustomer ? (
             <>
               <StatCard
@@ -193,7 +193,7 @@ export default function DashboardPage() {
 
         {canViewLibrary(role) && (
           <div className="flex flex-col gap-3.5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-[16px] font-extrabold">Sản phẩm mới thêm</h2>
               <div className="flex items-center gap-2.5">
                 {canCreateProduct(role) && (
@@ -209,7 +209,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
               {recentProducts.map((p) => {
                 const badge = productStatusBadge(p.status);
                 return (

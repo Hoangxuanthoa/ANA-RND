@@ -96,29 +96,23 @@ export default function ProjectsPage() {
     [projects, role, userName],
   );
 
-  // minmax(0, Nfr) — not bare Nfr — on every track: the header row and
-  // each data row are separate grid containers, so without the 0 floor a
-  // track's width is driven by that row's own content (a status pill
-  // forces its column wider than the plain header text in the same
-  // position), and header/data columns drift out of alignment.
-  //
-  // The trailing actions column can't be a bare "auto" either, for the
-  // same reason at the row level: the header's action cell is an empty
-  // placeholder (~0 content width) while a data row's has up to 3 icons
-  // (~96px). auto sizes to content first, before fr tracks split what's
-  // left — so the header row would have more leftover space than data
-  // rows, and every fr column before it would end up wider in the header,
-  // drifting more and more as you move right. A fixed width sidesteps
-  // that entirely since it doesn't depend on content either way.
+  // Fixed pixel widths, not fr fractions — same reasoning as My Task's
+  // table (my-tasks/page.tsx): a fr track's width is driven by that row's
+  // own content (a status pill forces its column wider than the header
+  // text in the same position), which drifts the header and data rows out
+  // of alignment; a fixed width sidesteps that entirely. Fixed widths also
+  // mean the table can no longer shrink to fit a narrow phone screen
+  // legibly, so the whole thing scrolls horizontally there instead (see
+  // the overflow-x-auto wrapper below) rather than squeezing unreadable.
   const gridCols = isCustomer
-    ? "grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.6fr)]"
-    : "grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.9fr)_minmax(0,0.5fr)_100px]";
+    ? "grid-cols-[minmax(220px,2fr)_100px_120px_100px_110px_100px_90px]"
+    : "grid-cols-[minmax(200px,1.6fr)_90px_110px_90px_100px_90px_100px_90px_80px_100px]";
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
       <TopNav />
-      <div className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col gap-5 p-7">
-        <div className="flex items-center justify-between border-b border-line">
+      <div className="mx-auto flex w-full max-w-[1360px] flex-1 flex-col gap-5 p-4 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line">
           {isCustomer ? (
             <div />
           ) : (
@@ -147,8 +141,8 @@ export default function ProjectsPage() {
               </button>
             </div>
           )}
-          <div className="mb-2 flex items-center gap-2">
-            <div className="relative">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-auto">
               <svg
                 width="14"
                 height="14"
@@ -168,7 +162,7 @@ export default function ProjectsPage() {
                   setPage(1);
                 }}
                 placeholder="Tìm theo tên, mã, khách hàng…"
-                className="h-[34px] w-56 rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+                className="h-[34px] w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15 sm:w-56"
               />
             </div>
             {canCreateProject(role) && (
@@ -203,8 +197,8 @@ export default function ProjectsPage() {
           })}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-line bg-surface">
-          <div className={`grid ${gridCols} items-center gap-2 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase`}>
+        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+          <div className={`grid ${gridCols} min-w-fit items-center gap-2 bg-bg px-4 py-3.5 text-[11px] font-bold tracking-wide text-text-faint uppercase`}>
             <span>Project</span>
             <span>Type</span>
             <span>Customer</span>
@@ -227,7 +221,7 @@ export default function ProjectsPage() {
             const hardDelete = canHardDeleteProject(p);
             const productCount = projectProducts.filter((pp) => pp.projectCode === p.code).length;
             return (
-              <div key={p.code} className={`grid ${gridCols} items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg`}>
+              <div key={p.code} className={`grid ${gridCols} min-w-fit items-center gap-2 border-t border-line px-4 py-3.5 hover:bg-bg`}>
                 <Link href={`/projects/${p.code}`}>
                   <div className="text-[13.5px] font-bold">{p.name}</div>
                   <div className="mt-0.5 text-[11.5px] font-semibold text-text-faint">{p.code}</div>

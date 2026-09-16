@@ -1731,6 +1731,77 @@ production — this is a small, low-risk UI-only change; push and a
 quick visual check is enough, doesn't need the full smoke-test
 discipline the backend migrations got.
 
+## First mobile-responsive pass: TopNav, Dashboard, Projects, My Task (2026-09-17)
+
+User asked whether adding phone support now would risk anything. It
+doesn't break desktop when done incrementally with Tailwind's
+responsive prefixes, but the app was built desktop-first (several
+tables use fixed-pixel-width columns with no small-screen fallback at
+all), so a full pass across every page is real, non-trivial work — not
+a quick global toggle. Agreed to start with the highest-traffic pages
+first rather than the whole app at once: **TopNav** (shared by every
+page, so it was the actual blocker — the nav links row already
+overflowed on a phone before this), **Dashboard**, **Projects list**,
+**My Task**.
+
+**TopNav** — added a hamburger menu (`md:hidden`, standard 768px
+breakpoint) that opens a stacked full-width version of the exact same
+nav links (`canView*` role gates included, extracted into one shared
+`navLinks(fullWidth)` closure so desktop/mobile can never drift out of
+sync with each other). Closes on outside click (same ref-based pattern
+already used for the bell/account dropdowns) and on every route change
+(otherwise it stays visibly open under the new page while it loads).
+Also capped the bell/account dropdown panels' width to
+`max-w-[calc(100vw-2rem)]` — their fixed `w-80`/`w-64` could overflow a
+narrow phone screen when anchored `right-0` near the edge.
+
+**Dashboard** — stat-card and recent-products grids now step down
+(`grid-cols-2` on phones, the original 4/3-column layout from `lg:`/
+`sm:` up) instead of stopping at a fixed column count; page padding
+drops from `p-7` to `p-4` below `sm:`.
+
+**Projects list** — the toolbar (My/All tabs, search, "+ New Project",
+status chips) already used `flex-wrap` in places but not consistently;
+made every row wrap and the search input full-width below `sm:`. The
+table itself was the real gap: unlike My Task's table, it had **no**
+horizontal-scroll fallback at all — its columns were sized with
+`minmax(0, Nfr)` specifically so header and data rows couldn't drift
+out of alignment (a fr track's width depends on that row's own
+content), which meant on a narrow screen it would have squeezed all 10
+columns down toward unreadable instead of overflowing. Converted every
+column to a fixed pixel width (except the leading Project column, kept
+flexible via `minmax(220px, 2fr)` — safe now since it's the only
+non-fixed track, so the drift the original comment warned about can't
+happen) and wrapped the table in `overflow-x-auto` with `min-w-fit`
+rows, the same pattern My Task's table already used successfully.
+
+**My Task** — already had `overflow-x-auto` on its table and
+`flex-wrap` on its filter toolbar; just needed the tab-row/header and
+the "Tổng quan phòng" summary header to wrap too, plus the same `p-7`
+→ `p-4` mobile padding step-down as the other three pages.
+
+**Verified at a 375×812 viewport** (`resize_window` preset "mobile")
+for all four pages: hamburger menu opens/closes and its links navigate
+correctly; Dashboard's cards and activity feed are readable at 2
+columns; Projects' table scrolls horizontally with a real test project
+row rendering correctly across the scroll (name/code, type badge,
+deadline, product count, and the edit/delete icons all confirmed by
+scrolling); My Task's toolbar and table both degrade cleanly. Also
+re-checked all four at desktop size afterward to confirm nothing
+regressed there — visually identical to before. `tsc --noEmit` and
+eslint clean. Console errors seen in one long-lived test tab turned
+out to be stale history from a mid-edit transient state (confirmed via
+a fresh tab showing zero errors on the same pages) — not a real
+regression, same false-alarm pattern noted in earlier phases of this
+log.
+
+**Deliberately not done this pass:** every other page (Library,
+Collections, Settings, Review, product/project detail pages) is
+untouched — still desktop-only. Revisit only if the user asks, and
+likely worth asking first which of those actually get used from a
+phone before investing in them, same as the framing this pass started
+from.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature
