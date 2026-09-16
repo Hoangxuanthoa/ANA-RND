@@ -51,7 +51,7 @@ export function PhotoViewerModal({ photos, index, onIndexChange, onClose }: Phot
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
       <div
-        className="flex w-full max-w-[720px] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-md"
+        className="flex max-h-[90vh] w-full max-w-[1400px] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
@@ -89,7 +89,7 @@ export function PhotoViewerModal({ photos, index, onIndexChange, onClose }: Phot
           </div>
         </div>
 
-        <div className="relative flex h-[480px] items-center justify-center bg-bg">
+        <div className="relative flex h-[70vh] max-h-[960px] items-center justify-center bg-bg">
           {photos.length > 1 && (
             <button
               onClick={() => onIndexChange((index - 1 + photos.length) % photos.length)}
