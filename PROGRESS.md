@@ -1290,9 +1290,23 @@ foundation, `3d6b123` Products backend) — summary here:
 generated the code) → approved it → favorited it → posted a comment —
 each step survived a hard reload. Renamed a category, confirmed the
 rename persisted and cascaded into the already-fetched product list.
-Did not yet test real image upload/crop end-to-end — that needs the R2
-credentials the user is still gathering; code path is in place and
-will be verified once they land.
+**Follow-up, same day — R2 credentials landed:** walked the user
+through Cloudflare R2 setup step by step (their account also hosts two
+other production buckets — `artex-nam-an-backup-database`,
+`artex-nam-an-prod` — so this specifically used a dedicated `ana-rnd`
+bucket + an Account API Token scoped to only that bucket, Object Read &
+Write, never "apply to all buckets"). Public Development URL
+(`*.r2.dev`) enabled for now — fine for the current testing phase, a
+custom domain is one env var away whenever that matters. Added the 5
+`R2_*` vars to `.env`, restarted the dev server, and verified for
+real: created a product with an image end-to-end (crop → upload →
+`https://pub-....r2.dev/products/<uuid>.jpg` returned and publicly
+loads), the product's card still showed the real image after a full
+page reload. Cleaned up the two test products (rejected → hidden from
+Library by the existing DRAFT-visibility rule; no code change needed).
+**Still needed before this reaches production:** the same 5 `R2_*`
+vars have to be added to Vercel's own Environment Variables too — the
+local `.env` only covers local dev.
 
 **Deliberately not done this pass** (next module's turn): Projects +
 Ảnh dự án + the in-project approval pipeline, Collections, RndTasks,
