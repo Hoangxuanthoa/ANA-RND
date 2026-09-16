@@ -15,7 +15,7 @@ interface AddRndTaskModalProps {
     requester: string;
     startDate: string;
     deadline: string;
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function AddRndTaskModal({ open, onCancel, onCreate }: AddRndTaskModalProps) {
@@ -31,13 +31,16 @@ export function AddRndTaskModal({ open, onCancel, onCreate }: AddRndTaskModalPro
   const [requester, setRequester] = useState("");
   const [startDate, setStartDate] = useState(todayDDMMYYYY());
   const [deadline, setDeadline] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !deadline.trim()) return;
-    onCreate({ title: title.trim(), category, priority, requester: requester || staff[0]?.name || "", startDate, deadline });
+    if (!title.trim() || !deadline.trim() || submitting) return;
+    setSubmitting(true);
+    await onCreate({ title: title.trim(), category, priority, requester: requester || staff[0]?.name || "", startDate, deadline });
+    setSubmitting(false);
     setTitle("");
     setCategory(TASK_CATEGORIES[0]);
     setPriority("Trung bình");
@@ -143,10 +146,10 @@ export function AddRndTaskModal({ open, onCancel, onCreate }: AddRndTaskModalPro
           </button>
           <button
             type="submit"
-            disabled={!title.trim() || !deadline.trim()}
+            disabled={!title.trim() || !deadline.trim() || submitting}
             className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            Thêm việc
+            {submitting ? "Đang thêm…" : "Thêm việc"}
           </button>
         </div>
       </form>

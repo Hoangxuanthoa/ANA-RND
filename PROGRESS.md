@@ -1505,6 +1505,79 @@ product version, so the routes don't set them; revisit only if the
 user asks for that. RndTasks, Settings remain fully mock, next in the
 established migration order.
 
+## Backend wiring: RndTasks module goes real (2026-09-17)
+
+Continuing the established order — Products → Projects → Collections →
+**RndTasks** → Settings. Schema needed zero migration again; `RndTask`
+was already fully designed in on 2026-09-16.
+
+**Same proven pattern as the prior three modules:** `src/lib/server/
+serialize-rnd-task.ts` maps the schema's English `TaskCategory` enum to
+its Vietnamese label (`CATEGORY_LABEL`/`CATEGORY_VALUE`, the same shape
+as `PRIORITY_LABEL`/`PRIORITY_VALUE`) and directly **reuses**
+`PRIORITY_LABEL`/`PRIORITY_VALUE` from `serialize-project.ts` rather
+than duplicating them — `TaskPriority` is one schema enum shared by both
+`Project.rndPriority` and `RndTask.priority`, and that file's own
+comment had already flagged "will be reused as-is once RndTask goes
+real." `src/app/api/rnd-tasks/` gained the same CRUD shape as the other
+three modules; `RndTasksProvider.tsx` rewritten to the same fetch-on-
+mount/optimistic/reconcile shape, keeping every public function name
+unchanged so `my-tasks/page.tsx` needed no restructuring, only the
+identity switch below. `addTask` dropped its `ownerName` parameter —
+"Thêm công việc" only ever adds to *your own* list (no reassignment
+feature exists), so the server always uses the session's own id,
+never a client-supplied name.
+
+**Two ownership rules enforced server-side, not just hidden in the
+UI** (matching the "never trust the client" principle used everywhere
+else in this app): the generic `PATCH` route requires Admin or the
+task's own owner (mirrors `ProjectsProvider`'s `isOwner`); a task's
+`importantNote` additionally requires the caller to actually be Admin
+even when they *are* the task's owner, closing a real gap the UI alone
+doesn't — the UI never renders an edit control for `importantNote`
+unless `isAdmin`, but nothing before this stopped an R&D account from
+setting it via a raw API call to their own task, since the plain
+owner-or-Admin rule would otherwise have let that through. Also added
+a self-notification skip on both `needsSupport` → Admin and
+`importantNote` → owner (only fires if the caller isn't the recipient)
+— Admin's own ad-hoc tasks would otherwise trigger a pointless
+"gửi lưu ý cho chính mình" notification, since Admin can own tasks too.
+
+This was the **last file with any `CURRENT_USER_NAME` mock-identity
+usage outside Settings** — `my-tasks/page.tsx` dropped the dual-
+variable split entirely (`userName`/`effectiveUserName` had been two
+different values only because Project was real and RndTask wasn't;
+now both branches use the one real `effectiveUserName`).
+`AddRndTaskModal.tsx`'s `onCreate` became `Promise`-returning with the
+same busy-state pattern (`"Đang thêm…"`) already used for
+`NewProjectModal`/`LogPitchModal`.
+
+**Verified end-to-end locally** (`tsc --noEmit` and eslint clean):
+added a real task through the UI (real owner "Henry", real requester
+picked from the staff roster) — survived a hard reload; inline-edited
+title (persisted), priority (persisted), `needsSupport` (persisted,
+confirmed **no** self-notification fired since the caller was also the
+recipient Admin), `importantNote` as Admin (persisted, same
+no-self-notification check); deleted the task successfully. One
+real UI-testing gotcha worth noting for future testing sessions (not a
+product bug): `StagedTextCell`'s save fires on blur, not on pressing
+Enter inside the field — pressing Enter alone looked like a silent
+no-op the first time, but clicking/tabbing away confirmed the save
+fires correctly. A transient `ReferenceError: CURRENT_USER_NAME is not
+defined` appeared once mid-session in a tab that had lived through many
+rapid hot-reloads; a brand-new tab loading the same page produced zero
+console errors, confirming it was a stale Turbopack HMR artifact from
+editing the file repeatedly in place, not a real regression — `grep`
+across the whole `src/` tree turned up no remaining reference to fix.
+
+**Not yet tested on production** — pending, same discipline as the
+prior three modules (create real data, exercise the field edits, clean
+up afterward).
+
+**Deliberately not done this pass:** Settings (Category/Material/Size/
+Color/AppSettings lookup tables + the "Mẫu PPTX" tab) is now the only
+module left fully mock — its own turn next.
+
 ## Workflow
 
 - After finishing a meaningful chunk of work: update this file's "Feature

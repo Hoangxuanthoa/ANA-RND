@@ -1,21 +1,18 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { INITIAL_RND_TASKS, type RndTask, type TaskCategory, type TaskPriority } from "@/lib/mock-data";
-import { useNotifications } from "@/components/NotificationsProvider";
-import { useStaff } from "@/components/StaffProvider";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { RndTask, TaskCategory, TaskPriority } from "@/lib/mock-data";
 
 interface RndTasksContextValue {
   rndTasks: RndTask[];
   addTask: (input: {
-    ownerName: string;
     title: string;
     category: TaskCategory;
     priority: TaskPriority;
     requester: string;
     startDate: string;
     deadline: string;
-  }) => void;
+  }) => Promise<void>;
   updateTask: (id: string, patch: Partial<RndTask>) => void;
   deleteTask: (id: string) => void;
   // Same "own function, not a plain patch" reasoning as
@@ -28,13 +25,33 @@ interface RndTasksContextValue {
 
 const RndTasksContext = createContext<RndTasksContextValue | null>(null);
 
-export function RndTasksProvider({ children }: { children: ReactNode }) {
-  const { addNotification } = useNotifications();
-  const { staff } = useStaff();
-  const [rndTasks, setRndTasks] = useState<RndTask[]>(INITIAL_RND_TASKS);
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
-  function addTask(input: {
-    ownerName: string;
+function bodyWithNulls(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => (v === undefined ? null : v));
+}
+
+async function postJson<T>(url: string, body: unknown, method: "POST" | "PATCH" = "POST"): Promise<T> {
+  const res = await fetch(url, { method, headers: JSON_HEADERS, body: bodyWithNulls(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Thao tác thất bại — thử lại.");
+  return data as T;
+}
+
+export function RndTasksProvider({ children }: { children: ReactNode }) {
+  const [rndTasks, setRndTasks] = useState<RndTask[]>([]);
+
+  useEffect(() => {
+    fetch("/api/rnd-tasks")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setRndTasks);
+  }, []);
+
+  function replaceTask(id: string, updated: RndTask) {
+    setRndTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+  }
+
+  async function addTask(input: {
     title: string;
     category: TaskCategory;
     priority: TaskPriority;
@@ -42,47 +59,26 @@ export function RndTasksProvider({ children }: { children: ReactNode }) {
     startDate: string;
     deadline: string;
   }) {
-    const id = `rndtask-${Date.now()}`;
-    setRndTasks((prev) => [{ id, ...input }, ...prev]);
+    const created = await postJson<RndTask>("/api/rnd-tasks", input);
+    setRndTasks((prev) => [created, ...prev]);
   }
 
   function updateTask(id: string, patch: Partial<RndTask>) {
     setRndTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    postJson<RndTask>(`/api/rnd-tasks/${id}`, patch, "PATCH").then((t) => replaceTask(id, t)).catch(() => {});
   }
 
   function deleteTask(id: string) {
     setRndTasks((prev) => prev.filter((t) => t.id !== id));
+    fetch(`/api/rnd-tasks/${id}`, { method: "DELETE" }).catch(() => {});
   }
 
   function setTaskNeedsSupport(id: string, note: string) {
     updateTask(id, { needsSupport: note });
-    const trimmed = note.trim();
-    if (!trimmed) return;
-    const task = rndTasks.find((t) => t.id === id);
-    const admin = staff.find((s) => s.role === "ADMIN");
-    if (!task || !admin) return;
-    addNotification({
-      type: "RND_NEEDS_SUPPORT",
-      title: `${task.title} cần hỗ trợ`,
-      message: trimmed,
-      link: "/my-tasks",
-      recipientName: admin.name,
-    });
   }
 
   function setTaskImportantNote(id: string, note: string) {
     updateTask(id, { importantNote: note });
-    const trimmed = note.trim();
-    if (!trimmed) return;
-    const task = rndTasks.find((t) => t.id === id);
-    if (!task) return;
-    addNotification({
-      type: "ADMIN_IMPORTANT_NOTE",
-      title: `Admin gửi lưu ý cho "${task.title}"`,
-      message: trimmed,
-      link: "/my-tasks",
-      recipientName: task.ownerName,
-    });
   }
 
   return (

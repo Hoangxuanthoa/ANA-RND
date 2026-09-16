@@ -11,7 +11,6 @@ import { AddRndTaskModal } from "@/components/AddRndTaskModal";
 import { DateInput } from "@/components/DateInput";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import {
-  CURRENT_USER_NAME,
   daysUntil,
   parseDDMMYYYY,
   todayDDMMYYYY,
@@ -248,10 +247,7 @@ function CheckinSection({
 
 export default function MyTasksPage() {
   const { role, effectiveUserName } = useRole();
-  // RndTask is still mock (own turn later), so task-scope filters/calls
-  // below keep the old per-role fictional name; Project is real now, so
-  // project-scope filters use the real signed-in name.
-  const userName = CURRENT_USER_NAME[role];
+  const userName = effectiveUserName;
   const { projects, updateProject, setProjectNeedsSupport, setProjectImportantNote } = useProjects();
   const { rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport, setTaskImportantNote } = useRndTasks();
   const { staff } = useStaff();
@@ -940,8 +936,8 @@ export default function MyTasksPage() {
       <AddRndTaskModal
         open={addOpen}
         onCancel={() => setAddOpen(false)}
-        onCreate={(input) => {
-          addTask({ ...input, ownerName: userName });
+        onCreate={async (input) => {
+          await addTask(input);
           setAddOpen(false);
         }}
       />
