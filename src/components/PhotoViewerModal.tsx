@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ProjectPhoto } from "@/lib/mock-data";
+
+// Structural, not tied to ProjectPhoto — also reused by
+// ProjectProductQuickView to zoom a single product thumbnail, which has
+// no fileName/comments/releasedProductCode of its own.
+export interface ViewerPhoto {
+  fileName: string;
+  url: string;
+  releasedProductCode?: string;
+}
 
 interface PhotoViewerModalProps {
-  photos: ProjectPhoto[];
+  photos: ViewerPhoto[];
   index: number;
   onIndexChange: (index: number) => void;
   onClose: () => void;

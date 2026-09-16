@@ -52,7 +52,7 @@ export default function CollectionSharePage() {
         <div className="grid grid-cols-4 gap-4">
           {items.map((p) => (
             <div key={p.code} className="overflow-hidden rounded-xl border border-line bg-surface">
-              <div className={`flex h-32 items-center justify-center ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+              <div className={`flex aspect-square items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
                 {p.mainImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={p.mainImage} alt="" className="h-full w-full object-cover" />

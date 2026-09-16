@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ROLE_INITIALS, type ProjectProductItem, type Product } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
+import { PhotoViewerModal } from "@/components/PhotoViewerModal";
 import {
   usageBadge,
   projectProductStatusBadge,
@@ -55,6 +56,7 @@ export function ProjectProductQuickView({
   const [commentText, setCommentText] = useState("");
   const [requestingChange, setRequestingChange] = useState(false);
   const [changeReason, setChangeReason] = useState("");
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const customer = isCustomerRole(role);
   const usage = usageBadge(item.usage);
   const status = projectProductStatusBadge(item.status);
@@ -81,8 +83,15 @@ export function ProjectProductQuickView({
           <div className="flex gap-4">
             <div className={`flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-[10px] ${product.mainImage ? "" : TINT_BG[product.tint]}`}>
               {product.mainImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={product.mainImage} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setImageViewerOpen(true)}
+                  className="h-full w-full cursor-zoom-in"
+                  title="Xem to ảnh"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={product.mainImage} alt="" className="h-full w-full object-cover" />
+                </button>
               ) : (
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={TINT_FG[product.tint]} stroke="currentColor" strokeWidth="1.5">
                   <path d="M21 8l-9-5-9 5 9 5 9-5z" />
@@ -298,6 +307,15 @@ export function ProjectProductQuickView({
           </div>
         </div>
       </div>
+
+      {imageViewerOpen && product.mainImage && (
+        <PhotoViewerModal
+          photos={[{ fileName: product.name, url: product.mainImage }]}
+          index={0}
+          onIndexChange={() => {}}
+          onClose={() => setImageViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }

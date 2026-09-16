@@ -201,7 +201,7 @@ export default function CollectionDetailPage() {
             <div key={p.code} className="overflow-hidden rounded-xl border border-line bg-surface">
               <div
                 onClick={() => setQuickView(p)}
-                className={`relative flex h-32 cursor-pointer items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}
+                className={`relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}
               >
                 {p.mainImage ? (
                   // eslint-disable-next-line @next/next/no-img-element

@@ -346,7 +346,7 @@ export default function ProjectDetailPage() {
                     className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent/40"
                   >
                     <div
-                      className={`relative flex h-40 items-center justify-center overflow-hidden ${
+                      className={`relative flex aspect-square items-center justify-center overflow-hidden ${
                         product.mainImage ? "" : TINT_BG[product.tint]
                       }`}
                     >

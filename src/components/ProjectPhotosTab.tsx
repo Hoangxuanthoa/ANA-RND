@@ -11,6 +11,7 @@ import { PhotoCommentsModal } from "@/components/PhotoCommentsModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { safeFileName } from "@/lib/exportLayout";
 import { canCreateProduct } from "@/lib/permissions";
+import { autoSquareCropUrl } from "@/lib/cropImage";
 import type { Project, ProjectPhoto, Role } from "@/lib/mock-data";
 
 function stripExtension(name: string): string {
@@ -38,6 +39,8 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
   const [commentsTargetId, setCommentsTargetId] = useState<string | null>(null);
   const commentsPhoto = photos.find((p) => p.id === commentsTargetId) ?? null;
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkReleasing, setBulkReleasing] = useState(false);
+  const [croppingId, setCroppingId] = useState<string | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
   const [zipBusy, setZipBusy] = useState(false);
   const [zipError, setZipError] = useState("");
@@ -101,16 +104,37 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
     }
   }
 
-  function handleBulkRelease() {
+  // Photos in the folder keep their original aspect ratio, but a
+  // released product's main image is displayed in a fixed square frame
+  // everywhere (Product Development grid, Library) — same auto-crop
+  // "Up hàng loạt" already applies, so released products look consistent
+  // no matter which path created them.
+  async function openRelease(p: ProjectPhoto) {
+    setCroppingId(p.id);
+    try {
+      const cropped = await autoSquareCropUrl(p.url);
+      setReleaseTarget({ ...p, url: cropped });
+    } finally {
+      setCroppingId(null);
+    }
+  }
+
+  async function handleBulkRelease() {
     if (selectedUnreleased.length === 0) return;
-    const codes = createProductsBulk(
-      selectedUnreleased.map((p) => ({ name: stripExtension(p.fileName), mainImage: p.url })),
-      project.customer,
-    );
-    addProductsToProjectBulk(project.code, codes, "NEW", role === "RND" ? userName : undefined);
-    selectedUnreleased.forEach((p, i) => markPhotoReleased(p.id, codes[i]));
-    setSelected(new Set());
-    setBulkConfirmOpen(false);
+    setBulkReleasing(true);
+    try {
+      const croppedUrls = await Promise.all(selectedUnreleased.map((p) => autoSquareCropUrl(p.url)));
+      const codes = createProductsBulk(
+        selectedUnreleased.map((p, i) => ({ name: stripExtension(p.fileName), mainImage: croppedUrls[i] })),
+        project.customer,
+      );
+      addProductsToProjectBulk(project.code, codes, "NEW", role === "RND" ? userName : undefined);
+      selectedUnreleased.forEach((p, i) => markPhotoReleased(p.id, codes[i]));
+      setSelected(new Set());
+      setBulkConfirmOpen(false);
+    } finally {
+      setBulkReleasing(false);
+    }
   }
 
   return (
@@ -228,11 +252,12 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setReleaseTarget(p);
+                        openRelease(p);
                       }}
-                      className="h-7 w-fit flex-shrink-0 rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover"
+                      disabled={croppingId === p.id}
+                      className="h-7 w-fit flex-shrink-0 rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover disabled:opacity-60"
                     >
-                      Release
+                      {croppingId === p.id ? "Đang xử lý…" : "Release"}
                     </button>
                   ) : (
                     <span className="truncate text-[11px] text-text-faint">{p.uploadedAt}</span>
@@ -242,13 +267,12 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
                       e.stopPropagation();
                       setCommentsTargetId(p.id);
                     }}
-                    title="Bình luận"
-                    className="flex flex-shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-semibold text-text-faint hover:bg-bg hover:text-text"
+                    className="flex flex-shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11.5px] font-bold text-text-faint hover:bg-bg hover:text-text"
                   >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                       <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
                     </svg>
-                    {p.comments.length}
+                    Comment ({p.comments.length})
                   </button>
                 </div>
               </div>
@@ -318,7 +342,8 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
         open={bulkConfirmOpen}
         title="Release hàng loạt?"
         description={`${selectedUnreleased.length} ảnh đã chọn sẽ trở thành sản phẩm mới (thiếu thông tin, điền chi tiết sau) trong Product Development.`}
-        confirmLabel="Release"
+        confirmLabel={bulkReleasing ? "Đang xử lý…" : "Release"}
+        confirmDisabled={bulkReleasing}
         onCancel={() => setBulkConfirmOpen(false)}
         onConfirm={handleBulkRelease}
       />

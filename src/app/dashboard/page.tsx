@@ -217,7 +217,7 @@ export default function DashboardPage() {
                     href={`/library/${p.code}`}
                     className="overflow-hidden rounded-xl border border-line bg-surface transition hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    <div className={`flex h-[150px] items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                    <div className={`flex aspect-square items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
                       {p.mainImage ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={p.mainImage} alt="" className="h-full w-full object-cover" />

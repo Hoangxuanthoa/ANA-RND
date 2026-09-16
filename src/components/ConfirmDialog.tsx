@@ -6,6 +6,7 @@ interface ConfirmDialogProps {
   description: string;
   confirmLabel: string;
   danger?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -16,6 +17,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   danger,
+  confirmDisabled,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -38,7 +40,8 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className={`h-9 rounded-lg px-3.5 text-[13px] font-bold text-white ${
+            disabled={confirmDisabled}
+            className={`h-9 rounded-lg px-3.5 text-[13px] font-bold text-white disabled:opacity-60 ${
               danger ? "bg-red hover:opacity-90" : "bg-accent hover:bg-accent-hover"
             }`}
           >

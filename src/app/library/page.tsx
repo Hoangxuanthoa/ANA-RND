@@ -264,7 +264,7 @@ export default function LibraryPage() {
                   onKeyDown={(e) => e.key === "Enter" && setQuickView(p)}
                   className="cursor-pointer overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className={`relative flex h-32 items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                  <div className={`relative flex aspect-square items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
                     {p.mainImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
