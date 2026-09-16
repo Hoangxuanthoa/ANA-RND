@@ -11,12 +11,22 @@ export interface PixelCrop {
   height: number;
 }
 
+// A blob: URL (the interactive crop source — always a just-picked local
+// file) is same-origin and loads directly. A real http(s) URL (cropping
+// an already-uploaded R2 photo, e.g. Ảnh dự án's "Release ảnh" flow) is
+// cross-origin — and R2's free public "r2.dev" URL doesn't send
+// Access-Control-Allow-Origin even with a CORS policy configured on the
+// bucket (only a custom domain honors it), so drawing it straight onto
+// a canvas taints the canvas and canvas.toBlob() throws a SecurityError.
+// Routing it through our own /api/image-proxy first makes it same-origin
+// instead, sidestepping the whole issue.
 function loadImage(url: string): Promise<HTMLImageElement> {
+  const src = url.startsWith("blob:") ? url : `/api/image-proxy?url=${encodeURIComponent(url)}`;
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.addEventListener("load", () => resolve(img));
     img.addEventListener("error", (e) => reject(e));
-    img.src = url;
+    img.src = src;
   });
 }
 

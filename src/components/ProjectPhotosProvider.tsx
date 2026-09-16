@@ -1,14 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { INITIAL_PROJECT_PHOTOS, feedbackIdentity, todayDDMMYYYY, type ProjectPhoto } from "@/lib/mock-data";
-import { useRole } from "@/components/RoleProvider";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { ProjectPhoto, FeedbackItem } from "@/lib/mock-data";
 
 interface ProjectPhotosContextValue {
   photos: ProjectPhoto[];
-  // One call for the whole batch (not looped single-adds) so a multi-file
-  // upload lands as one state update, same reasoning as
-  // ProductsProvider.createProductsBulk.
+  // Files must already be real, persisted URLs (uploaded to R2 by the
+  // caller first) — this just creates the DB rows.
   addPhotos: (projectCode: string, files: { fileName: string; url: string }[]) => void;
   deletePhoto: (id: string) => void;
   markPhotoReleased: (id: string, productCode: string) => void;
@@ -17,40 +15,47 @@ interface ProjectPhotosContextValue {
 
 const ProjectPhotosContext = createContext<ProjectPhotosContextValue | null>(null);
 
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Thao tác thất bại — thử lại.");
+  return data as T;
+}
+
 export function ProjectPhotosProvider({ children }: { children: ReactNode }) {
-  const { role } = useRole();
-  const [photos, setPhotos] = useState<ProjectPhoto[]>(INITIAL_PROJECT_PHOTOS);
+  const [photos, setPhotos] = useState<ProjectPhoto[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/project-photos").then((res) => (res.ok ? res.json() : [])),
+      fetch("/api/project-photos/comments").then((res) => (res.ok ? res.json() : [])),
+    ]).then(([rows, commentRows]: [Omit<ProjectPhoto, "comments">[], (FeedbackItem & { photoId: string })[]]) => {
+      setPhotos(rows.map((p) => ({ ...p, comments: commentRows.filter((c) => c.photoId === p.id) })));
+    });
+  }, []);
 
   function addPhotos(projectCode: string, files: { fileName: string; url: string }[]) {
-    const uploadedAt = todayDDMMYYYY();
-    const newPhotos: ProjectPhoto[] = files.map((f, i) => ({
-      id: `photo-${Date.now()}-${i}`,
-      projectCode,
-      fileName: f.fileName,
-      url: f.url,
-      uploadedAt,
-      comments: [],
-    }));
-    setPhotos((prev) => [...newPhotos, ...prev]);
+    postJson<Omit<ProjectPhoto, "comments">[]>("/api/project-photos", { projectCode, files })
+      .then((created) => setPhotos((prev) => [...created.map((p) => ({ ...p, comments: [] })), ...prev]))
+      .catch(() => {});
   }
 
   function deletePhoto(id: string) {
     setPhotos((prev) => prev.filter((p) => p.id !== id));
+    fetch(`/api/project-photos/${id}`, { method: "DELETE" }).catch(() => {});
   }
 
   function markPhotoReleased(id: string, productCode: string) {
     setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, releasedProductCode: productCode } : p)));
+    postJson(`/api/project-photos/${id}/release`, { productCode }).catch(() => {});
   }
 
   function addPhotoComment(id: string, content: string) {
-    const { author, initials, tint } = feedbackIdentity(role);
-    setPhotos((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? { ...p, comments: [...p.comments, { author, content, time: "Vừa xong", initials, tint }] }
-          : p,
-      ),
-    );
+    postJson<FeedbackItem & { photoId: string }>(`/api/project-photos/${id}/comments`, { content })
+      .then((entry) => setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, comments: [...p.comments, entry] } : p))))
+      .catch(() => {});
   }
 
   return (

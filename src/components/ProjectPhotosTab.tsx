@@ -68,14 +68,27 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
     setSelected(allSelected ? new Set() : new Set(photos.map((p) => p.id)));
   }
 
-  function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+
+  // Photos in this folder deliberately keep their original aspect ratio
+  // (no auto-crop) — but Ảnh dự án is real data now, so the file itself
+  // has to be a real, persisted URL, not a session-only blob: one, or
+  // it would vanish the moment this tab closes.
+  async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    addPhotos(
-      project.code,
-      files.map((f) => ({ fileName: f.name, url: URL.createObjectURL(f) })),
-    );
     e.target.value = "";
+    setUploadError("");
+    setUploadBusy(true);
+    try {
+      const uploaded = await Promise.all(files.map(async (f) => ({ fileName: f.name, url: await uploadFile(f, "projects") })));
+      addPhotos(project.code, uploaded);
+    } catch {
+      setUploadError("Tải ảnh lên thất bại — thử lại.");
+    } finally {
+      setUploadBusy(false);
+    }
   }
 
   async function handleZip() {
@@ -189,17 +202,35 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
             </>
           )}
           {canManage && (
-            <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold hover:bg-bg">
+            <label
+              className={`inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-[12.5px] font-bold ${
+                uploadBusy ? "opacity-60" : "cursor-pointer hover:bg-bg"
+              }`}
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3v12M7 8l5-5 5 5" />
                 <path d="M5 21h14" />
               </svg>
-              Up ảnh
-              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
+              {uploadBusy ? "Đang tải lên…" : "Up ảnh"}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                disabled={uploadBusy}
+                className="hidden"
+                onChange={handleFiles}
+              />
             </label>
           )}
         </div>
       </div>
+
+      {uploadError && (
+        <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-2.5 text-[12px] font-semibold text-red">
+          {uploadError}
+        </div>
+      )}
 
       {zipError && (
         <div className="rounded-lg border border-red-soft bg-red-soft px-3.5 py-2.5 text-[12px] font-semibold text-red">
