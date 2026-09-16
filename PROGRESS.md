@@ -1486,10 +1486,17 @@ the rest of the checks afterward.) All test data (collections,
 products, one throwaway project) cleaned up from the local DB after
 each check.
 
-**Not yet tested on production** — this pass covered local only; a
-`ana-rnd.vercel.app` smoke test (same discipline as Products/Projects:
-create real data, exercise the public share link with a real
-`R2_PUBLIC_URL`-backed image, clean up afterward) is still pending.
+**Verified on production too, same day:** created a real product +
+collection, logged a pitch, and confirmed the resulting `publicSlug`
+share link works with genuinely zero credentials — used
+`fetch(url, { credentials: "omit" })` against both
+`/api/collections/public/[slug]` and the `/share/collection/[slug]`
+page itself (200, no redirect either way) rather than clearing the
+browser's shared cookie jar again, learning from the local pass where
+doing that signed out the other tab used for the rest of the checks.
+Also opened the link in a fresh tab and confirmed it renders correctly
+with no TopNav. All production test data cleaned up afterward via the
+same one-off Prisma script approach as prior phases.
 
 **Deliberately not done this pass:** Collections' `CollectionItem`
 schema has unused `note`/`sortOrder`/`versionId` columns — the UI has
