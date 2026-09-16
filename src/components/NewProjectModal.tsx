@@ -31,7 +31,7 @@ interface NewProjectModalProps {
     deadline: string;
     brief: string;
     attachments: string[];
-  }) => void;
+  }) => Promise<void>;
 }
 
 export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectModalProps) {
@@ -55,26 +55,36 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
   const [brief, setBrief] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   if (!open) return null;
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    onCreate({
-      name: name.trim(),
-      type,
-      customer: type === "CUSTOMER" ? customer : undefined,
-      sales: type === "CUSTOMER" ? sales : undefined,
-      rndOwner: rndOwner || undefined,
-      deadline: deadline.trim() || "—",
-      brief: brief.trim(),
-      attachments,
-    });
-    setName("");
-    setDeadline("");
-    setBrief("");
-    setAttachments([]);
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      await onCreate({
+        name: name.trim(),
+        type,
+        customer: type === "CUSTOMER" ? customer : undefined,
+        sales: type === "CUSTOMER" ? sales : undefined,
+        rndOwner: rndOwner || undefined,
+        deadline: deadline.trim() || "—",
+        brief: brief.trim(),
+        attachments,
+      });
+      setName("");
+      setDeadline("");
+      setBrief("");
+      setAttachments([]);
+    } catch {
+      setSubmitError("Tạo dự án thất bại — thử lại.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -225,6 +235,8 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
           </label>
         </div>
 
+        {submitError && <p className="text-[12.5px] font-semibold text-red">{submitError}</p>}
+
         <div className="mt-1 flex justify-end gap-2.5">
           <button
             type="button"
@@ -235,10 +247,10 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
           </button>
           <button
             type="submit"
-            disabled={!name.trim()}
+            disabled={!name.trim() || submitting}
             className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
-            {isCustomer ? "Gửi yêu cầu" : "Tạo dự án"}
+            {submitting ? "Đang lưu…" : isCustomer ? "Gửi yêu cầu" : "Tạo dự án"}
           </button>
         </div>
       </form>

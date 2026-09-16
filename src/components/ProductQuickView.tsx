@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Product } from "@/lib/mock-data";
-import { CURRENT_USER_NAME, formatSizeVariantDimensions } from "@/lib/mock-data";
+import { formatSizeVariantDimensions } from "@/lib/mock-data";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
@@ -22,10 +22,6 @@ interface ProductQuickViewProps {
 
 export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const { role, effectiveUserName } = useRole();
-  // getPickableProjects checks Projects' mock ownership fields (not real
-  // yet), so it keeps the old per-role fictional name; the exclusive
-  // guard checks real Product.exclusiveBy, so it needs the real name.
-  const userName = CURRENT_USER_NAME[role];
   const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct, addProductVersion } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -44,7 +40,7 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const favoriteCount = product.favorites;
   const reusedCount = projectProducts.filter((pp) => pp.productCode === product.code && pp.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
-  const pickableProjects = getPickableProjects(role, userName, projects);
+  const pickableProjects = getPickableProjects(role, effectiveUserName, projects);
   const canReview = canReviewProducts(role) && product.status === "PENDING_REVIEW";
 
   return (

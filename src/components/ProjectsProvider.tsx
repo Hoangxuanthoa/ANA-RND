@@ -1,21 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import {
-  PROJECTS as INITIAL_PROJECTS,
-  PROJECT_PRODUCTS as INITIAL_PROJECT_PRODUCTS,
-  PROJECT_FEEDBACK as INITIAL_PROJECT_FEEDBACK,
-  feedbackIdentity,
-  CURRENT_USER_NAME,
-  todayDDMMYYYY,
-  type Project,
-  type ProjectProductItem,
-  type ProjectFeedbackItem,
-  type UsageType,
-} from "@/lib/mock-data";
-import { useRole } from "@/components/RoleProvider";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import type { Project, ProjectProductItem, ProjectFeedbackItem, UsageType, ProjectType } from "@/lib/mock-data";
 import { useStaff } from "@/components/StaffProvider";
-import { useNotifications } from "@/components/NotificationsProvider";
 import { projectCreatorRole } from "@/lib/permissions";
 
 interface ProjectsContextValue {
@@ -26,304 +13,199 @@ interface ProjectsContextValue {
   closeProject: (code: string) => void;
   markCompleted: (code: string) => void;
   deleteProject: (code: string) => void;
-  createProject: (project: Project) => void;
-  // Picking a product into a project (from the Library) or R&D adding a
-  // freshly-designed one — either way this is what auto-bumps a project
-  // out of "Created" the moment it gets its first product, and both go
-  // straight into the project's own internal review queue (no holding
-  // "Developing" stage — that status is only ever re-entered after a
-  // rejection sends something back for rework).
+  createProject: (input: {
+    name: string;
+    type: ProjectType;
+    customer?: string;
+    sales?: string;
+    rndOwner?: string;
+    deadline: string;
+    brief: string;
+  }) => Promise<string>;
   addProductToProject: (projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) => void;
-  // Same as addProductToProject but for a whole batch at once (bulk image
-  // upload) — one state update and one notification instead of one of
-  // each per product, so the creator doesn't get N separate pings for a
-  // single upload action.
   addProductsToProjectBulk: (projectCode: string, productCodes: string[], usage: UsageType, assigneeName?: string) => void;
   addProjectFeedback: (projectCode: string, content: string) => void;
   addProjectProductFeedback: (projectCode: string, productCode: string, content: string) => void;
-  // Advances one item through its project's internal review: from the
-  // creator's own review to either Customer review (creator is Sales) or
-  // straight to Approved (creator is Admin/Marketing, no real customer to
-  // ask), or from Customer review to Approved. Auto-completes the project
-  // once every one of its items is Approved.
   approveProjectProduct: (projectCode: string, productCode: string) => void;
-  // Sends an item back to Developing from whichever review stage it was
-  // at, recording why so R&D can see it (and dispute it via the item's
-  // own feedback thread) before resubmitting.
   rejectProjectProduct: (projectCode: string, productCode: string, reason: string) => void;
-  // Puts a Developing (rejected) item back at the very first review
-  // stage — always the creator's, even if it was a Customer rejection —
-  // so the creator sees the fix before it goes to the customer again.
   resubmitProjectProduct: (projectCode: string, productCode: string) => void;
-  // R&D flagging "cần hỗ trợ" on their My Task To Do List row for this
-  // project — patches the note and pings Admin, same pattern as the
-  // other notification-raising actions above (plain updateProject has no
-  // side effects, so this is deliberately its own function).
   setProjectNeedsSupport: (code: string, note: string) => void;
-  // The opposite direction of setProjectNeedsSupport: Admin writing a
-  // directive down to the project's rndOwner. Only my-tasks/page.tsx's
-  // isAdmin gate ever calls this — R&D has no UI path to it.
   setProjectImportantNote: (code: string, note: string) => void;
 }
 
 const ProjectsContext = createContext<ProjectsContextValue | null>(null);
 
+const JSON_HEADERS = { "Content-Type": "application/json" };
+
+function bodyWithNulls(value: unknown): string {
+  return JSON.stringify(value, (_key, v) => (v === undefined ? null : v));
+}
+
+async function postJson<T>(url: string, body: unknown, method: "POST" | "PATCH" = "POST"): Promise<T> {
+  const res = await fetch(url, { method, headers: JSON_HEADERS, body: bodyWithNulls(body) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "Thao tác thất bại — thử lại.");
+  return data as T;
+}
+
 export function ProjectsProvider({ children }: { children: ReactNode }) {
-  const { role } = useRole();
   const { staff } = useStaff();
-  const { addNotification } = useNotifications();
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [projectProducts, setProjectProducts] = useState<ProjectProductItem[]>(INITIAL_PROJECT_PRODUCTS);
-  const [projectFeedback, setProjectFeedback] = useState<ProjectFeedbackItem[]>(INITIAL_PROJECT_FEEDBACK);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectProducts, setProjectProducts] = useState<ProjectProductItem[]>([]);
+  const [projectFeedback, setProjectFeedback] = useState<ProjectFeedbackItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setProjects);
+    fetch("/api/projects/feedback")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setProjectFeedback);
+    Promise.all([
+      fetch("/api/projects/products").then((res) => (res.ok ? res.json() : [])),
+      fetch("/api/projects/products/feedback").then((res) => (res.ok ? res.json() : [])),
+    ]).then(([items, feedbackRows]: [Omit<ProjectProductItem, "feedback">[], (ProjectFeedbackItem & { productCode: string })[]]) => {
+      setProjectProducts(
+        items.map((item) => ({
+          ...item,
+          feedback: feedbackRows.filter((f) => f.projectCode === item.projectCode && f.productCode === item.productCode),
+        })),
+      );
+    });
+  }, []);
+
+  function replaceProject(code: string, updated: Project) {
+    setProjects((prev) => prev.map((p) => (p.code === code ? updated : p)));
+  }
+
+  // Reconciles with the server's response for a status-transition route,
+  // which never carries `.feedback` (that's fetched/appended separately)
+  // — keep whatever's already in local state for it.
+  function replaceProjectProductPreservingFeedback(projectCode: string, productCode: string, updated: Omit<ProjectProductItem, "feedback">) {
+    setProjectProducts((prev) =>
+      prev.map((pp) =>
+        pp.projectCode === projectCode && pp.productCode === productCode ? { ...updated, feedback: pp.feedback } : pp,
+      ),
+    );
+  }
 
   function updateProject(code: string, patch: Partial<Project>) {
-    const before = projects.find((p) => p.code === code);
     setProjects((prev) => prev.map((p) => (p.code === code ? { ...p, ...patch } : p)));
-    // A fresh or changed R&D assignment — notify whoever it's now
-    // pointed at. This is the one real trigger for "task assigned" in
-    // the app right now; there's no other place rndOwner gets set after
-    // creation.
-    if (before && patch.rndOwner && patch.rndOwner !== before.rndOwner) {
-      addNotification({
-        type: "PROJECT_ASSIGNED",
-        title: "Bạn được gán phụ trách dự án mới",
-        message: `${patch.name ?? before.name} cần bạn xử lý.`,
-        link: `/projects/${code}`,
-        recipientName: patch.rndOwner,
-      });
-    }
+    postJson<Project>(`/api/projects/${code}`, patch, "PATCH").then((p) => replaceProject(code, p)).catch(() => {});
   }
 
   function closeProject(code: string) {
-    updateProject(code, { status: "CLOSED" });
+    setProjects((prev) => prev.map((p) => (p.code === code ? { ...p, status: "CLOSED" } : p)));
+    postJson<Project>(`/api/projects/${code}/close`, {}).then((p) => replaceProject(code, p)).catch(() => {});
   }
 
   function markCompleted(code: string) {
-    updateProject(code, { status: "COMPLETED", completedAt: todayDDMMYYYY() });
+    setProjects((prev) => prev.map((p) => (p.code === code ? { ...p, status: "COMPLETED" } : p)));
+    postJson<Project>(`/api/projects/${code}/complete`, {}).then((p) => replaceProject(code, p)).catch(() => {});
   }
 
   function setProjectNeedsSupport(code: string, note: string) {
     updateProject(code, { rndNeedsSupport: note });
-    const trimmed = note.trim();
-    if (!trimmed) return;
-    const project = projects.find((p) => p.code === code);
-    const admin = staff.find((s) => s.role === "ADMIN");
-    if (!project || !admin) return;
-    addNotification({
-      type: "RND_NEEDS_SUPPORT",
-      title: `${project.name} cần hỗ trợ`,
-      message: trimmed,
-      link: `/projects/${code}`,
-      recipientName: admin.name,
-    });
   }
 
   function setProjectImportantNote(code: string, note: string) {
     updateProject(code, { rndImportantNote: note });
-    const trimmed = note.trim();
-    if (!trimmed) return;
-    const project = projects.find((p) => p.code === code);
-    if (!project || !project.rndOwner) return;
-    addNotification({
-      type: "ADMIN_IMPORTANT_NOTE",
-      title: `Admin gửi lưu ý cho dự án ${project.name}`,
-      message: trimmed,
-      link: `/projects/${code}`,
-      recipientName: project.rndOwner,
-    });
   }
 
   function deleteProject(code: string) {
     setProjects((prev) => prev.filter((p) => p.code !== code));
     setProjectProducts((prev) => prev.filter((pp) => pp.projectCode !== code));
+    fetch(`/api/projects/${code}`, { method: "DELETE" }).catch(() => {});
   }
 
-  function createProject(project: Project) {
-    setProjects((prev) => [project, ...prev]);
-    if (role === "CUSTOMER" && project.sales) {
-      addNotification({
-        type: "PROJECT_REQUESTED_BY_CUSTOMER",
-        title: "Khách hàng vừa gửi yêu cầu dự án mới",
-        message: `${project.name} — cần bạn gán R&D phụ trách.`,
-        link: `/projects/${project.code}`,
-        recipientName: project.sales,
-      });
-    }
+  async function createProject(input: {
+    name: string;
+    type: ProjectType;
+    customer?: string;
+    sales?: string;
+    rndOwner?: string;
+    deadline: string;
+    brief: string;
+  }): Promise<string> {
+    const created = await postJson<Project>("/api/projects", input);
+    setProjects((prev) => [created, ...prev]);
+    return created.code;
   }
 
   function addProjectFeedback(projectCode: string, content: string) {
-    const { author, initials, tint } = feedbackIdentity(role);
-    setProjectFeedback((prev) => [...prev, { projectCode, author, content, time: "Vừa xong", initials, tint }]);
-    const project = projects.find((p) => p.code === projectCode);
-    const actorName = CURRENT_USER_NAME[role];
-    if (project && project.createdByName !== actorName) {
-      addNotification({
-        type: "NEW_FEEDBACK",
-        title: `Bình luận mới trong dự án ${project.name}`,
-        message: content,
-        link: `/projects/${projectCode}`,
-        recipientName: project.createdByName,
-      });
-    }
+    postJson<ProjectFeedbackItem>(`/api/projects/${projectCode}/feedback`, { content })
+      .then((entry) => setProjectFeedback((prev) => [...prev, entry]))
+      .catch(() => {});
   }
 
   function addProjectProductFeedback(projectCode: string, productCode: string, content: string) {
-    const { author, initials, tint } = feedbackIdentity(role);
-    setProjectProducts((prev) =>
-      prev.map((pp) =>
-        pp.projectCode === projectCode && pp.productCode === productCode
-          ? { ...pp, feedback: [...pp.feedback, { author, content, time: "Vừa xong", initials, tint }] }
-          : pp,
-      ),
-    );
-    const project = projects.find((p) => p.code === projectCode);
-    const item = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
-    const actorName = CURRENT_USER_NAME[role];
-    const recipient =
-      item?.assigneeName && item.assigneeName !== actorName
-        ? item.assigneeName
-        : project && project.createdByName !== actorName
-          ? project.createdByName
-          : undefined;
-    if (recipient) {
-      addNotification({
-        type: "NEW_FEEDBACK",
-        title: `Bình luận mới trên ${productCode}`,
-        message: content,
-        link: `/projects/${projectCode}`,
-        recipientName: recipient,
-      });
-    }
+    postJson<ProjectFeedbackItem & { productCode: string }>(
+      `/api/projects/${projectCode}/products/${productCode}/feedback`,
+      { content },
+    )
+      .then((entry) =>
+        setProjectProducts((prev) =>
+          prev.map((pp) =>
+            pp.projectCode === projectCode && pp.productCode === productCode
+              ? { ...pp, feedback: [...pp.feedback, entry] }
+              : pp,
+          ),
+        ),
+      )
+      .catch(() => {});
   }
 
   function addProductToProject(projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) {
-    setProjectProducts((prev) => {
-      if (prev.some((pp) => pp.projectCode === projectCode && pp.productCode === productCode)) {
-        return prev;
-      }
-      return [
-        ...prev,
-        {
-          projectCode,
-          productCode,
-          usage,
-          status: "SALES_REVIEW",
-          approval: "PENDING",
-          note: "",
-          assigneeName,
-          feedback: [],
-        },
-      ];
-    });
-    setProjects((prev) =>
-      prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)),
-    );
-    const project = projects.find((p) => p.code === projectCode);
-    const actorName = CURRENT_USER_NAME[role];
-    if (project && project.createdByName !== actorName) {
-      addNotification({
-        type: "PROJECT_ITEM_NEEDS_REVIEW",
-        title: "Có sản phẩm mới cần bạn duyệt",
-        message: `${productCode} trong dự án ${project.name}`,
-        link: `/projects/${projectCode}`,
-        recipientName: project.createdByName,
-      });
-    }
+    if (projectProducts.some((pp) => pp.projectCode === projectCode && pp.productCode === productCode)) return;
+    setProjectProducts((prev) => [
+      ...prev,
+      { projectCode, productCode, usage, status: "SALES_REVIEW", approval: "PENDING", note: "", assigneeName, feedback: [] },
+    ]);
+    setProjects((prev) => prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)));
+    postJson<ProjectProductItem>(`/api/projects/${projectCode}/products`, { productCode, usage, assigneeName })
+      .then((created) => replaceProjectProductPreservingFeedback(projectCode, productCode, created))
+      .catch(() => {});
   }
 
   function addProductsToProjectBulk(projectCode: string, productCodes: string[], usage: UsageType, assigneeName?: string) {
-    setProjectProducts((prev) => {
-      const existing = new Set(prev.filter((pp) => pp.projectCode === projectCode).map((pp) => pp.productCode));
-      const additions = productCodes
-        .filter((code) => !existing.has(code))
-        .map(
-          (productCode): ProjectProductItem => ({
-            projectCode,
-            productCode,
-            usage,
-            status: "SALES_REVIEW",
-            approval: "PENDING",
-            note: "",
-            assigneeName,
-            feedback: [],
-          }),
-        );
-      return [...prev, ...additions];
-    });
-    setProjects((prev) =>
-      prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)),
-    );
-    const project = projects.find((p) => p.code === projectCode);
-    const actorName = CURRENT_USER_NAME[role];
-    if (project && project.createdByName !== actorName && productCodes.length > 0) {
-      addNotification({
-        type: "PROJECT_ITEM_NEEDS_REVIEW",
-        title: "Có sản phẩm mới cần bạn duyệt",
-        message: `${productCodes.length} sản phẩm mới trong dự án ${project.name}`,
-        link: `/projects/${projectCode}`,
-        recipientName: project.createdByName,
-      });
-    }
+    const existing = new Set(projectProducts.filter((pp) => pp.projectCode === projectCode).map((pp) => pp.productCode));
+    const additions = productCodes
+      .filter((code) => !existing.has(code))
+      .map((productCode): ProjectProductItem => ({ projectCode, productCode, usage, status: "SALES_REVIEW", approval: "PENDING", note: "", assigneeName, feedback: [] }));
+    setProjectProducts((prev) => [...prev, ...additions]);
+    setProjects((prev) => prev.map((p) => (p.code === projectCode && p.status === "CREATED" ? { ...p, status: "DEVELOPING" } : p)));
+    postJson<ProjectProductItem[]>(`/api/projects/${projectCode}/products/bulk`, { productCodes, usage, assigneeName }).catch(() => {});
   }
 
   function approveProjectProduct(projectCode: string, productCode: string) {
     const project = projects.find((p) => p.code === projectCode);
     const creatorRole = project ? projectCreatorRole(project, staff) : undefined;
-    const current = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
-    const updated = projectProducts.map((pp): ProjectProductItem => {
-      if (pp.projectCode !== projectCode || pp.productCode !== productCode) return pp;
-      if (pp.status === "SALES_REVIEW") {
-        const nextStatus = creatorRole === "SALES" ? "CUSTOMER_REVIEW" : "APPROVED";
-        return { ...pp, status: nextStatus, approval: nextStatus === "APPROVED" ? "APPROVED" : "PENDING" };
-      }
-      if (pp.status === "CUSTOMER_REVIEW") {
-        return { ...pp, status: "APPROVED", approval: "APPROVED" };
-      }
-      return pp;
-    });
-    setProjectProducts(updated);
-
-    if (project && current) {
-      if (current.status === "SALES_REVIEW" && creatorRole === "SALES" && project.customer) {
-        // Moved on to the real Customer review stage — it's their turn now.
-        addNotification({
-          type: "PROJECT_ITEM_NEEDS_REVIEW",
-          title: "Có mẫu mới cần bạn duyệt",
-          message: `${productCode} trong dự án ${project.name}`,
-          link: `/projects/${projectCode}`,
-          recipientName: project.customer,
-        });
-      } else if (current.assigneeName) {
-        // Either the creator approved straight to final (Admin/Marketing
-        // project, no customer step) or the Customer just approved —
-        // either way the assigned R&D's work just got Approved.
-        addNotification({
-          type: "PROJECT_ITEM_APPROVED",
-          title: "Sản phẩm của bạn đã được duyệt",
-          message: `${productCode} trong dự án ${project.name} đã Approved.`,
-          link: `/projects/${projectCode}`,
-          recipientName: current.assigneeName,
-        });
+    setProjectProducts((prev) =>
+      prev.map((pp): ProjectProductItem => {
+        if (pp.projectCode !== projectCode || pp.productCode !== productCode) return pp;
+        if (pp.status === "SALES_REVIEW") {
+          const nextStatus = creatorRole === "SALES" ? "CUSTOMER_REVIEW" : "APPROVED";
+          return { ...pp, status: nextStatus, approval: nextStatus === "APPROVED" ? "APPROVED" : "PENDING" };
+        }
+        if (pp.status === "CUSTOMER_REVIEW") return { ...pp, status: "APPROVED", approval: "APPROVED" };
+        return pp;
+      }),
+    );
+    // Mirrors the server's own auto-complete check — see approve route.
+    if (project?.status === "DEVELOPING") {
+      const items = projectProducts
+        .filter((pp) => pp.projectCode === projectCode)
+        .map((pp) => (pp.productCode === productCode ? { ...pp, status: pp.status === "SALES_REVIEW" ? (creatorRole === "SALES" ? "CUSTOMER_REVIEW" : "APPROVED") : "APPROVED" } : pp));
+      if (items.length > 0 && items.every((pp) => pp.status === "APPROVED")) {
+        setProjects((prev) => prev.map((p) => (p.code === projectCode ? { ...p, status: "COMPLETED" } : p)));
       }
     }
-
-    // Auto-complete the moment every item in the project is Approved —
-    // the manual "Đánh dấu Hoàn thành" button still works too, for the
-    // edge case of wrapping up despite one stuck item.
-    const projectItems = updated.filter((pp) => pp.projectCode === projectCode);
-    if (
-      project &&
-      project.status === "DEVELOPING" &&
-      projectItems.length > 0 &&
-      projectItems.every((pp) => pp.status === "APPROVED")
-    ) {
-      updateProject(projectCode, { status: "COMPLETED" });
-    }
+    postJson<Omit<ProjectProductItem, "feedback">>(`/api/projects/${projectCode}/products/${productCode}/approve`, {})
+      .then((updated) => replaceProjectProductPreservingFeedback(projectCode, productCode, updated))
+      .catch(() => {});
   }
 
   function rejectProjectProduct(projectCode: string, productCode: string, reason: string) {
-    const item = projectProducts.find((pp) => pp.projectCode === projectCode && pp.productCode === productCode);
-    const project = projects.find((p) => p.code === projectCode);
     setProjectProducts((prev) =>
       prev.map((pp) =>
         pp.projectCode === projectCode && pp.productCode === productCode
@@ -331,15 +213,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           : pp,
       ),
     );
-    if (item?.assigneeName && project) {
-      addNotification({
-        type: "PROJECT_ITEM_CHANGE_REQUESTED",
-        title: `${productCode} cần chỉnh sửa`,
-        message: reason,
-        link: `/projects/${projectCode}`,
-        recipientName: item.assigneeName,
-      });
-    }
+    postJson<Omit<ProjectProductItem, "feedback">>(`/api/projects/${projectCode}/products/${productCode}/reject`, { reason })
+      .then((updated) => replaceProjectProductPreservingFeedback(projectCode, productCode, updated))
+      .catch(() => {});
   }
 
   function resubmitProjectProduct(projectCode: string, productCode: string) {
@@ -350,6 +226,9 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
           : pp,
       ),
     );
+    postJson<Omit<ProjectProductItem, "feedback">>(`/api/projects/${projectCode}/products/${productCode}/resubmit`, {})
+      .then((updated) => replaceProjectProductPreservingFeedback(projectCode, productCode, updated))
+      .catch(() => {});
   }
 
   return (

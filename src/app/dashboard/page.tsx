@@ -8,7 +8,7 @@ import { NewProductModal } from "@/components/NewProductModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
-import { DASHBOARD_ACTIVITY, ROLE_LABEL, CURRENT_USER_NAME, parseDDMMYYYY } from "@/lib/mock-data";
+import { DASHBOARD_ACTIVITY, ROLE_LABEL, parseDDMMYYYY } from "@/lib/mock-data";
 import { productStatusBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary, canSeeProductInLibrary, isMyProject } from "@/lib/permissions";
 
@@ -76,11 +76,6 @@ const IconBell = (
 export default function DashboardPage() {
   const router = useRouter();
   const { role, effectiveUserName } = useRole();
-  // Projects/ProjectProduct ownership checks below still compare against
-  // mock data, so they keep the old per-role fictional name until
-  // Projects is wired for real; the Library visibility check and the
-  // greeting use the real signed-in name.
-  const userName = CURRENT_USER_NAME[role];
   const { products } = useProducts();
   const { projects, projectProducts } = useProjects();
   const isCustomer = role === "CUSTOMER";
@@ -107,16 +102,18 @@ export default function DashboardPage() {
     ? pendingReviewCount
     : isRnd
       ? projectProducts.filter(
-          (pp) => pp.assigneeName === userName && pp.status !== "APPROVED" && pp.status !== "COMPLETED",
+          (pp) => pp.assigneeName === effectiveUserName && pp.status !== "APPROVED" && pp.status !== "COMPLETED",
         ).length
       : projectProducts.filter(
           (pp) =>
             pp.approval === "CHANGE_REQUESTED" &&
-            projects.some((p) => p.code === pp.projectCode && isMyProject(role, userName, p)),
+            projects.some((p) => p.code === pp.projectCode && isMyProject(role, effectiveUserName, p)),
         ).length;
   const needActionHref = isAdmin ? "/review" : isRnd ? "/my-tasks" : "/projects";
 
-  const customerProjects = projects.filter((p) => p.isMine);
+  // Customer is always an Admin-preview role — "my" projects means
+  // whichever fixed customer persona is currently being previewed as.
+  const customerProjects = projects.filter((p) => p.customer === effectiveUserName);
   const customerNeedResponseCount = projectProducts.filter(
     (pp) => pp.status === "CUSTOMER_REVIEW" && customerProjects.some((p) => p.code === pp.projectCode),
   ).length;

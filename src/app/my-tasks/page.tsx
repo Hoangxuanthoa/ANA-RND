@@ -247,7 +247,10 @@ function CheckinSection({
 }
 
 export default function MyTasksPage() {
-  const { role } = useRole();
+  const { role, effectiveUserName } = useRole();
+  // RndTask is still mock (own turn later), so task-scope filters/calls
+  // below keep the old per-role fictional name; Project is real now, so
+  // project-scope filters use the real signed-in name.
   const userName = CURRENT_USER_NAME[role];
   const { projects, updateProject, setProjectNeedsSupport, setProjectImportantNote } = useProjects();
   const { rndTasks, addTask, updateTask, deleteTask, setTaskNeedsSupport, setTaskImportantNote } = useRndTasks();
@@ -297,7 +300,7 @@ export default function MyTasksPage() {
   const gridCols = gridColsFor(isAdmin);
 
   const projectRows: TodoRow[] = projects
-    .filter((p) => (isAdmin ? !!p.rndOwner : p.rndOwner === userName))
+    .filter((p) => (isAdmin ? !!p.rndOwner : p.rndOwner === effectiveUserName))
     .map((p) => ({
       key: `project-${p.code}`,
       kind: "project",

@@ -8,7 +8,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EditProjectModal } from "@/components/EditProjectModal";
 import { NewProjectModal } from "@/components/NewProjectModal";
-import { CURRENT_USER_NAME, nextProjectCode, todayDDMMYYYY, type Project, type ProjectStatus } from "@/lib/mock-data";
+import type { Project, ProjectStatus } from "@/lib/mock-data";
 import { projectStatusBadge, projectTypeBadge } from "@/lib/badges";
 import { canCreateProject, canEditProject, canHardDeleteProject, canMarkCompleted, isMyProject } from "@/lib/permissions";
 
@@ -40,9 +40,8 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 export default function ProjectsPage() {
-  const { role } = useRole();
+  const { role, effectiveUserName: userName } = useRole();
   const { projects, projectProducts, closeProject, markCompleted, deleteProject, updateProject, createProject } = useProjects();
-  const userName = CURRENT_USER_NAME[role];
   const isCustomer = role === "CUSTOMER";
   const [status, setStatus] = useState<ProjectStatus | "ALL">("ALL");
   const [removeTarget, setRemoveTarget] = useState<Project | null>(null);
@@ -67,7 +66,10 @@ export default function ProjectsPage() {
   // status chip doesn't (a chip's own count shouldn't change just
   // because it's the one selected).
   const scoped = useMemo(() => {
-    if (isCustomer) return projects.filter((p) => p.isMine);
+    // Customer is always an Admin-preview role (no real distinct
+    // customer accounts exist yet) — "my" projects means whichever
+    // fixed customer persona is currently being previewed as.
+    if (isCustomer) return projects.filter((p) => p.customer === userName);
     return scope === "mine" ? projects.filter((p) => isMyProject(role, userName, p)) : projects;
   }, [projects, isCustomer, scope, role, userName]);
 
@@ -372,24 +374,15 @@ export default function ProjectsPage() {
         open
         role={role}
         onCancel={() => setNewProjectOpen(false)}
-        onCreate={(input) => {
-          createProject({
-            code: nextProjectCode(input.type, projects),
+        onCreate={async (input) => {
+          await createProject({
             name: input.name,
             type: input.type,
             customer: input.customer,
             sales: input.sales,
             rndOwner: input.rndOwner,
-            // A Customer request is owned by the Sales rep it's routed
-            // to from the start — the customer submitted it, but Sales
-            // manages it going forward (edit, assign R&D, etc.).
-            createdByName: role === "CUSTOMER" ? (input.sales ?? userName) : userName,
-            createdAt: todayDDMMYYYY(),
-            status: "CREATED",
             deadline: input.deadline,
             brief: input.brief,
-            isMine: input.customer === CURRENT_USER_NAME.CUSTOMER,
-            attachments: input.attachments,
           });
           setNewProjectOpen(false);
         }}

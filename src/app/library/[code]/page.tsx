@@ -10,7 +10,7 @@ import { useProjects } from "@/components/ProjectsProvider";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UploadVersionModal } from "@/components/UploadVersionModal";
-import { ROLE_INITIALS, CURRENT_USER_NAME, formatSizeVariantDimensions, type VersionItem } from "@/lib/mock-data";
+import { ROLE_INITIALS, formatSizeVariantDimensions, type VersionItem } from "@/lib/mock-data";
 import {
   productStatusBadge,
   reusePermissionBadge,
@@ -48,11 +48,6 @@ export default function ProductDetailPage() {
   const { projects, projectProducts, addProductToProject } = useProjects();
   const product = products.find((p) => p.code === params.code);
   const { role, effectiveUserName } = useRole();
-  // getPickableProjects still checks Projects' mock ownership fields, so
-  // it needs the old per-role fictional name until Projects is wired for
-  // real — everything else here checks real Product.designer/exclusiveBy,
-  // so it needs the real signed-in name.
-  const userName = CURRENT_USER_NAME[role];
   const [assetIndex, setAssetIndex] = useState(0);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("versions");
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -88,7 +83,7 @@ export default function ProductDetailPage() {
   const usages = projectProducts.filter((pp) => pp.productCode === product.code);
   const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
-  const pickableProjects = getPickableProjects(role, userName, projects);
+  const pickableProjects = getPickableProjects(role, effectiveUserName, projects);
   // Only set once a design has actually been Released from a (completed)
   // project — not shown for standalone uploads or work still in progress.
   const relatedProject = product.sourceProjectName

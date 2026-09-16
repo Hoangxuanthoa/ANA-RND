@@ -70,11 +70,12 @@ export default function ProjectDetailPage() {
   const { products, releaseToLibrary, setReusePermission, createProductsBulk } = useProducts();
   const { collections, createCollection, addProductToCollection } = useCollections();
   const { photos } = useProjectPhotos();
-  // Projects/ProjectProduct ownership checks throughout this page still
-  // compare against mock data, so they keep the old per-role fictional
-  // name until Projects is wired for real — only the one real-Product
-  // ownership check (quickViewCanEditProduct, below) uses the real name.
-  const userName = CURRENT_USER_NAME[role];
+  // Projects is real now, so every Project/ProjectProduct ownership
+  // check below uses the real signed-in name — only createCollection
+  // (Collections is still mock, its own turn hasn't come yet) keeps the
+  // old per-role fictional name, aliased separately right where it's
+  // used.
+  const userName = effectiveUserName;
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -145,7 +146,9 @@ export default function ProjectDetailPage() {
       });
       router.push(`/collections/${existing.id}/export`);
     } else {
-      const id = createCollection(project!.name, userName, exportableCodes, project!.code);
+      // Collections is still mock — its own createdByName stays the old
+      // per-role fictional name until its turn comes.
+      const id = createCollection(project!.name, CURRENT_USER_NAME[role], exportableCodes, project!.code);
       router.push(`/collections/${id}/export`);
     }
   }
