@@ -1653,8 +1653,17 @@ freshly opened tab (ruling out stale-history false positives). All
 test data (collection, product, the uploaded R2 image, `AppSettings`
 reset to default) cleaned up afterward.
 
-**Not yet tested on production** — pending, same discipline as the
-prior four modules.
+**Verified on production too, same day:** uploaded a real cover image
+via `/api/upload`, `PATCH`ed it plus a test closing text into
+`/api/settings`, confirmed both round-tripped correctly. Then built a
+real test Collection and exported its PDF — confirmed via the network
+log that `/api/image-proxy` was called for the real production R2
+image and returned 200, with zero console errors, proving the
+tainted-canvas fix also holds under Vercel's serverless environment
+(not just local dev). All production test data (collection, product,
+the uploaded R2 image, `AppSettings` reset to default) cleaned up
+afterward — confirmed via `GET /api/settings` that it's back to
+`{closingText: "Cảm ơn quý khách"}` with no images set.
 
 **This closes the full backend-wiring effort** — every module
 (Staff/User, Auth, Products, Projects, Collections, RndTasks, Settings)
