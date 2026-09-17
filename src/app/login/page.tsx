@@ -23,7 +23,7 @@ export default function LoginPage() {
       setStatus("idle");
       return;
     }
-    router.push("/dashboard");
+    router.push("/library");
     router.refresh();
   }
 

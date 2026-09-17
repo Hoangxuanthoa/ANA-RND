@@ -958,14 +958,6 @@ export interface ActivityItem {
   tint: "accent" | "blue" | "green" | "amber";
 }
 
-export const DASHBOARD_ACTIVITY: ActivityItem[] = [
-  { actor: "Designer An", action: "đã upload V03 cho", target: "RND-00142", time: "2 giờ trước", initials: "AN", tint: "blue" },
-  { actor: "Sales Hà", action: "đã tạo dự án", target: "JYSK Storage 2025", time: "5 giờ trước", initials: "HA", tint: "amber" },
-  { actor: "Customer JYSK", action: "yêu cầu chỉnh sửa", target: "SCG Basket 2026", time: "Hôm qua", initials: "JY", tint: "green" },
-  { actor: "R&D Lan", action: "đã release", target: "RND-00440", time: "2 ngày trước", initials: "LA", tint: "accent" },
-  { actor: "Customer ADE", action: "đã approve", target: "ADE Storage 2026", time: "3 ngày trước", initials: "AD", tint: "green" },
-];
-
 export const PROJECT_ACTIVITY: ActivityItem[] = [
   { actor: "Hà (Sales)", action: "đã tạo dự án JYSK Storage 2025", time: "15/07/2026", initials: "HA", tint: "amber" },
   { actor: "An (R&D)", action: "đã thêm RND-00125 · Reuse", time: "15/07/2026", initials: "AN", tint: "blue" },

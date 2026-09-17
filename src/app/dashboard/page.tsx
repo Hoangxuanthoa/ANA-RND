@@ -8,7 +8,7 @@ import { NewProductModal } from "@/components/NewProductModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
-import { DASHBOARD_ACTIVITY, ROLE_LABEL, parseDDMMYYYY } from "@/lib/mock-data";
+import { ROLE_LABEL, parseDDMMYYYY } from "@/lib/mock-data";
 import { productStatusBadge, TINT_BG, TINT_FG } from "@/lib/badges";
 import { canCreateProduct, canViewLibrary, canSeeProductInLibrary, isMyProject } from "@/lib/permissions";
 
@@ -111,8 +111,6 @@ export default function DashboardPage() {
         ).length;
   const needActionHref = isAdmin ? "/review" : isRnd ? "/my-tasks" : "/projects";
 
-  // Customer is always an Admin-preview role — "my" projects means
-  // whichever fixed customer persona is currently being previewed as.
   const customerProjects = projects.filter((p) => p.customer === effectiveUserName);
   const customerNeedResponseCount = projectProducts.filter(
     (pp) => pp.status === "CUSTOMER_REVIEW" && customerProjects.some((p) => p.code === pp.projectCode),
@@ -126,9 +124,7 @@ export default function DashboardPage() {
 
       <div className="mx-auto flex w-full max-w-[1280px] flex-1 flex-col gap-5 p-4 sm:gap-7 sm:p-7">
         <div>
-          <h1 className="mb-1 text-[22px] font-extrabold">
-            Chào buổi sáng, {isCustomer ? "JYSK Buyer" : effectiveUserName}
-          </h1>
+          <h1 className="mb-1 text-[22px] font-extrabold">Chào buổi sáng, {effectiveUserName}</h1>
           <p className="text-sm text-text-muted">
             Đang xem với vai trò <strong className="text-text">{ROLE_LABEL[role]}</strong>
           </p>
@@ -249,26 +245,6 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-3.5">
-          <h2 className="text-[16px] font-extrabold">Hoạt động gần đây</h2>
-          <div className="overflow-hidden rounded-xl border border-line bg-surface">
-            {DASHBOARD_ACTIVITY.map((a, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 border-b border-line px-4.5 py-3.5 last:border-b-0 hover:bg-bg"
-              >
-                <div className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${TINT_BG[a.tint]} ${TINT_FG[a.tint]}`}>
-                  {a.initials}
-                </div>
-                <div className="flex-1 text-[13px]">
-                  <strong>{a.actor}</strong> <span className="text-text-muted">{a.action}</span>{" "}
-                  {a.target && <strong>{a.target}</strong>}
-                </div>
-                <div className="whitespace-nowrap text-xs text-text-faint">{a.time}</div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {newProductOpen && (
