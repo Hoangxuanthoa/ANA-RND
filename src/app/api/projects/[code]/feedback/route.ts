@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { relativeTimeVi } from "@/lib/mock-data";
 import { feedbackAuthor } from "@/lib/server/identity";
-import { notify } from "@/lib/server/notify";
+import { notifyMany } from "@/lib/server/notify";
 
 export async function POST(request: Request, { params }: { params: Promise<{ code: string }> }) {
   const me = await getSessionUser();
@@ -21,15 +21,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     data: { projectId: project.id, userId: me.id, content },
   });
 
-  if (project.createdById !== me.id) {
-    await notify({
-      userId: project.createdById,
+  // Both real stakeholders of the project — its creator (Sales/Marketing/
+  // Admin) and its assigned R&D owner — should hear about a comment even
+  // if only one of them happens to be the one commenting.
+  await notifyMany(
+    {
       type: "NEW_FEEDBACK",
       title: `Bình luận mới trong dự án ${project.projectName}`,
       message: content,
       link: `/projects/${code}`,
-    });
-  }
+    },
+    [project.createdById, project.rndOwnerId ?? undefined],
+    [me.id],
+  );
 
   return NextResponse.json({
     projectCode: code,

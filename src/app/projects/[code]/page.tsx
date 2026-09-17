@@ -87,10 +87,14 @@ export default function ProjectDetailPage() {
   // Notifications about a specific project product deep-link here via
   // ?product=CODE (see the notify() calls in src/app/api/projects/...)
   // so clicking one opens straight to that product's quick view instead
-  // of just landing on the general project page.
+  // of just landing on the general project page. A photo comment
+  // notification instead carries ?tab=photos, since a specific photo
+  // has no standalone detail view to jump to — just the right tab.
   useEffect(() => {
     const productParam = searchParams.get("product");
     if (productParam) setQuickViewCode(productParam);
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "photos") setTab("photos");
   }, [searchParams]);
   const [editProductCode, setEditProductCode] = useState<string | null>(null);
   const [deleteProductTarget, setDeleteProductTarget] = useState<{ productCode: string; productName: string } | null>(null);

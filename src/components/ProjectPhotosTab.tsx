@@ -32,7 +32,9 @@ export function ProjectPhotosTab({ project, role, userName }: ProjectPhotosTabPr
   const { addProductToProject, addProductsToProjectBulk } = useProjects();
   const canManage = canCreateProduct(role);
 
-  const photos = allPhotos.filter((p) => p.projectCode === project.code);
+  const photos = allPhotos
+    .filter((p) => p.projectCode === project.code)
+    .sort((a, b) => a.fileName.localeCompare(b.fileName, "vi", { numeric: true }));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [releaseTarget, setReleaseTarget] = useState<ProjectPhoto | null>(null);

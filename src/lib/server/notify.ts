@@ -42,3 +42,18 @@ export async function notifyAllAdmins(
     admins.filter((a) => !exclude.has(a.id)).map((a) => notify({ ...input, userId: a.id })),
   );
 }
+
+// A comment/feedback thread can have more than one real stakeholder
+// (e.g. a project's creator AND its R&D owner, or a photo's uploader AND
+// the project's creator) — this notifies whichever of `userIds` aren't
+// in `excludeUserIds` (typically just the commenter themselves), deduped,
+// instead of picking one arbitrary recipient the way a single lookup would.
+export async function notifyMany(
+  input: { type: NotificationType; title: string; message: string; link?: string },
+  userIds: (string | undefined)[],
+  excludeUserIds: (string | undefined)[] = [],
+) {
+  const exclude = new Set(excludeUserIds.filter((id): id is string => !!id));
+  const recipients = new Set(userIds.filter((id): id is string => !!id && !exclude.has(id)));
+  await Promise.all([...recipients].map((userId) => notify({ ...input, userId })));
+}
