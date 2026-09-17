@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 
 function isEditable(me: { id: string; role: string }, collection: { createdById: string; status: string }) {
-  return collection.status === "DRAFT" && (me.role === "ADMIN" || collection.createdById === me.id);
+  if (me.role === "ADMIN") return true;
+  return collection.status === "DRAFT" && collection.createdById === me.id;
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string; productCode: string }> }) {

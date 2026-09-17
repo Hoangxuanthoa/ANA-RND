@@ -98,9 +98,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   return NextResponse.json(serializeProject(updated));
 }
 
-// Irreversible, so re-verify the CREATED-status rule server-side too
+// Irreversible, so re-verify ownership server-side too
 // (canHardDeleteProject) — everything else here is a reversible
-// status/field flip.
+// status/field flip. No longer gated on status === CREATED: Admin (or
+// the project's own owner) can now hard-delete a project at any stage —
+// an explicit ask, not an oversight (see canHardDeleteProject's own
+// comment). Cascades ProjectProduct/ProjectPhoto/Feedback rows; any
+// Collection exported from this project keeps existing, just loses its
+// projectId (schema-level ON DELETE SET NULL).
 export async function DELETE(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const me = await getSessionUser();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -109,9 +114,6 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const project = await findByCode(code);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!isOwner(me, project)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (project.status !== "CREATED") {
-    return NextResponse.json({ error: "Dự án đã có hoạt động, không thể xóa hẳn." }, { status: 400 });
-  }
 
   await prisma.project.delete({ where: { id: project.id } });
   return NextResponse.json({ ok: true });

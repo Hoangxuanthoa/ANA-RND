@@ -27,8 +27,13 @@ export function getPickableCollections<T extends Collection>(role: Role, userNam
   return drafts.filter((c) => c.createdByName === userName);
 }
 
+// Admin can edit/delete any collection regardless of status — full
+// rights, an explicit ask. Everyone else still only their own, and only
+// while it's still DRAFT (SENT is a locked snapshot of what was
+// actually shared with a customer).
 export function canEditCollection(role: Role, userName: string, collection: Collection) {
-  return collection.status === "DRAFT" && (role === "ADMIN" || collection.createdByName === userName);
+  if (role === "ADMIN") return true;
+  return collection.status === "DRAFT" && collection.createdByName === userName;
 }
 
 // "My Collection" tab filter — same shape as isMyProject, but Collections
@@ -117,14 +122,23 @@ export function canMarkCompleted(role: Role, userName: string, project: Project)
   return isProjectOwner(role, userName, project);
 }
 
-// A project with no real activity yet (still Created) can be permanently
-// deleted. Anything past that only gets closed, so the reuse/approval
-// stats computed from ProjectProduct/Feedback/Activity stay correct.
-export const canHardDeleteProject = (project: Project) => project.status === "CREATED";
-
-export function canRemoveProject(role: Role, userName: string, project: Project) {
+// Admin, or the project's own owner, can permanently delete it at any
+// stage — not just while it's still empty. Deliberately unconditional:
+// the user explicitly asked for Admin to have full delete rights on
+// every project, and for the owner to always have a real delete option
+// rather than losing it the moment the project gets any real activity
+// (previously: only a CREATED, still-empty project could be hard
+// deleted — anything past that could only be closed). "Đóng dự án"
+// (close) is still offered as the non-destructive alternative
+// alongside this, see projects/page.tsx and projects/[code]/page.tsx.
+export function canHardDeleteProject(role: Role, userName: string, project: Project) {
   return isProjectOwner(role, userName, project);
 }
+
+// Admin only, and only once a project has actually been closed — undoes
+// closeProject, restoring whatever active status the project's own
+// product completion would naturally imply (see the reopen route).
+export const canReopenProject = (role: Role) => role === "ADMIN";
 
 // Product-development actions inside a project (upload version, release
 // to library) are scoped to the assigned R&D owner — not just "any R&D".

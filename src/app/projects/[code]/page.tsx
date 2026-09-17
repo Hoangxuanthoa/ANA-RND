@@ -32,6 +32,7 @@ import {
   canEditProduct,
   canEditProject,
   canHardDeleteProject,
+  canReopenProject,
   canManageCollections,
   canMarkCompleted,
   canReleaseProjectProduct,
@@ -59,6 +60,7 @@ export default function ProjectDetailPage() {
     projectProducts,
     projectFeedback,
     closeProject,
+    reopenProject,
     markCompleted,
     deleteProject,
     updateProject,
@@ -75,7 +77,10 @@ export default function ProjectDetailPage() {
   const userName = effectiveUserName;
   const project = projects.find((p) => p.code === params.code);
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("products");
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Close and Delete are now independent actions (previously one button
+  // that toggled between them based on project status) — see
+  // canHardDeleteProject in lib/permissions.ts.
+  const [confirmAction, setConfirmAction] = useState<"close" | "delete" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
   // Notifications about a specific project product deep-link here via
@@ -112,7 +117,8 @@ export default function ProjectDetailPage() {
   const status = projectStatusBadge(project.status);
   const typeBadge = projectTypeBadge(project.type);
   const editable = canEditProject(role, userName, project);
-  const hardDelete = canHardDeleteProject(project);
+  const hardDelete = canHardDeleteProject(role, userName, project);
+  const reopenable = canReopenProject(role);
   const isClosed = project.status === "CLOSED";
   const isCompleted = project.status === "COMPLETED";
   // New products can only be added/picked while the project is still
@@ -222,15 +228,17 @@ export default function ProjectDetailPage() {
                 </div>
               ))}
             </div>
-            {editable && (
+            {(editable || hardDelete || (isClosed && reopenable)) && (
               <div className="flex gap-2">
-                <button
-                  onClick={() => setEditOpen(true)}
-                  className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
-                >
-                  Sửa
-                </button>
-                {canMarkCompleted(role, userName, project) && project.status === "DEVELOPING" && (
+                {editable && (
+                  <button
+                    onClick={() => setEditOpen(true)}
+                    className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold hover:bg-bg"
+                  >
+                    Sửa
+                  </button>
+                )}
+                {editable && canMarkCompleted(role, userName, project) && project.status === "DEVELOPING" && (
                   <button
                     onClick={() => markCompleted(project.code)}
                     className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-green hover:bg-green-soft"
@@ -238,12 +246,28 @@ export default function ProjectDetailPage() {
                     Đánh dấu Hoàn thành
                   </button>
                 )}
-                {!isClosed && (
+                {isClosed && reopenable && (
                   <button
-                    onClick={() => setConfirmOpen(true)}
+                    onClick={() => reopenProject(project.code)}
+                    className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-accent hover:bg-accent-soft"
+                  >
+                    Mở dự án
+                  </button>
+                )}
+                {editable && !isClosed && (
+                  <button
+                    onClick={() => setConfirmAction("close")}
                     className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-red hover:bg-red-soft"
                   >
-                    {hardDelete ? "Xóa" : "Đóng dự án"}
+                    Đóng dự án
+                  </button>
+                )}
+                {hardDelete && (
+                  <button
+                    onClick={() => setConfirmAction("delete")}
+                    className="h-8 rounded-md border border-line bg-surface px-3 text-[12px] font-bold text-red hover:bg-red-soft"
+                  >
+                    Xóa
                   </button>
                 )}
               </div>
@@ -500,25 +524,25 @@ export default function ProjectDetailPage() {
       </div>
 
       <ConfirmDialog
-        open={confirmOpen}
-        danger={hardDelete}
-        title={hardDelete ? "Xóa dự án?" : "Đóng dự án?"}
+        open={confirmAction !== null}
+        danger={confirmAction === "delete"}
+        title={confirmAction === "delete" ? "Xóa dự án?" : "Đóng dự án?"}
         description={
-          hardDelete
-            ? `"${project.name}" chưa có sản phẩm nào — xóa sẽ mất hoàn toàn, không khôi phục được.`
-            : `"${project.name}" đã có hoạt động — sẽ chuyển sang trạng thái Closed và giữ nguyên lịch sử, không xóa dữ liệu.`
+          confirmAction === "delete"
+            ? `"${project.name}" sẽ bị xóa vĩnh viễn, không khôi phục được.`
+            : `"${project.name}" sẽ chuyển sang trạng thái Closed và giữ nguyên lịch sử, không xóa dữ liệu. Admin có thể Mở dự án lại sau.`
         }
-        confirmLabel={hardDelete ? "Xóa" : "Đóng dự án"}
-        onCancel={() => setConfirmOpen(false)}
+        confirmLabel={confirmAction === "delete" ? "Xóa" : "Đóng dự án"}
+        onCancel={() => setConfirmAction(null)}
         onConfirm={() => {
-          if (hardDelete) {
+          if (confirmAction === "delete") {
             setDeleting(true);
             deleteProject(project.code);
             router.push("/projects");
           } else {
             closeProject(project.code);
           }
-          setConfirmOpen(false);
+          setConfirmAction(null);
         }}
       />
 

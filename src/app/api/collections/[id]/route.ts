@@ -3,11 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { collectionInclude, serializeCollection } from "@/lib/server/serialize-collection";
 
-// Matches canEditCollection in lib/permissions.ts: only while it's still
-// DRAFT (SENT is a locked snapshot of what was actually shared), and only
-// its own creator or Admin.
+// Matches canEditCollection in lib/permissions.ts: Admin can touch any
+// collection regardless of status (full rights, an explicit ask);
+// everyone else only their own, and only while it's still DRAFT (SENT
+// is a locked snapshot of what was actually shared).
 function isEditable(me: { id: string; role: string }, collection: { createdById: string; status: string }) {
-  return collection.status === "DRAFT" && (me.role === "ADMIN" || collection.createdById === me.id);
+  if (me.role === "ADMIN") return true;
+  return collection.status === "DRAFT" && collection.createdById === me.id;
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {

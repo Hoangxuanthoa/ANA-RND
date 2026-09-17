@@ -16,6 +16,7 @@ interface ProjectsContextValue {
   projectFeedback: ProjectFeedbackItem[];
   updateProject: (code: string, patch: Partial<Project>) => void;
   closeProject: (code: string) => void;
+  reopenProject: (code: string) => Promise<void>;
   markCompleted: (code: string) => void;
   deleteProject: (code: string) => void;
   createProject: (input: {
@@ -104,6 +105,14 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
   function closeProject(code: string) {
     setProjects((prev) => prev.map((p) => (p.code === code ? { ...p, status: "CLOSED" } : p)));
     postJson<Project>(`/api/projects/${code}/close`, {}).then((p) => replaceProject(code, p)).catch(() => {});
+  }
+
+  // No optimistic guess here — unlike close/complete, the resulting
+  // status depends on the project's own product completion (computed
+  // server-side, see the reopen route), not a fixed known value.
+  async function reopenProject(code: string) {
+    const updated = await postJson<Project>(`/api/projects/${code}/reopen`, {});
+    replaceProject(code, updated);
   }
 
   function markCompleted(code: string) {
@@ -247,6 +256,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         projectFeedback,
         updateProject,
         closeProject,
+        reopenProject,
         markCompleted,
         deleteProject,
         createProject,

@@ -4,7 +4,8 @@ import { getSessionUser } from "@/lib/auth";
 import { collectionInclude, serializeCollection } from "@/lib/server/serialize-collection";
 
 function isEditable(me: { id: string; role: string }, collection: { createdById: string; status: string }) {
-  return collection.status === "DRAFT" && (me.role === "ADMIN" || collection.createdById === me.id);
+  if (me.role === "ADMIN") return true;
+  return collection.status === "DRAFT" && collection.createdById === me.id;
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {

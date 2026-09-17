@@ -559,7 +559,12 @@ model Collection {
   id          String           @id @default(uuid()) @db.Uuid
   name        String
   projectId   String?          @db.Uuid
-  project     Project?         @relation(fields: [projectId], references: [id])
+  // SetNull, not the Restrict default — Admin/owner can now hard-delete a
+  // project regardless of history (see canHardDeleteProject), and a
+  // Collection exported from it is a real, independent artifact (already
+  // shared/pitched to a customer, possibly) that shouldn't block that or
+  // get destroyed by it — it just loses its "exported from" traceability.
+  project     Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   customerId  String?          @db.Uuid
   customer    Customer?        @relation(fields: [customerId], references: [id])
   createdById String           @db.Uuid
