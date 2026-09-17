@@ -8,9 +8,17 @@ import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canManageProduct, canPickProduct, canManageCollections, canReviewProducts, getPickableProjects } from "@/lib/permissions";
+import {
+  canManageProduct,
+  canPickProduct,
+  canManageCollections,
+  canReviewProducts,
+  canEditProduct,
+  getPickableProjects,
+} from "@/lib/permissions";
 import { AddToCollectionButton } from "@/components/AddToCollectionButton";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import { NewProductModal } from "@/components/NewProductModal";
 import { RejectProductModal } from "@/components/RejectProductModal";
 import { UploadVersionModal } from "@/components/UploadVersionModal";
 import { useExclusiveGuard } from "@/components/useExclusiveGuard";
@@ -22,13 +30,14 @@ interface ProductQuickViewProps {
 
 export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const { role, effectiveUserName } = useRole();
-  const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct, addProductVersion } = useProducts();
+  const { favoritedCodes, toggleFavorite, approveProduct, rejectProduct, addProductVersion, submitForReview } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [addedNotice, setAddedNotice] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [uploadVersionOpen, setUploadVersionOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { guardPick, guardModal } = useExclusiveGuard(effectiveUserName);
 
   const status = productStatusBadge(product.status);
@@ -42,6 +51,11 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
   const isReleased = product.status === "RELEASED";
   const pickableProjects = getPickableProjects(role, effectiveUserName, projects);
   const canReview = canReviewProducts(role) && product.status === "PENDING_REVIEW";
+  // A DRAFT product (bulk-uploaded or otherwise) previously had no way
+  // to edit its info or submit it for review from this quick view at
+  // all — only "Xem đầy đủ" got you there, on the full detail page.
+  const canEditThis = canEditProduct(role, effectiveUserName, product);
+  const isDraft = product.status === "DRAFT";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" onClick={onClose}>
@@ -107,6 +121,35 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
                 Approve
               </button>
             </div>
+          </div>
+        )}
+
+        {isDraft && canEditThis && (
+          <div className="flex items-center justify-between gap-3 border-b border-line bg-amber-soft px-5 py-3">
+            <span className="text-[12.5px] font-bold text-amber">
+              {product.incomplete ? "Cần cập nhật đầy đủ thông tin trước khi nộp duyệt." : "Chưa nộp duyệt."}
+            </span>
+            <div className="flex flex-shrink-0 gap-2">
+              <button
+                onClick={() => setEditOpen(true)}
+                className="h-8 rounded-md border border-amber/30 bg-white px-3 text-[12px] font-bold text-amber hover:bg-amber-soft"
+              >
+                Sửa thông tin
+              </button>
+              <button
+                onClick={() => submitForReview(product.code)}
+                className="h-8 rounded-md bg-amber px-3 text-[12px] font-bold text-white hover:opacity-90"
+              >
+                Nộp duyệt
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isDraft && product.lastRejectionReason && (
+          <div className="mx-5 mt-5 rounded-lg border border-red-soft bg-red-soft px-3.5 py-3">
+            <div className="text-[12px] font-bold text-red">Bị từ chối bởi Admin</div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-text">{product.lastRejectionReason}</p>
           </div>
         )}
 
@@ -259,6 +302,16 @@ export function ProductQuickView({ product, onClose }: ProductQuickViewProps) {
             await addProductVersion(product.code, note, image);
             setUploadVersionOpen(false);
           }}
+        />
+      )}
+
+      {editOpen && (
+        <NewProductModal
+          open
+          title="Sửa sản phẩm"
+          product={product}
+          onCancel={() => setEditOpen(false)}
+          onCreate={() => setEditOpen(false)}
         />
       )}
 

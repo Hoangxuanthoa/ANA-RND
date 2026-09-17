@@ -78,8 +78,15 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 export default function LibraryPage() {
   const router = useRouter();
   const { role, effectiveUserName: userName } = useRole();
-  const { products, favoritedCodes, toggleFavorite, categories: CATEGORIES, materials: MATERIALS, createProductsBulk } =
-    useProducts();
+  const {
+    products,
+    favoritedCodes,
+    toggleFavorite,
+    categories: CATEGORIES,
+    materials: MATERIALS,
+    createProductsBulk,
+    submitForReview,
+  } = useProducts();
   const { projectProducts } = useProjects();
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -92,6 +99,10 @@ export default function LibraryPage() {
   // both statuses are otherwise invisible in the default Library view.
   const [extraFilter, setExtraFilter] = useState<"archived" | "draft" | null>(null);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  // Bulk-select is only offered in the Draft view — submitting several
+  // freshly-uploaded placeholders for review at once, instead of opening
+  // each one just to hit the same "Nộp duyệt" button.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   // Stores just the code, not a snapshot Product object — a snapshot
   // would freeze the modal's data at click time, so a mutation made
   // while it's open (favorite, approve, exclusive...) wouldn't visibly
@@ -100,6 +111,25 @@ export default function LibraryPage() {
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
   const quickView = quickViewCode ? (products.find((p) => p.code === quickViewCode) ?? null) : null;
   const [newProductOpen, setNewProductOpen] = useState(false);
+
+  function changeFilter(next: "archived" | "draft" | null) {
+    setExtraFilter(next);
+    setSelected(new Set());
+    setPage(1);
+  }
+
+  // Bulk-submit only ever operates on the Draft filter's own results —
+  // every item visible there is already editable/submittable by the
+  // current viewer (canSeeDraftProduct already scopes RND to their own
+  // uploads, same check canEditProduct would make per-item).
+  function toggleSelectOne(code: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
 
   function reusedCountOf(code: string) {
     return projectProducts.filter((pp) => pp.productCode === code && pp.usage === "REUSE").length;
@@ -143,6 +173,20 @@ export default function LibraryPage() {
   const currentPage = Math.min(page, totalPages);
   const pageItems = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+  // "Chọn tất cả" spans every Draft result matching the current
+  // category/material/reuse filters — not just the current page — so
+  // submitting doesn't silently miss whatever's on page 2+.
+  const selectableCodes = extraFilter === "draft" ? filtered.map((p) => p.code) : [];
+  const allSelected = selectableCodes.length > 0 && selectableCodes.every((c) => selected.has(c));
+
+  function toggleSelectAll() {
+    setSelected(allSelected ? new Set() : new Set(selectableCodes));
+  }
+
+  function handleBulkSubmit() {
+    selected.forEach((code) => submitForReview(code));
+    setSelected(new Set());
+  }
 
   if (!canViewLibrary(role)) {
     return (
@@ -239,7 +283,7 @@ export default function LibraryPage() {
             {canViewArchive(role) && (
               <FilterOption
                 active={extraFilter === "archived"}
-                onClick={() => { setExtraFilter(extraFilter === "archived" ? null : "archived"); setPage(1); }}
+                onClick={() => changeFilter(extraFilter === "archived" ? null : "archived")}
               >
                 Archived
               </FilterOption>
@@ -247,7 +291,7 @@ export default function LibraryPage() {
             {canCreateProduct(role) && (
               <FilterOption
                 active={extraFilter === "draft"}
-                onClick={() => { setExtraFilter(extraFilter === "draft" ? null : "draft"); setPage(1); }}
+                onClick={() => changeFilter(extraFilter === "draft" ? null : "draft")}
               >
                 Draft
               </FilterOption>
@@ -308,11 +352,34 @@ export default function LibraryPage() {
             </div>
           </div>
 
+          {extraFilter === "draft" && filtered.length > 0 && (
+            <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-2.5">
+              <label className="flex items-center gap-2 text-[12.5px] font-semibold text-text-muted">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleSelectAll}
+                  className="h-4 w-4 rounded border-line"
+                />
+                Chọn tất cả ({filtered.length})
+              </label>
+              {selected.size > 0 && (
+                <button
+                  onClick={handleBulkSubmit}
+                  className="inline-flex h-8 items-center rounded-md bg-amber px-3 text-[12px] font-bold text-white hover:opacity-90"
+                >
+                  Nộp duyệt ({selected.size})
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-5 gap-4">
             {pageItems.map((p) => {
               const status = productStatusBadge(p.status);
               const reuseBadge = reusePermissionBadge(p.reuse);
               const isFavorited = favoritedCodes.has(p.code);
+              const isSelected = selected.has(p.code);
               return (
                 <div
                   key={p.code}
@@ -333,9 +400,18 @@ export default function LibraryPage() {
                         <path d="M12 13v8" />
                       </svg>
                     )}
-                    <span className={`absolute top-2 left-2 ${reuseBadge.className} bg-white/90 backdrop-blur-sm`}>
-                      {reuseBadge.label}
-                    </span>
+                    <div className="absolute top-2 left-2 flex items-center gap-1.5">
+                      {extraFilter === "draft" && (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => toggleSelectOne(p.code)}
+                          className="h-4 w-4 rounded border-line bg-white"
+                        />
+                      )}
+                      <span className={`${reuseBadge.className} bg-white/90 backdrop-blur-sm`}>{reuseBadge.label}</span>
+                    </div>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -428,8 +504,7 @@ export default function LibraryPage() {
           // Bulk items land as DRAFT + incomplete (see canSeeDraftProduct) —
           // switch straight to the Draft filter so they're not invisible
           // the moment the modal closes.
-          setExtraFilter("draft");
-          setPage(1);
+          changeFilter("draft");
         }}
       />
     </div>
