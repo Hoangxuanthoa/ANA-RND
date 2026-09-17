@@ -383,13 +383,14 @@ export default function LibraryPage() {
               return (
                 <div
                   key={p.code}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setQuickViewCode(p.code)}
-                  onKeyDown={(e) => e.key === "Enter" && setQuickViewCode(p.code)}
-                  className="cursor-pointer overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                  className="overflow-hidden rounded-xl border border-line bg-surface text-left transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <div className={`relative flex aspect-square items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setQuickViewCode(p.code)}
+                    onKeyDown={(e) => e.key === "Enter" && setQuickViewCode(p.code)}
+                    className={`relative flex aspect-square cursor-pointer items-center justify-center overflow-hidden ${p.mainImage ? "" : TINT_BG[p.tint]}`}>
                     {p.mainImage ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.mainImage} alt="" className="h-full w-full object-cover" />
@@ -426,7 +427,19 @@ export default function LibraryPage() {
                       </svg>
                     </button>
                   </div>
-                  <div className="flex flex-col gap-1.5 p-3">
+                  {/* A real <a> (not another onClick div) so the browser's
+                      own "Open link in new tab" context-menu entry and a
+                      middle-click both work — a left-click still opens the
+                      quick view instead of navigating, same as the image
+                      above. */}
+                  <Link
+                    href={`/library/${p.code}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setQuickViewCode(p.code);
+                    }}
+                    className="flex flex-col gap-1.5 p-3"
+                  >
                     <div className="flex items-start justify-between gap-1.5">
                       <div className="min-w-0">
                         <div className="truncate text-[12.5px] font-bold">{p.name}</div>
@@ -437,7 +450,7 @@ export default function LibraryPage() {
                     <div className="truncate text-[11px] text-text-muted">
                       {p.category} · {p.material}
                     </div>
-                  </div>
+                  </Link>
                 </div>
               );
             })}
