@@ -67,6 +67,7 @@ export default function ProjectDetailPage() {
     addProjectFeedback,
     addProductToProject,
     addProductsToProjectBulk,
+    removeProjectProduct,
     approveProjectProduct,
     rejectProjectProduct,
     resubmitProjectProduct,
@@ -92,6 +93,7 @@ export default function ProjectDetailPage() {
     if (productParam) setQuickViewCode(productParam);
   }, [searchParams]);
   const [editProductCode, setEditProductCode] = useState<string | null>(null);
+  const [deleteProductTarget, setDeleteProductTarget] = useState<{ productCode: string; productName: string } | null>(null);
   const [commentText, setCommentText] = useState("");
   const [newDesignOpen, setNewDesignOpen] = useState(false);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
@@ -383,6 +385,7 @@ export default function ProjectDetailPage() {
                 const needsAttention =
                   !isClosed && (i.status === "SALES_REVIEW" || (i.status === "CUSTOMER_REVIEW" && i.approval === "PENDING"));
                 const canRelease = releasableItems.includes(i);
+                const canDeleteItem = !isClosed && canCreateProduct(role);
 
                 return (
                   <div
@@ -391,7 +394,7 @@ export default function ProjectDetailPage() {
                     tabIndex={0}
                     onClick={() => setQuickViewCode(i.productCode)}
                     onKeyDown={(e) => e.key === "Enter" && setQuickViewCode(i.productCode)}
-                    className="flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent/40"
+                    className="group flex cursor-pointer flex-col overflow-hidden rounded-xl border border-line bg-surface hover:border-accent/40"
                   >
                     <div
                       className={`relative flex aspect-square items-center justify-center overflow-hidden ${
@@ -407,6 +410,20 @@ export default function ProjectDetailPage() {
                           <path d="M3 8v8l9 5 9-5V8" />
                           <path d="M12 13v8" />
                         </svg>
+                      )}
+                      {canDeleteItem && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteProductTarget({ productCode: product.code, productName: product.name });
+                          }}
+                          title="Xóa"
+                          className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/45 text-white opacity-0 group-hover:opacity-100"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <path d="M18 6L6 18M6 6l12 12" />
+                          </svg>
+                        </button>
                       )}
                       {needsAttention && (
                         <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-amber px-2 py-1 text-[10.5px] font-bold text-white">
@@ -543,6 +560,19 @@ export default function ProjectDetailPage() {
             closeProject(project.code);
           }
           setConfirmAction(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={!!deleteProductTarget}
+        danger
+        title="Xóa sản phẩm?"
+        description={`"${deleteProductTarget?.productName}" sẽ bị xóa khỏi dự án, không khôi phục được.`}
+        confirmLabel="Xóa"
+        onCancel={() => setDeleteProductTarget(null)}
+        onConfirm={() => {
+          if (deleteProductTarget) removeProjectProduct(project.code, deleteProductTarget.productCode);
+          setDeleteProductTarget(null);
         }}
       />
 

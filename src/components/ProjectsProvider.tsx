@@ -30,6 +30,7 @@ interface ProjectsContextValue {
   }) => Promise<string>;
   addProductToProject: (projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) => void;
   addProductsToProjectBulk: (projectCode: string, productCodes: string[], usage: UsageType, assigneeName?: string) => void;
+  removeProjectProduct: (projectCode: string, productCode: string) => void;
   addProjectFeedback: (projectCode: string, content: string) => void;
   addProjectProductFeedback: (projectCode: string, productCode: string, content: string) => void;
   approveProjectProduct: (projectCode: string, productCode: string) => void;
@@ -193,6 +194,11 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     postJson<ProjectProductItem[]>(`/api/projects/${projectCode}/products/bulk`, { productCodes, usage, assigneeName }).catch(() => {});
   }
 
+  function removeProjectProduct(projectCode: string, productCode: string) {
+    setProjectProducts((prev) => prev.filter((pp) => !(pp.projectCode === projectCode && pp.productCode === productCode)));
+    fetch(`/api/projects/${projectCode}/products/${productCode}`, { method: "DELETE" }).catch(() => {});
+  }
+
   function approveProjectProduct(projectCode: string, productCode: string) {
     const project = projects.find((p) => p.code === projectCode);
     const creatorRole = project ? projectCreatorRole(project, staff) : undefined;
@@ -262,6 +268,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
         createProject,
         addProductToProject,
         addProductsToProjectBulk,
+        removeProjectProduct,
         addProjectFeedback,
         addProjectProductFeedback,
         approveProjectProduct,
