@@ -7,6 +7,7 @@ import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
+import { useCollections } from "@/components/CollectionsProvider";
 import { NewProductModal } from "@/components/NewProductModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { UploadVersionModal } from "@/components/UploadVersionModal";
@@ -47,6 +48,7 @@ export default function ProductDetailPage() {
     deleteProduct,
   } = useProducts();
   const { projects, projectProducts, addProductToProject } = useProjects();
+  const { collections } = useCollections();
   const product = products.find((p) => p.code === params.code);
   const { role, effectiveUserName } = useRole();
   const [assetIndex, setAssetIndex] = useState(0);
@@ -98,6 +100,7 @@ export default function ProductDetailPage() {
   const usages = projectProducts.filter((pp) => pp.productCode === product.code);
   const reusedCount = usages.filter((u) => u.usage === "REUSE").length;
   const isReleased = product.status === "RELEASED";
+  const isArchived = product.status === "ARCHIVED";
   const pickableProjects = getPickableProjects(role, effectiveUserName, projects);
   // Only set once a design has actually been Released from a (completed)
   // project — not shown for standalone uploads or work still in progress.
@@ -105,7 +108,11 @@ export default function ProductDetailPage() {
     ? projects.find((p) => p.name === product.sourceProjectName)
     : undefined;
   const editable = canEditProduct(role, effectiveUserName, product);
-  const hardDelete = canHardDeleteProduct(product, usages.length);
+  // Combines both ways a product can carry real history — picked into a
+  // project, or added to a collection — so an ARCHIVED product only
+  // becomes permanently deletable once neither is true anymore.
+  const collectionUsageCount = collections.filter((c) => c.productCodes.includes(product.code)).length;
+  const hardDelete = canHardDeleteProduct(product, usages.length + collectionUsageCount);
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -179,9 +186,10 @@ export default function ProductDetailPage() {
                         <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
                       </svg>
                     </button>
+                    {(!isArchived || hardDelete) && (
                     <button
                       onClick={() => setDeleteOpen(true)}
-                      title={hardDelete ? "Xóa" : "Lưu trữ"}
+                      title={isArchived ? "Xóa vĩnh viễn" : hardDelete ? "Xóa" : "Lưu trữ"}
                       className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -189,6 +197,7 @@ export default function ProductDetailPage() {
                         <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
                       </svg>
                     </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -494,10 +503,10 @@ export default function ProductDetailPage() {
       <ConfirmDialog
         open={deleteOpen}
         danger
-        title={hardDelete ? "Xóa sản phẩm?" : "Lưu trữ sản phẩm?"}
+        title={hardDelete ? "Xóa vĩnh viễn sản phẩm?" : "Lưu trữ sản phẩm?"}
         description={
           hardDelete
-            ? `"${product.name}" chưa được dùng ở đâu — xóa sẽ mất hoàn toàn, không khôi phục được.`
+            ? `"${product.name}" không còn liên kết ở dự án hay collection nào — xóa sẽ mất hoàn toàn, không khôi phục được.`
             : `"${product.name}" đã có lịch sử sử dụng — sẽ chuyển sang trạng thái Archived và giữ nguyên dữ liệu liên quan, không xóa hẳn.`
         }
         confirmLabel={hardDelete ? "Xóa" : "Lưu trữ"}

@@ -62,6 +62,19 @@ export function canSeeProductInLibrary(role: Role, userName: string, product: Pr
   return false;
 }
 
+// The Archive is a separate view from the Library above (see
+// library/page.tsx's view toggle) — only Admin and R&D can open it at
+// all (Sales/Customer have no reason to browse retired designs), and
+// R&D only ever sees their own archived uploads there, same "own work
+// only" scope as canEditProduct.
+export const canViewArchive = (role: Role) => role === "ADMIN" || role === "RND";
+
+export function canSeeArchivedProduct(role: Role, userName: string, product: Product) {
+  if (product.status !== "ARCHIVED") return false;
+  if (role === "ADMIN") return true;
+  return role === "RND" && product.designer.startsWith(userName);
+}
+
 // Only Sales (or Admin) marks a design Exclusive — and only on a NEW
 // design still inside the project that produced it. A picked/REUSE
 // product or a standalone R&D upload is never eligible (see the "Gắn
@@ -77,10 +90,14 @@ export function canEditProduct(role: Role, userName: string, product: Product) {
 
 // A DRAFT that's never been picked into any project can be permanently
 // deleted — same "no activity yet" rule as canHardDeleteProject. Anything
-// with history (released, used in a project) only gets archived so the
-// reuse/usage records it's tied to stay valid.
+// with real history (used in a project, added to a collection) only gets
+// archived so those records stay valid — but once an ARCHIVED product's
+// history clears (nothing left referencing it), Admin/the uploader can
+// finish the job with a genuine permanent delete instead of it sitting
+// in the Archive forever. `usageCount` is projectProducts + collectionItems
+// combined — see library/[code]/page.tsx.
 export function canHardDeleteProduct(product: Product, usageCount: number) {
-  return product.status === "DRAFT" && usageCount === 0;
+  return (product.status === "DRAFT" || product.status === "ARCHIVED") && usageCount === 0;
 }
 
 // Which Project types a role is allowed to create. R&D creates none —

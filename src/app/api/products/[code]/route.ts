@@ -99,10 +99,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   return NextResponse.json(serializeProduct(updated));
 }
 
-// Irreversible, so re-verify the DRAFT + no-usage rule server-side too
-// (canHardDeleteProduct), not just the role check — every other mutation
-// here is a reversible status/field flip and doesn't need this extra
-// defense.
+// Irreversible, so re-verify the DRAFT/ARCHIVED + no-usage rule
+// server-side too (canHardDeleteProduct), not just the role check —
+// every other mutation here is a reversible status/field flip and
+// doesn't need this extra defense. An ARCHIVED product only qualifies
+// once nothing references it any more (see canHardDeleteProduct) — a
+// released design with real project/collection history stays archived
+// forever instead of being destroyed out from under those records.
 export async function DELETE(_request: Request, { params }: { params: Promise<{ code: string }> }) {
   const me = await getSessionUser();
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -110,14 +113,18 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { code } = await params;
   const product = await prisma.product.findUnique({
     where: { productCode: code },
-    include: { _count: { select: { projectProducts: true } } },
+    include: { _count: { select: { projectProducts: true, collectionItems: true } } },
   });
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!canEdit(me, product)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  if (product.status !== "DRAFT" || product._count.projectProducts > 0) {
+  const eligibleStatus = product.status === "DRAFT" || product.status === "ARCHIVED";
+  if (!eligibleStatus || product._count.projectProducts > 0 || product._count.collectionItems > 0) {
     return NextResponse.json({ error: "Sản phẩm đã có hoạt động, không thể xóa hẳn." }, { status: 400 });
   }
 
-  await prisma.product.delete({ where: { id: product.id } });
+  await prisma.$transaction([
+    prisma.feedback.deleteMany({ where: { productId: product.id } }),
+    prisma.product.delete({ where: { id: product.id } }),
+  ]);
   return NextResponse.json({ ok: true });
 }

@@ -11,7 +11,7 @@ import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canCreateProduct, canViewLibrary, canSeeProductInLibrary } from "@/lib/permissions";
+import { canCreateProduct, canViewLibrary, canSeeProductInLibrary, canViewArchive, canSeeArchivedProduct } from "@/lib/permissions";
 
 const REUSE_OPTIONS: { key: ReusePermission; label: string }[] = [
   { key: "REUSABLE", label: "Reusable" },
@@ -78,6 +78,7 @@ export default function LibraryPage() {
   const [reuses, setReuses] = useState<ReusePermission[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
+  const [showArchive, setShowArchive] = useState(false);
   // Stores just the code, not a snapshot Product object — a snapshot
   // would freeze the modal's data at click time, so a mutation made
   // while it's open (favorite, approve, exclusive...) wouldn't visibly
@@ -100,14 +101,14 @@ export default function LibraryPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
-      if (!canSeeProductInLibrary(role, userName, p)) return false;
+      if (showArchive ? !canSeeArchivedProduct(role, userName, p) : !canSeeProductInLibrary(role, userName, p)) return false;
       if (categories.length > 0 && !categories.includes(p.category)) return false;
       if (materials.length > 0 && !materials.includes(p.material)) return false;
       if (reuses.length > 0 && !reuses.includes(p.reuse)) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [products, role, userName, query, categories, materials, reuses]);
+  }, [products, role, userName, query, categories, materials, reuses, showArchive]);
 
   const sorted = useMemo(() => {
     if (sortBy === "default") return filtered;
@@ -221,9 +222,35 @@ export default function LibraryPage() {
 
         {/* Main content */}
         <div className="flex flex-1 flex-col gap-5">
+          {canViewArchive(role) && (
+            <div className="flex gap-5 border-b border-line">
+              <button
+                onClick={() => {
+                  setShowArchive(false);
+                  setPage(1);
+                }}
+                className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                  !showArchive ? "border-accent text-text" : "border-transparent text-text-faint"
+                }`}
+              >
+                Thư viện
+              </button>
+              <button
+                onClick={() => {
+                  setShowArchive(true);
+                  setPage(1);
+                }}
+                className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
+                  showArchive ? "border-accent text-text" : "border-transparent text-text-faint"
+                }`}
+              >
+                Đã lưu trữ
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="mb-1 text-[22px] font-extrabold">Library</h1>
+              <h1 className="mb-1 text-[22px] font-extrabold">{showArchive ? "Đã lưu trữ" : "Library"}</h1>
               <p className="text-[13.5px] text-text-muted">{filtered.length} sản phẩm</p>
             </div>
             <div className="flex items-center gap-2.5">
@@ -244,7 +271,7 @@ export default function LibraryPage() {
                   ))}
                 </select>
               </label>
-              {canCreateProduct(role) && (
+              {!showArchive && canCreateProduct(role) && (
                 <button
                   onClick={() => setNewProductOpen(true)}
                   className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
