@@ -75,6 +75,18 @@ export function canSeeArchivedProduct(role: Role, userName: string, product: Pro
   return role === "RND" && product.designer.startsWith(userName);
 }
 
+// A bulk-uploaded product (see BulkUploadModal) lands as DRAFT +
+// incomplete, same as one created inside a project — but a project
+// gives it a ProjectProduct row to stay reachable through even while
+// still DRAFT. Uploaded straight to the Library, it has no such anchor,
+// so this "Draft" filter (same view-toggle pattern as Archived) is its
+// only way back into view until someone submits it for review.
+export function canSeeDraftProduct(role: Role, userName: string, product: Product) {
+  if (product.status !== "DRAFT") return false;
+  if (role === "ADMIN") return true;
+  return role === "RND" && product.designer.startsWith(userName);
+}
+
 // Only Sales (or Admin) marks a design Exclusive — and only on a NEW
 // design still inside the project that produced it. A picked/REUSE
 // product or a standalone R&D upload is never eligible (see the "Gắn

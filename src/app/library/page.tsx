@@ -6,12 +6,20 @@ import { useRouter } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { ProductQuickView } from "@/components/ProductQuickView";
 import { NewProductModal } from "@/components/NewProductModal";
+import { BulkUploadModal } from "@/components/BulkUploadModal";
 import { useRole } from "@/components/RoleProvider";
 import { useProducts } from "@/components/ProductsProvider";
 import { useProjects } from "@/components/ProjectsProvider";
 import { type Product, type ReusePermission } from "@/lib/mock-data";
 import { productStatusBadge, reusePermissionBadge, TINT_BG, TINT_FG } from "@/lib/badges";
-import { canCreateProduct, canViewLibrary, canSeeProductInLibrary, canViewArchive, canSeeArchivedProduct } from "@/lib/permissions";
+import {
+  canCreateProduct,
+  canViewLibrary,
+  canSeeProductInLibrary,
+  canViewArchive,
+  canSeeArchivedProduct,
+  canSeeDraftProduct,
+} from "@/lib/permissions";
 
 const REUSE_OPTIONS: { key: ReusePermission; label: string }[] = [
   { key: "REUSABLE", label: "Reusable" },
@@ -70,7 +78,8 @@ function FilterGroup({ title, children }: { title: string; children: React.React
 export default function LibraryPage() {
   const router = useRouter();
   const { role, effectiveUserName: userName } = useRole();
-  const { products, favoritedCodes, toggleFavorite, categories: CATEGORIES, materials: MATERIALS } = useProducts();
+  const { products, favoritedCodes, toggleFavorite, categories: CATEGORIES, materials: MATERIALS, createProductsBulk } =
+    useProducts();
   const { projectProducts } = useProjects();
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
@@ -78,7 +87,11 @@ export default function LibraryPage() {
   const [reuses, setReuses] = useState<ReusePermission[]>([]);
   const [sortBy, setSortBy] = useState<SortKey>("default");
   const [page, setPage] = useState(1);
-  const [showArchive, setShowArchive] = useState(false);
+  // "Archived" and "Draft" are separate view toggles (same idea, mutually
+  // exclusive), not part of the normal category/material/reuse filters —
+  // both statuses are otherwise invisible in the default Library view.
+  const [extraFilter, setExtraFilter] = useState<"archived" | "draft" | null>(null);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   // Stores just the code, not a snapshot Product object — a snapshot
   // would freeze the modal's data at click time, so a mutation made
   // while it's open (favorite, approve, exclusive...) wouldn't visibly
@@ -101,14 +114,20 @@ export default function LibraryPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
-      if (showArchive ? !canSeeArchivedProduct(role, userName, p) : !canSeeProductInLibrary(role, userName, p)) return false;
+      const visible =
+        extraFilter === "archived"
+          ? canSeeArchivedProduct(role, userName, p)
+          : extraFilter === "draft"
+            ? canSeeDraftProduct(role, userName, p)
+            : canSeeProductInLibrary(role, userName, p);
+      if (!visible) return false;
       if (categories.length > 0 && !categories.includes(p.category)) return false;
       if (materials.length > 0 && !materials.includes(p.material)) return false;
       if (reuses.length > 0 && !reuses.includes(p.reuse)) return false;
       if (q && !(p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q))) return false;
       return true;
     });
-  }, [products, role, userName, query, categories, materials, reuses, showArchive]);
+  }, [products, role, userName, query, categories, materials, reuses, extraFilter]);
 
   const sorted = useMemo(() => {
     if (sortBy === "default") return filtered;
@@ -219,10 +238,18 @@ export default function LibraryPage() {
             ))}
             {canViewArchive(role) && (
               <FilterOption
-                active={showArchive}
-                onClick={() => { setShowArchive(!showArchive); setPage(1); }}
+                active={extraFilter === "archived"}
+                onClick={() => { setExtraFilter(extraFilter === "archived" ? null : "archived"); setPage(1); }}
               >
                 Archived
+              </FilterOption>
+            )}
+            {canCreateProduct(role) && (
+              <FilterOption
+                active={extraFilter === "draft"}
+                onClick={() => { setExtraFilter(extraFilter === "draft" ? null : "draft"); setPage(1); }}
+              >
+                Draft
               </FilterOption>
             )}
           </div>
@@ -253,7 +280,21 @@ export default function LibraryPage() {
                   ))}
                 </select>
               </label>
-              {!showArchive && canCreateProduct(role) && (
+              {!extraFilter && canCreateProduct(role) && (
+                <button
+                  onClick={() => setBulkUploadOpen(true)}
+                  className="inline-flex h-[38px] items-center gap-1.5 rounded-lg border border-line bg-surface px-4 text-[13px] font-bold hover:bg-bg"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="7" height="7" rx="1" />
+                    <rect x="14" y="3" width="7" height="7" rx="1" />
+                    <rect x="3" y="14" width="7" height="7" rx="1" />
+                    <rect x="14" y="14" width="7" height="7" rx="1" />
+                  </svg>
+                  Up hàng loạt
+                </button>
+              )}
+              {!extraFilter && canCreateProduct(role) && (
                 <button
                   onClick={() => setNewProductOpen(true)}
                   className="inline-flex h-[38px] items-center gap-1.5 rounded-lg bg-accent px-4 text-[13px] font-bold text-white hover:bg-accent-hover"
@@ -377,6 +418,20 @@ export default function LibraryPage() {
           }}
         />
       )}
+
+      <BulkUploadModal
+        open={bulkUploadOpen}
+        onCancel={() => setBulkUploadOpen(false)}
+        onConfirm={async (items) => {
+          await createProductsBulk(items);
+          setBulkUploadOpen(false);
+          // Bulk items land as DRAFT + incomplete (see canSeeDraftProduct) —
+          // switch straight to the Draft filter so they're not invisible
+          // the moment the modal closes.
+          setExtraFilter("draft");
+          setPage(1);
+        }}
+      />
     </div>
   );
 }
