@@ -217,40 +217,22 @@ export default function LibraryPage() {
                 {r.label}
               </FilterOption>
             ))}
+            {canViewArchive(role) && (
+              <FilterOption
+                active={showArchive}
+                onClick={() => { setShowArchive(!showArchive); setPage(1); }}
+              >
+                Archived
+              </FilterOption>
+            )}
           </div>
         </aside>
 
         {/* Main content */}
         <div className="flex flex-1 flex-col gap-5">
-          {canViewArchive(role) && (
-            <div className="flex gap-5 border-b border-line">
-              <button
-                onClick={() => {
-                  setShowArchive(false);
-                  setPage(1);
-                }}
-                className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
-                  !showArchive ? "border-accent text-text" : "border-transparent text-text-faint"
-                }`}
-              >
-                Thư viện
-              </button>
-              <button
-                onClick={() => {
-                  setShowArchive(true);
-                  setPage(1);
-                }}
-                className={`h-[38px] border-b-2 text-[13.5px] font-bold ${
-                  showArchive ? "border-accent text-text" : "border-transparent text-text-faint"
-                }`}
-              >
-                Đã lưu trữ
-              </button>
-            </div>
-          )}
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="mb-1 text-[22px] font-extrabold">{showArchive ? "Đã lưu trữ" : "Library"}</h1>
+              <h1 className="mb-1 text-[22px] font-extrabold">Library</h1>
               <p className="text-[13.5px] text-text-muted">{filtered.length} sản phẩm</p>
             </div>
             <div className="flex items-center gap-2.5">
