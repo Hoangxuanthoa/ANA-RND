@@ -115,7 +115,7 @@ export function TopNav() {
   );
 
   return (
-    <div className="relative">
+    <>
       <div className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-line bg-surface px-4 sm:px-7">
         <div className="flex items-center gap-4 sm:gap-8">
           <button
@@ -241,7 +241,13 @@ export function TopNav() {
       {mobileMenuOpen && (
         <nav
           ref={mobileMenuRef}
-          className="absolute top-16 right-0 left-0 z-30 flex flex-col gap-1 border-b border-line bg-surface p-3 shadow-md md:hidden"
+          // fixed, not absolute — this no longer has a `position:
+          // relative` ancestor to anchor to (that wrapper was removed:
+          // it collapsed to the nav bar's own 64px height with nothing
+          // else in normal flow, which broke the sticky bar's "room to
+          // stick within" and made it scroll away immediately instead
+          // of staying pinned). fixed is viewport-relative on its own.
+          className="fixed top-16 right-0 left-0 z-30 flex flex-col gap-1 border-b border-line bg-surface p-3 shadow-md md:hidden"
         >
           {navLinks(true)}
         </nav>
@@ -259,6 +265,6 @@ export function TopNav() {
         }}
         onCancel={() => setProfileModalOpen(false)}
       />
-    </div>
+    </>
   );
 }
