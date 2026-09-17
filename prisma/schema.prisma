@@ -542,6 +542,12 @@ enum NotificationType {
   PROJECT_ASSIGNED
   RND_NEEDS_SUPPORT
   ADMIN_IMPORTANT_NOTE
+  // Admin-awareness pair — every Admin gets pinged so they stay in the
+  // loop team-wide, not just whoever happens to own/be assigned to the
+  // project (see notify() call sites in api/projects/route.ts and
+  // api/projects/[code]/products/route.ts).
+  PROJECT_CREATED
+  PROJECT_PRODUCT_ADDED
 }
 
 // COLLECTIONS — a curated set of Products to hand to a customer who won't

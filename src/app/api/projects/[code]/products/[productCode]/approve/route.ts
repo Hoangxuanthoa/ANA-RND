@@ -54,7 +54,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
         type: "PROJECT_ITEM_NEEDS_REVIEW",
         title: "Có mẫu mới cần bạn duyệt",
         message: `${productCode} trong dự án ${project.projectName}`,
-        link: `/projects/${code}`,
+        link: `/projects/${code}?product=${productCode}`,
       });
     }
   } else if (current.assigneeId) {
@@ -63,7 +63,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ co
       type: "PROJECT_ITEM_APPROVED",
       title: "Sản phẩm của bạn đã được duyệt",
       message: `${productCode} trong dự án ${project.projectName} đã Approved.`,
-      link: `/projects/${code}`,
+      link: `/projects/${code}?product=${productCode}`,
     });
   }
 

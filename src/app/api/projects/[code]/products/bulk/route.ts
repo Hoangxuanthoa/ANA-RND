@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { projectProductInclude, serializeProjectProduct } from "@/lib/server/serialize-project";
-import { notify } from "@/lib/server/notify";
+import { notify, notifyAllAdmins } from "@/lib/server/notify";
 
 interface BulkBody {
   productCodes?: string[];
@@ -48,14 +48,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
     ...(project.status === "CREATED" ? [prisma.project.update({ where: { id: project.id }, data: { status: "DEVELOPING" } })] : []),
   ]);
 
-  if (project.createdById !== me.id && toCreate.length > 0) {
-    await notify({
-      userId: project.createdById,
-      type: "PROJECT_ITEM_NEEDS_REVIEW",
-      title: "Có sản phẩm mới cần bạn duyệt",
-      message: `${toCreate.length} sản phẩm mới trong dự án ${project.projectName}`,
-      link: `/projects/${code}`,
-    });
+  if (toCreate.length > 0) {
+    if (project.createdById !== me.id) {
+      await notify({
+        userId: project.createdById,
+        type: "PROJECT_ITEM_NEEDS_REVIEW",
+        title: "Có sản phẩm mới cần bạn duyệt",
+        message: `${toCreate.length} sản phẩm mới trong dự án ${project.projectName}`,
+        link: `/projects/${code}`,
+      });
+    }
+    // Admin team-wide awareness — one shared notice for the whole batch
+    // (not one per product), landing on the project page since there's
+    // no single specific product to deep-link to for a batch.
+    await notifyAllAdmins(
+      {
+        type: "PROJECT_PRODUCT_ADDED",
+        title: "Sản phẩm mới được thêm vào dự án",
+        message: `${toCreate.length} sản phẩm mới vừa được thêm vào dự án ${project.projectName}.`,
+        link: `/projects/${code}`,
+      },
+      [me.id, project.createdById],
+    );
   }
 
   const created = await prisma.projectProduct.findMany({

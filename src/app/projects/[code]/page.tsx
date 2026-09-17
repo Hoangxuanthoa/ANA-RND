@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter, notFound } from "next/navigation";
+import { useParams, useRouter, useSearchParams, notFound } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { useProjects } from "@/components/ProjectsProvider";
@@ -51,6 +51,7 @@ const TABS = [
 export default function ProjectDetailPage() {
   const params = useParams<{ code: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { role, effectiveUserName } = useRole();
   const {
     projects,
@@ -77,6 +78,14 @@ export default function ProjectDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [quickViewCode, setQuickViewCode] = useState<string | null>(null);
+  // Notifications about a specific project product deep-link here via
+  // ?product=CODE (see the notify() calls in src/app/api/projects/...)
+  // so clicking one opens straight to that product's quick view instead
+  // of just landing on the general project page.
+  useEffect(() => {
+    const productParam = searchParams.get("product");
+    if (productParam) setQuickViewCode(productParam);
+  }, [searchParams]);
   const [editProductCode, setEditProductCode] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [newDesignOpen, setNewDesignOpen] = useState(false);

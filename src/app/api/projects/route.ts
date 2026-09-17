@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { projectInclude, serializeProject } from "@/lib/server/serialize-project";
 import { nextProjectCode } from "@/lib/server/project-codes";
-import { notify } from "@/lib/server/notify";
+import { notify, notifyAllAdmins } from "@/lib/server/notify";
 import { parseDeadline } from "@/lib/server/dates";
 
 export async function GET() {
@@ -94,6 +94,30 @@ export async function POST(request: Request) {
           type: "PROJECT_REQUESTED_BY_CUSTOMER",
           title: "Khách hàng vừa gửi yêu cầu dự án mới",
           message: `${created.projectName} — cần bạn gán R&D phụ trách.`,
+          link: `/projects/${projectCode}`,
+        });
+      }
+
+      // Every new project, regardless of type or who created it — Admin
+      // wants team-wide visibility into everything that gets created.
+      await notifyAllAdmins(
+        {
+          type: "PROJECT_CREATED",
+          title: "Dự án mới vừa được tạo",
+          message: `${created.projectName} (${projectCode})${customerName ? ` — khách hàng ${customerName}` : ""}.`,
+          link: `/projects/${projectCode}`,
+        },
+        [me.id],
+      );
+
+      // An R&D owner assigned right at creation (not via a later edit —
+      // that path already notifies in PATCH /api/projects/[code]).
+      if (rndOwner && rndOwner.id !== me.id) {
+        await notify({
+          userId: rndOwner.id,
+          type: "PROJECT_ASSIGNED",
+          title: "Bạn được gán phụ trách dự án mới",
+          message: `${created.projectName} cần bạn xử lý.`,
           link: `/projects/${projectCode}`,
         });
       }

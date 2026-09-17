@@ -31,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       type: "PROJECT_ITEM_CHANGE_REQUESTED",
       title: `${productCode} cần chỉnh sửa`,
       message: reason,
-      link: `/projects/${code}`,
+      link: `/projects/${code}?product=${productCode}`,
     });
   }
 

@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cod
       type: "NEW_FEEDBACK",
       title: `Bình luận mới trên ${productCode}`,
       message: content,
-      link: `/projects/${code}`,
+      link: `/projects/${code}?product=${productCode}`,
     });
   }
 

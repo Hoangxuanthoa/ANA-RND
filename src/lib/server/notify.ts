@@ -23,3 +23,22 @@ export async function notify(input: {
     },
   });
 }
+
+// A few events (a new project created, a new product added to one) are
+// meant for Admin team-wide awareness, not one specific owner/assignee —
+// there can be more than one real Admin account, so this notifies every
+// one of them rather than picking an arbitrary "first" admin the way a
+// single-recipient lookup would. `excludeUserIds` skips an Admin who's
+// either the one who caused the event, or already covered by a separate,
+// more specific notification for the same event (e.g. the project's
+// creator, who gets their own "please review" notice elsewhere).
+export async function notifyAllAdmins(
+  input: { type: NotificationType; title: string; message: string; link?: string },
+  excludeUserIds: (string | undefined)[] = [],
+) {
+  const exclude = new Set(excludeUserIds.filter((id): id is string => !!id));
+  const admins = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+  await Promise.all(
+    admins.filter((a) => !exclude.has(a.id)).map((a) => notify({ ...input, userId: a.id })),
+  );
+}
