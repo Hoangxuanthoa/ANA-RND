@@ -249,7 +249,7 @@ export function NewProjectModal({ open, role, effectiveUserName, onCancel, onCre
               {uploadingCount > 0 ? "Đang tải lên…" : "Thêm tệp"}
               <input type="file" multiple className="hidden" onChange={handleFilePick} disabled={uploadingCount > 0} />
             </label>
-            <span className="text-[11.5px] text-text-faint">Tối đa 4MB/tệp</span>
+            <span className="text-[11.5px] text-text-faint">Tối đa 100MB/tệp</span>
           </div>
         </div>
 

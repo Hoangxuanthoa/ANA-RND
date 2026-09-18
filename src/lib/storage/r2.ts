@@ -3,6 +3,7 @@
 // same API, so swapping to another S3-compatible provider later is just a
 // config change, not a rewrite. Server-only: never import from client code.
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 function requiredEnv(name: string): string {
   const value = process.env[name];
@@ -41,6 +42,21 @@ export async function uploadFile(input: {
   );
   const publicUrl = requiredEnv("R2_PUBLIC_URL").replace(/\/$/, "");
   return { url: `${publicUrl}/${input.key}`, key: input.key };
+}
+
+// A file too big for our own relay (/api/upload — see RELAY_MAX_BYTES)
+// uploads straight from the browser to R2 instead, bypassing Vercel's
+// serverless request-size ceiling entirely. Requires the R2 bucket's
+// CORS policy to allow PUT from the app's own origins — the bucket's S3
+// API endpoint (this one) honors bucket CORS normally, unlike the free
+// public r2.dev URL used for reads (see api/image-proxy/route.ts).
+export async function getPresignedUploadUrl(input: { key: string; contentType: string }): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: requiredEnv("R2_BUCKET_NAME"),
+    Key: input.key,
+    ContentType: input.contentType,
+  });
+  return getSignedUrl(getClient(), command, { expiresIn: 300 });
 }
 
 export async function deleteFile(key: string): Promise<void> {

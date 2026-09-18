@@ -1,38 +1,18 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { uploadFile } from "@/lib/storage/r2";
+import { EXT_BY_MIME, RELAY_MAX_BYTES } from "@/lib/uploadTypes";
 
 // aws-sdk needs the Node runtime, not Edge.
 export const runtime = "nodejs";
-
-// Vercel serverless functions hard-reject any request body over ~4.5MB
-// at the platform level (FUNCTION_PAYLOAD_TOO_LARGE) before this route
-// even runs — confirmed by testing directly against production. Staying
-// under that with our own check means a too-big file gets this route's
-// clear Vietnamese error instead of an opaque platform 413 that isn't
-// even JSON (see the try/catch around res.json() in lib/upload.ts).
-const MAX_BYTES = 4 * 1024 * 1024;
-const EXT_BY_MIME: Record<string, string> = {
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-  "image/gif": "gif",
-  // Project attachments (brief, moodboard, spec sheet) aren't always
-  // images — everything else here is deliberately still an allowlist,
-  // not "anything goes", to keep R2 from becoming an arbitrary file host.
-  "application/pdf": "pdf",
-  "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/zip": "zip",
-};
 
 // Generic file upload, reused by every module that needs a real file
 // behind an object-URL-style picker (Products, Projects, Collections) —
 // the caller picks a `folder` to namespace R2 keys, nothing here is
 // product-specific. Any signed-in user can upload; role restrictions
 // belong on whatever mutation later attaches the returned URL to a record.
+// Anything over RELAY_MAX_BYTES needs /api/upload/presign instead — see
+// that file for why (Vercel's own request-size ceiling).
 export async function POST(request: Request) {
   const supabase = await createClient();
   const {
@@ -49,7 +29,7 @@ export async function POST(request: Request) {
   if (!(file.type in EXT_BY_MIME)) {
     return NextResponse.json({ error: "Định dạng file không được hỗ trợ." }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > RELAY_MAX_BYTES) {
     return NextResponse.json({ error: "File quá lớn (tối đa 4MB)." }, { status: 400 });
   }
   const ext = EXT_BY_MIME[file.type];
