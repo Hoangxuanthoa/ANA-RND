@@ -14,7 +14,7 @@ interface ProductsContextValue {
   favoritedCodes: Set<string>;
   productFeedback: ProductFeedbackItem[];
   productVersions: VersionItem[];
-  categories: string[];
+  categoryTree: CategoryNode[];
   materials: string[];
   sizes: string[];
   colors: string[];
@@ -43,7 +43,7 @@ interface ProductsContextValue {
   updateProduct: (code: string, patch: Partial<Product>) => void;
   archiveProduct: (code: string) => void;
   deleteProduct: (code: string) => void;
-  addCategory: (name: string) => void;
+  addCategory: (name: string, parentId?: string) => void;
   renameCategory: (oldName: string, newName: string) => void;
   removeCategory: (name: string) => void;
   addMaterial: (name: string) => void;
@@ -128,6 +128,55 @@ function useLookupField(
   return { items: rows.map((r) => r.name), add, rename, remove };
 }
 
+export interface CategoryNode {
+  id: string;
+  name: string;
+  parentId: string | null;
+  isActive: boolean;
+}
+
+// Category diverges from the flat name-list shape the other three
+// lookup fields share — it can be two levels deep ("category cha" /
+// "category con", see api/categories/route.ts) — so it gets its own
+// hook instead of forcing parentId onto useLookupField's generic
+// contract. Same add/rename/remove behavior otherwise.
+function useCategoryField(setProducts: React.Dispatch<React.SetStateAction<Product[]>>) {
+  const [rows, setRows] = useState<CategoryNode[]>([]);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CategoryNode[]) => setRows(data));
+  }, []);
+
+  function add(name: string, parentId?: string) {
+    const trimmed = name.trim();
+    if (!trimmed || rows.some((r) => r.name === trimmed)) return;
+    postJson<CategoryNode>("/api/categories", { name: trimmed, parentId: parentId ?? null })
+      .then((created) => setRows((prev) => [...prev, created]))
+      .catch(() => {});
+  }
+
+  function rename(oldName: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === oldName || rows.some((r) => r.name === trimmed)) return;
+    const row = rows.find((r) => r.name === oldName);
+    if (!row) return;
+    setRows((prev) => prev.map((r) => (r.id === row.id ? { ...r, name: trimmed } : r)));
+    setProducts((prev) => prev.map((p) => (p.category === oldName ? { ...p, category: trimmed } : p)));
+    postJson(`/api/categories/${row.id}`, { name: trimmed }, "PATCH").catch(() => {});
+  }
+
+  function remove(name: string) {
+    const row = rows.find((r) => r.name === name);
+    if (!row) return;
+    setRows((prev) => prev.filter((r) => r.id !== row.id));
+    postJson(`/api/categories/${row.id}`, { isActive: false }, "PATCH").catch(() => {});
+  }
+
+  return { rows, add, rename, remove };
+}
+
 export function ProductsProvider({ children }: { children: ReactNode }) {
   const { effectiveUserName } = useRole();
   const [products, setProducts] = useState<Product[]>([]);
@@ -135,7 +184,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
   const [favoritedCodes, setFavoritedCodes] = useState<Set<string>>(new Set());
   const [productFeedback, setProductFeedback] = useState<ProductFeedbackItem[]>([]);
   const [productVersions, setProductVersions] = useState<VersionItem[]>([]);
-  const categoryField = useLookupField("/api/categories", "category", setProducts);
+  const categoryField = useCategoryField(setProducts);
   const materialField = useLookupField("/api/materials", "material", setProducts);
   const colorField = useLookupField("/api/colors", "color", setProducts);
   const [sizeRows, setSizeRows] = useState<LookupRow[]>([]);
@@ -302,7 +351,7 @@ export function ProductsProvider({ children }: { children: ReactNode }) {
         favoritedCodes,
         productFeedback,
         productVersions,
-        categories: categoryField.items,
+        categoryTree: categoryField.rows,
         materials: materialField.items,
         sizes: sizeRows.map((r) => r.name),
         colors: colorField.items,

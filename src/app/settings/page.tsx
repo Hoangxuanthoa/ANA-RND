@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
-import { useProducts } from "@/components/ProductsProvider";
+import { useProducts, type CategoryNode } from "@/components/ProductsProvider";
 import { useSettings } from "@/components/SettingsProvider";
 import { useStaff } from "@/components/StaffProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -135,6 +135,169 @@ function TagListEditor({
           );
         })}
         {items.length === 0 && <div className="px-4 py-6 text-center text-[12.5px] text-text-faint">Chưa có mục nào.</div>}
+      </div>
+
+      <ConfirmDialog
+        open={!!removeTarget}
+        danger
+        title="Xóa mục này?"
+        description={`"${removeTarget}" sẽ bị xóa khỏi danh sách. Thao tác này không thể hoàn tác.`}
+        confirmLabel="Xóa"
+        onCancel={() => setRemoveTarget(null)}
+        onConfirm={() => {
+          if (removeTarget) onRemove(removeTarget);
+          setRemoveTarget(null);
+        }}
+      />
+    </div>
+  );
+}
+
+// Category-specific replacement for TagListEditor — the only one of the
+// four lookup lists that's two levels deep ("category cha" / "category
+// con", see api/categories/route.ts). Root rows list first, each
+// followed by its own children indented underneath; every row (root or
+// child) keeps the same rename/remove affordances as TagListEditor,
+// still addressed by name since names stay unique across the whole tree.
+function CategoryTreeEditor({
+  tree,
+  usedBy,
+  onAdd,
+  onRename,
+  onRemove,
+}: {
+  tree: CategoryNode[];
+  usedBy: (name: string) => boolean;
+  onAdd: (name: string, parentId?: string) => void;
+  onRename: (oldName: string, newName: string) => void;
+  onRemove: (name: string) => void;
+}) {
+  const [newValue, setNewValue] = useState("");
+  const [newParentId, setNewParentId] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<string | null>(null);
+
+  const roots = tree.filter((c) => !c.parentId);
+  function childrenOf(parentId: string) {
+    return tree.filter((c) => c.parentId === parentId);
+  }
+
+  function submitAdd() {
+    if (!newValue.trim()) return;
+    onAdd(newValue.trim(), newParentId || undefined);
+    setNewValue("");
+  }
+
+  function renderRow(item: CategoryNode, indent: boolean, isFirst: boolean) {
+    const inUse = usedBy(item.name) || (!item.parentId && childrenOf(item.id).length > 0);
+    const isEditing = editing === item.name;
+    return (
+      <div
+        key={item.id}
+        className={`flex items-center justify-between gap-3 px-4 py-3 ${isFirst ? "" : "border-t border-line"} ${indent ? "pl-9" : ""}`}
+      >
+        {isEditing ? (
+          <input
+            value={editValue}
+            autoFocus
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                onRename(item.name, editValue);
+                setEditing(null);
+              }
+              if (e.key === "Escape") setEditing(null);
+            }}
+            className="h-8 flex-1 rounded-md border border-accent px-2.5 text-[13px] focus:outline-none"
+          />
+        ) : (
+          <span className="text-[13.5px] font-semibold">{item.name}</span>
+        )}
+        <div className="flex flex-shrink-0 items-center gap-1.5">
+          {usedBy(item.name) && <span className="text-[11px] font-semibold text-text-faint">Đang sử dụng</span>}
+          {!item.parentId && childrenOf(item.id).length > 0 && (
+            <span className="text-[11px] font-semibold text-text-faint">Có category con</span>
+          )}
+          {isEditing ? (
+            <button
+              onClick={() => {
+                onRename(item.name, editValue);
+                setEditing(null);
+              }}
+              className="h-7 rounded-md bg-accent px-2.5 text-[11px] font-bold text-white hover:bg-accent-hover"
+            >
+              Lưu
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setEditing(item.name);
+                setEditValue(item.name);
+              }}
+              title="Sửa"
+              className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-bg hover:text-text"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={() => setRemoveTarget(item.name)}
+            disabled={inUse}
+            title={inUse ? "Đang được dùng, không thể xóa" : "Xóa"}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-text-faint hover:bg-red-soft hover:text-red disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-faint"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 6h18" />
+              <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <input
+          value={newValue}
+          onChange={(e) => setNewValue(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submitAdd()}
+          placeholder="Thêm mới…"
+          className="h-9 w-56 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
+        />
+        <select
+          value={newParentId}
+          onChange={(e) => setNewParentId(e.target.value)}
+          className="h-9 rounded-lg border border-line px-2.5 text-[13px] focus:border-accent focus:outline-none"
+        >
+          <option value="">Category gốc</option>
+          {roots.map((r) => (
+            <option key={r.id} value={r.id}>
+              Con của: {r.name}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={submitAdd}
+          className="h-9 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+        >
+          Thêm
+        </button>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-line bg-surface">
+        {roots.map((root, i) => (
+          <div key={root.id}>
+            {renderRow(root, false, i === 0)}
+            {childrenOf(root.id).map((child) => renderRow(child, true, false))}
+          </div>
+        ))}
+        {roots.length === 0 && <div className="px-4 py-6 text-center text-[12.5px] text-text-faint">Chưa có mục nào.</div>}
       </div>
 
       <ConfirmDialog
@@ -467,7 +630,7 @@ export default function SettingsPage() {
   const { role } = useRole();
   const {
     products,
-    categories,
+    categoryTree,
     materials,
     sizes,
     colors,
@@ -523,8 +686,8 @@ export default function SettingsPage() {
         </div>
 
         {tab === "category" && (
-          <TagListEditor
-            items={categories}
+          <CategoryTreeEditor
+            tree={categoryTree}
             usedBy={(name) => products.some((p) => p.category === name)}
             onAdd={addCategory}
             onRename={renameCategory}

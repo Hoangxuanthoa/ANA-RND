@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useProducts } from "@/components/ProductsProvider";
+import { useProducts, type CategoryNode } from "@/components/ProductsProvider";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ImageCropModal } from "@/components/ImageCropModal";
 import { nextProductCode, type Product } from "@/lib/mock-data";
@@ -85,7 +85,20 @@ export function NewProductModal({
   onCancel,
   onCreate,
 }: NewProductModalProps) {
-  const { products, categories, materials, sizes, colors, createProduct, updateProduct } = useProducts();
+  const { products, categoryTree, materials, sizes, colors, createProduct, updateProduct } = useProducts();
+  const rootCategories = categoryTree.filter((c) => !c.parentId);
+  function childrenOf(parentId: string) {
+    return categoryTree.filter((c) => c.parentId === parentId);
+  }
+  // The root a given leaf category name belongs to — itself, if it's a
+  // childless root, or its parent, if it's a child. Used to pre-select
+  // the first dropdown from just the final `category` value (the only
+  // thing actually stored on the product).
+  function rootOf(categoryName: string): CategoryNode | undefined {
+    const row = categoryTree.find((c) => c.name === categoryName);
+    if (!row) return undefined;
+    return row.parentId ? categoryTree.find((c) => c.id === row.parentId) : row;
+  }
   const isEditing = !!product;
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [cropTarget, setCropTarget] = useState<{ src: string; onDone: (url: string) => void } | null>(null);
@@ -98,7 +111,14 @@ export function NewProductModal({
   const [name, setName] = useState(product?.name ?? "");
   const [mainImage, setMainImage] = useState<string | undefined>(product?.mainImage ?? initialMainImage);
   const [images, setImages] = useState<string[]>(product?.images ?? []);
-  const [category, setCategory] = useState(product?.category ?? categories[0] ?? "");
+  const [category, setCategory] = useState(product?.category ?? rootCategories[0]?.name ?? "");
+  // Which root ("category cha") is picked in the first dropdown — drives
+  // whether a second dropdown for its children shows at all. Derived
+  // once at open time from the actual stored category name; the two
+  // dropdowns are kept in sync from there by handleRootChange below.
+  const [selectedRootId, setSelectedRootId] = useState(
+    () => rootOf(product?.category ?? rootCategories[0]?.name ?? "")?.id ?? "",
+  );
   const [material, setMaterial] = useState(product?.material ?? materials[0] ?? "");
   const [color, setColor] = useState(product?.color ?? colors[0] ?? "");
   const [sizeVariants, setSizeVariants] = useState<SizeVariantInput[]>(
@@ -111,6 +131,15 @@ export function NewProductModal({
         }))
       : [{ size: sizes[0] ?? "", length: "", width: "", height: "" }],
   );
+
+  function handleRootChange(rootId: string) {
+    setSelectedRootId(rootId);
+    const kids = childrenOf(rootId);
+    const root = rootCategories.find((r) => r.id === rootId);
+    // A childless root's own name IS the leaf category; otherwise default
+    // to its first child until the user picks a specific one.
+    setCategory(kids[0]?.name ?? root?.name ?? "");
+  }
 
   const previewCode = useMemo(() => nextProductCode(products), [products]);
 
@@ -225,17 +254,32 @@ export function NewProductModal({
         <div className="flex gap-3">
           <label className="flex flex-1 flex-col gap-1.5">
             <span className="text-[12.5px] font-semibold">Category</span>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="h-10 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
-            >
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="flex gap-1.5">
+              <select
+                value={selectedRootId}
+                onChange={(e) => handleRootChange(e.target.value)}
+                className="h-10 min-w-0 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
+              >
+                {rootCategories.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              {childrenOf(selectedRootId).length > 0 && (
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="h-10 min-w-0 flex-1 rounded-lg border border-line px-3 text-[13px] focus:border-accent focus:outline-none"
+                >
+                  {childrenOf(selectedRootId).map((c) => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           </label>
           <label className="flex flex-1 flex-col gap-1.5">
             <span className="text-[12.5px] font-semibold">Material</span>

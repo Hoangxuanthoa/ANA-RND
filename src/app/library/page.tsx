@@ -82,7 +82,7 @@ export default function LibraryPage() {
     products,
     favoritedCodes,
     toggleFavorite,
-    categories: CATEGORIES,
+    categoryTree,
     materials: MATERIALS,
     createProductsBulk,
     submitForReview,
@@ -103,6 +103,10 @@ export default function LibraryPage() {
   // freshly-uploaded placeholders for review at once, instead of opening
   // each one just to hit the same "Nộp duyệt" button.
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Which parent categories are expanded to show their children —
+  // clicking a parent with children toggles this instead of selecting
+  // it as a filter value directly (see the Category filter group below).
+  const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<string>>(new Set());
   // Stores just the code, not a snapshot Product object — a snapshot
   // would freeze the modal's data at click time, so a mutation made
   // while it's open (favorite, approve, exclusive...) wouldn't visibly
@@ -129,6 +133,24 @@ export default function LibraryPage() {
       else next.add(code);
       return next;
     });
+  }
+
+  function toggleExpandCategory(id: string) {
+    setExpandedCategoryIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  // Root categories drive the sidebar; a root with children is an
+  // expand/collapse toggle (see toggleExpandCategory), not a selectable
+  // filter itself — only leaf categories (a childless root, or a child)
+  // ever actually appear on a product.
+  const rootCategories = categoryTree.filter((c) => !c.parentId);
+  function childrenOf(parentId: string) {
+    return categoryTree.filter((c) => c.parentId === parentId);
   }
 
   function reusedCountOf(code: string) {
@@ -246,15 +268,55 @@ export default function LibraryPage() {
           </div>
 
           <FilterGroup title="Category">
-            {CATEGORIES.map((c) => (
-              <FilterOption
-                key={c}
-                active={categories.includes(c)}
-                onClick={() => { setCategories(toggleValue(categories, c)); setPage(1); }}
-              >
-                {c}
-              </FilterOption>
-            ))}
+            {rootCategories.map((root) => {
+              const children = childrenOf(root.id);
+              if (children.length === 0) {
+                return (
+                  <FilterOption
+                    key={root.id}
+                    active={categories.includes(root.name)}
+                    onClick={() => { setCategories(toggleValue(categories, root.name)); setPage(1); }}
+                  >
+                    {root.name}
+                  </FilterOption>
+                );
+              }
+              const expanded = expandedCategoryIds.has(root.id);
+              return (
+                <div key={root.id} className="flex flex-col gap-1">
+                  <button
+                    onClick={() => toggleExpandCategory(root.id)}
+                    className="flex h-8 items-center gap-1 rounded-md px-2.5 text-left text-[13px] font-semibold text-text-muted hover:bg-bg hover:text-text"
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      className={`flex-shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
+                    >
+                      <path d="M9 6l6 6-6 6" />
+                    </svg>
+                    {root.name}
+                  </button>
+                  {expanded && (
+                    <div className="ml-4 flex flex-col gap-1">
+                      {children.map((child) => (
+                        <FilterOption
+                          key={child.id}
+                          active={categories.includes(child.name)}
+                          onClick={() => { setCategories(toggleValue(categories, child.name)); setPage(1); }}
+                        >
+                          {child.name}
+                        </FilterOption>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </FilterGroup>
 
           <FilterGroup title="Material">
