@@ -5,7 +5,13 @@ import { uploadFile } from "@/lib/storage/r2";
 // aws-sdk needs the Node runtime, not Edge.
 export const runtime = "nodejs";
 
-const MAX_BYTES = 15 * 1024 * 1024;
+// Vercel serverless functions hard-reject any request body over ~4.5MB
+// at the platform level (FUNCTION_PAYLOAD_TOO_LARGE) before this route
+// even runs — confirmed by testing directly against production. Staying
+// under that with our own check means a too-big file gets this route's
+// clear Vietnamese error instead of an opaque platform 413 that isn't
+// even JSON (see the try/catch around res.json() in lib/upload.ts).
+const MAX_BYTES = 4 * 1024 * 1024;
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
@@ -44,7 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Định dạng file không được hỗ trợ." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File quá lớn (tối đa 15MB)." }, { status: 400 });
+    return NextResponse.json({ error: "File quá lớn (tối đa 4MB)." }, { status: 400 });
   }
   const ext = EXT_BY_MIME[file.type];
   const key = `${folder}/${crypto.randomUUID()}.${ext}`;

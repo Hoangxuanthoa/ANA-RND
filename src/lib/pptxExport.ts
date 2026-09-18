@@ -150,14 +150,26 @@ function addCoverBackground(slide: PptxGenJSType.Slide, backgroundImage?: string
   slide.addShape("rect", { x: 0, y: 0, w: 10, h: 5.63, fill: { color: "000000", transparency: 55 }, line: { type: "none" } });
 }
 
+// Same CORS problem pdfExport.ts's loadImage already documents: R2's
+// free public URL (r2.dev) never sends Access-Control-Allow-Origin —
+// not even with a bucket CORS policy configured, r2.dev specifically
+// doesn't honor it — so pptxgenjs's own internal fetch for a raw R2
+// `path` fails outright. Routing it through our same-origin image proxy
+// sidesteps that entirely. Local assets (the logo) and blob:/data: URLs
+// are already same-origin and pass through untouched.
+function proxyIfRemote(url: string): string {
+  if (url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("/")) return url;
+  return `/api/image-proxy?url=${encodeURIComponent(url)}`;
+}
+
 // pptxgenjs resolves `path` images lazily when writing the file — a bad
-// blob: URL (e.g. one already revoked) throws there, not here. Since this
-// is a best-effort visual (a colored placeholder is an acceptable
-// fallback), swallow failures per-image rather than aborting the whole
-// export.
+// URL (e.g. a revoked blob:, or a deleted R2 object) throws there, not
+// here. Since this is a best-effort visual (a colored placeholder is an
+// acceptable fallback), swallow failures per-image rather than aborting
+// the whole export.
 function safeAddImage(slide: PptxGenJSType.Slide, opts: Parameters<PptxGenJSType.Slide["addImage"]>[0]) {
   try {
-    slide.addImage(opts);
+    slide.addImage("path" in opts && opts.path ? { ...opts, path: proxyIfRemote(opts.path) } : opts);
   } catch {
     // ignore — slide just won't have this image
   }

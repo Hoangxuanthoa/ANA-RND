@@ -127,14 +127,17 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
               ))}
             </ul>
           )}
-          <label className="flex h-9 w-fit cursor-pointer items-center gap-1.5 rounded-md border border-line px-3 text-[12.5px] font-bold hover:bg-bg">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 3v12M7 8l5-5 5 5" />
-              <path d="M5 21h14" />
-            </svg>
-            {uploadingCount > 0 ? "Đang tải lên…" : "Thêm tệp"}
-            <input type="file" multiple className="hidden" onChange={handleFilePick} disabled={uploadingCount > 0} />
-          </label>
+          <div className="flex items-center gap-2">
+            <label className="flex h-9 w-fit cursor-pointer items-center gap-1.5 rounded-md border border-line px-3 text-[12.5px] font-bold hover:bg-bg">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 3v12M7 8l5-5 5 5" />
+                <path d="M5 21h14" />
+              </svg>
+              {uploadingCount > 0 ? "Đang tải lên…" : "Thêm tệp"}
+              <input type="file" multiple className="hidden" onChange={handleFilePick} disabled={uploadingCount > 0} />
+            </label>
+            <span className="text-[11.5px] text-text-faint">Tối đa 4MB/tệp</span>
+          </div>
           {uploadError && <p className="text-[12.5px] font-semibold text-red">{uploadError}</p>}
         </div>
 
