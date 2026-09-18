@@ -5,6 +5,7 @@ import { type Project } from "@/lib/mock-data";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DateInput } from "@/components/DateInput";
 import { useStaff } from "@/components/StaffProvider";
+import { uploadFile } from "@/lib/upload";
 
 interface EditProjectModalProps {
   open: boolean;
@@ -22,7 +23,9 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
   const [rndOwner, setRndOwner] = useState(project.rndOwner ?? "");
   const [deadline, setDeadline] = useState(project.deadline === "—" ? "" : project.deadline);
   const [brief, setBrief] = useState(project.brief);
-  const [attachments, setAttachments] = useState<string[]>(project.attachments);
+  const [attachments, setAttachments] = useState(project.attachments);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadError, setUploadError] = useState("");
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
 
   if (!open) return null;
@@ -32,11 +35,22 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
     onSave({ name, rndOwner: rndOwner || undefined, deadline: deadline.trim() || "—", brief, attachments });
   }
 
-  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    setAttachments((prev) => [...prev, ...files.map((f) => f.name)]);
     e.target.value = "";
+    setUploadError("");
+    setUploadingCount((n) => n + files.length);
+    try {
+      const uploaded = await Promise.all(
+        files.map(async (file) => ({ fileName: file.name, fileUrl: await uploadFile(file, "project-attachments") })),
+      );
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch {
+      setUploadError("Tải tệp lên thất bại — thử lại.");
+    } finally {
+      setUploadingCount((n) => n - files.length);
+    }
   }
 
   return (
@@ -96,10 +110,10 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
             <ul className="flex flex-col gap-1.5">
               {attachments.map((file, i) => (
                 <li
-                  key={`${file}-${i}`}
+                  key={`${file.fileUrl}-${i}`}
                   className="flex items-center justify-between rounded-md bg-bg px-2.5 py-1.5 text-[12.5px]"
                 >
-                  <span className="truncate">{file}</span>
+                  <span className="truncate">{file.fileName}</span>
                   <button
                     type="button"
                     onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
@@ -118,9 +132,10 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
               <path d="M12 3v12M7 8l5-5 5 5" />
               <path d="M5 21h14" />
             </svg>
-            Thêm tệp
-            <input type="file" multiple className="hidden" onChange={handleFilePick} />
+            {uploadingCount > 0 ? "Đang tải lên…" : "Thêm tệp"}
+            <input type="file" multiple className="hidden" onChange={handleFilePick} disabled={uploadingCount > 0} />
           </label>
+          {uploadError && <p className="text-[12.5px] font-semibold text-red">{uploadError}</p>}
         </div>
 
         <div className="mt-1 flex justify-end gap-2.5">
@@ -133,7 +148,8 @@ export function EditProjectModal({ open, project, onSave, onCancel }: EditProjec
           </button>
           <button
             type="submit"
-            className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover"
+            disabled={uploadingCount > 0}
+            className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
             Lưu
           </button>

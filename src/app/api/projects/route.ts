@@ -36,6 +36,7 @@ interface CreateBody {
   rndOwner?: string;
   deadline?: string;
   brief?: string;
+  attachments?: { fileName: string; fileUrl: string }[];
 }
 
 export async function POST(request: Request) {
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
   for (let attempt = 0; attempt < 5; attempt++) {
     const projectCode = await nextProjectCode(type);
     try {
+      const attachments = (body.attachments ?? []).filter((a) => a.fileName && a.fileUrl);
       const created = await prisma.project.create({
         data: {
           projectCode,
@@ -84,6 +86,9 @@ export async function POST(request: Request) {
           deadline,
           brief: body.brief?.trim() || null,
           status: "CREATED",
+          attachments: attachments.length
+            ? { create: attachments.map((a) => ({ fileName: a.fileName, fileUrl: a.fileUrl, uploadedById: me.id })) }
+            : undefined,
         },
         include: projectInclude(),
       });

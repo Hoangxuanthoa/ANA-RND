@@ -11,12 +11,21 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
   "image/gif": "gif",
+  // Project attachments (brief, moodboard, spec sheet) aren't always
+  // images — everything else here is deliberately still an allowlist,
+  // not "anything goes", to keep R2 from becoming an arbitrary file host.
+  "application/pdf": "pdf",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+  "application/vnd.ms-excel": "xls",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
+  "application/zip": "zip",
 };
 
-// Generic image upload, reused by every module that needs a real file
-// behind an object-URL-style picker (Products now, Projects/Collections
-// later) — the caller picks a `folder` to namespace R2 keys, nothing here
-// is product-specific. Any signed-in user can upload; role restrictions
+// Generic file upload, reused by every module that needs a real file
+// behind an object-URL-style picker (Products, Projects, Collections) —
+// the caller picks a `folder` to namespace R2 keys, nothing here is
+// product-specific. Any signed-in user can upload; role restrictions
 // belong on whatever mutation later attaches the returned URL to a record.
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -31,13 +40,13 @@ export async function POST(request: Request) {
   if (!(file instanceof File) || typeof folder !== "string" || !folder) {
     return NextResponse.json({ error: "Thiếu file hoặc folder." }, { status: 400 });
   }
-  if (!file.type.startsWith("image/")) {
-    return NextResponse.json({ error: "Chỉ nhận file ảnh." }, { status: 400 });
+  if (!(file.type in EXT_BY_MIME)) {
+    return NextResponse.json({ error: "Định dạng file không được hỗ trợ." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Ảnh quá lớn (tối đa 15MB)." }, { status: 400 });
+    return NextResponse.json({ error: "File quá lớn (tối đa 15MB)." }, { status: 400 });
   }
-  const ext = EXT_BY_MIME[file.type] ?? "jpg";
+  const ext = EXT_BY_MIME[file.type];
   const key = `${folder}/${crypto.randomUUID()}.${ext}`;
 
   try {

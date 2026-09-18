@@ -24,6 +24,7 @@ interface PatchBody {
   rndPriority?: TaskPriority;
   rndNeedsSupport?: string | null;
   rndImportantNote?: string | null;
+  attachments?: { fileName: string; fileUrl: string }[];
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ code: string }> }) {
@@ -44,6 +45,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   if ("rndPriority" in body && body.rndPriority) data.rndPriority = PRIORITY_VALUE[body.rndPriority];
   if ("rndNeedsSupport" in body) data.rndNeedsSupport = body.rndNeedsSupport || null;
   if ("rndImportantNote" in body) data.rndImportantNote = body.rndImportantNote || null;
+  // EditProjectModal sends its whole local list back (existing minus any
+  // removed, plus newly-uploaded ones) — replace wholesale rather than
+  // diffing, same as ProductSizeVariant's full-replace on Product PATCH.
+  if ("attachments" in body) {
+    const attachments = (body.attachments ?? []).filter((a) => a.fileName && a.fileUrl);
+    data.attachments = {
+      deleteMany: {},
+      create: attachments.map((a) => ({ fileName: a.fileName, fileUrl: a.fileUrl, uploadedById: me.id })),
+    };
+  }
 
   let newRndOwnerId: string | null | undefined;
   if ("rndOwner" in body) {

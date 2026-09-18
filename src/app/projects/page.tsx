@@ -398,6 +398,7 @@ export default function ProjectsPage() {
       <NewProjectModal
         open
         role={role}
+        effectiveUserName={userName}
         onCancel={() => setNewProjectOpen(false)}
         onCreate={async (input) => {
           await createProject({
@@ -408,6 +409,7 @@ export default function ProjectsPage() {
             rndOwner: input.rndOwner,
             deadline: input.deadline,
             brief: input.brief,
+            attachments: input.attachments,
           });
           setNewProjectOpen(false);
         }}

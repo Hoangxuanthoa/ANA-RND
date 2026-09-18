@@ -25,6 +25,7 @@ export function projectInclude() {
     sales: { select: { fullName: true } },
     rndOwner: { select: { fullName: true } },
     createdBy: { select: { fullName: true } },
+    attachments: { select: { fileName: true, fileUrl: true }, orderBy: { createdAt: "asc" } },
   } satisfies Prisma.ProjectInclude;
 }
 
@@ -43,9 +44,7 @@ export function serializeProject(p: ProjectWithRelations) {
     status: p.status,
     deadline: p.deadline ? formatDDMMYYYY(p.deadline) : "—",
     brief: p.brief ?? "",
-    // Real file attachments are a later pass — see PROGRESS.md; every
-    // real project starts with an empty list here.
-    attachments: [] as string[],
+    attachments: p.attachments.map((a) => ({ fileName: a.fileName, fileUrl: a.fileUrl })),
     completedAt: p.completedAt ? formatDDMMYYYY(p.completedAt) : undefined,
     rndPriority: PRIORITY_LABEL[p.rndPriority],
     rndImportantNote: p.rndImportantNote ?? undefined,

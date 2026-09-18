@@ -207,15 +207,18 @@ export default function ProjectDetailPage() {
             {project.attachments.length > 0 && (
               <div className="mt-1 flex flex-wrap gap-1.5">
                 {project.attachments.map((file) => (
-                  <span
-                    key={file}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-bg px-2.5 py-1 text-[11.5px] font-semibold text-text-muted"
+                  <a
+                    key={file.fileUrl}
+                    href={file.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-bg px-2.5 py-1 text-[11.5px] font-semibold text-text-muted hover:bg-line hover:text-text"
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M21.44 11.05l-9.19 9.19a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 014.24 4.24l-9.19 9.19a1 1 0 01-1.41-1.41l8.49-8.49" />
                     </svg>
-                    {file}
-                  </span>
+                    {file.fileName}
+                  </a>
                 ))}
               </div>
             )}

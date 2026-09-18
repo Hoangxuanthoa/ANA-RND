@@ -27,6 +27,7 @@ interface ProjectsContextValue {
     rndOwner?: string;
     deadline: string;
     brief: string;
+    attachments?: { fileName: string; fileUrl: string }[];
   }) => Promise<string>;
   addProductToProject: (projectCode: string, productCode: string, usage: UsageType, assigneeName?: string) => void;
   addProductsToProjectBulk: (projectCode: string, productCodes: string[], usage: UsageType, assigneeName?: string) => void;
@@ -143,6 +144,7 @@ export function ProjectsProvider({ children }: { children: ReactNode }) {
     rndOwner?: string;
     deadline: string;
     brief: string;
+    attachments?: { fileName: string; fileUrl: string }[];
   }): Promise<string> {
     const created = await postJson<Project>("/api/projects", input);
     setProjects((prev) => [created, ...prev]);

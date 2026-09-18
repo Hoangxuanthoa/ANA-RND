@@ -11,6 +11,7 @@ import { creatableProjectTypes } from "@/lib/permissions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { DateInput } from "@/components/DateInput";
 import { useStaff } from "@/components/StaffProvider";
+import { uploadFile } from "@/lib/upload";
 
 const TYPE_LABEL: Record<ProjectType, string> = {
   CUSTOMER: "Khách hàng",
@@ -21,6 +22,9 @@ const TYPE_LABEL: Record<ProjectType, string> = {
 interface NewProjectModalProps {
   open: boolean;
   role: Role;
+  // The real signed-in user's name — a Sales rep creating a project
+  // should default to owning it themselves, not a fixed placeholder.
+  effectiveUserName: string;
   onCancel: () => void;
   onCreate: (input: {
     name: string;
@@ -30,11 +34,11 @@ interface NewProjectModalProps {
     rndOwner?: string;
     deadline: string;
     brief: string;
-    attachments: string[];
+    attachments: { fileName: string; fileUrl: string }[];
   }) => Promise<void>;
 }
 
-export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectModalProps) {
+export function NewProjectModal({ open, role, effectiveUserName, onCancel, onCreate }: NewProjectModalProps) {
   const { staff } = useStaff();
   const types = creatableProjectTypes(role);
   const salesStaff = staff.filter((s) => s.role === "SALES");
@@ -46,14 +50,15 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
   const [name, setName] = useState("");
   const [type, setType] = useState<ProjectType>(types[0]);
   const [customer, setCustomer] = useState(isCustomer ? CURRENT_USER_NAME.CUSTOMER : CUSTOMERS[0]);
-  const [sales, setSales] = useState(role === "SALES" ? CURRENT_USER_NAME.SALES : salesStaff[0]?.name ?? "");
+  const [sales, setSales] = useState(role === "SALES" ? effectiveUserName : salesStaff[0]?.name ?? "");
   // A customer request comes in unassigned — Sales picks it up and
   // assigns R&D themselves (see EditProjectModal), so there's no picker
   // for it here.
   const [rndOwner, setRndOwner] = useState(isCustomer ? "" : rndStaff[0]?.name ?? "");
   const [deadline, setDeadline] = useState("");
   const [brief, setBrief] = useState("");
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachments, setAttachments] = useState<{ fileName: string; fileUrl: string }[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -87,11 +92,21 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
     }
   }
 
-  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
-    setAttachments((prev) => [...prev, ...files.map((f) => f.name)]);
     e.target.value = "";
+    setUploadingCount((n) => n + files.length);
+    try {
+      const uploaded = await Promise.all(
+        files.map(async (file) => ({ fileName: file.name, fileUrl: await uploadFile(file, "project-attachments") })),
+      );
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch {
+      setSubmitError("Tải tệp lên thất bại — thử lại.");
+    } finally {
+      setUploadingCount((n) => n - files.length);
+    }
   }
 
   return (
@@ -208,10 +223,10 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
             <ul className="flex flex-col gap-1.5">
               {attachments.map((file, i) => (
                 <li
-                  key={`${file}-${i}`}
+                  key={`${file.fileUrl}-${i}`}
                   className="flex items-center justify-between rounded-md bg-bg px-2.5 py-1.5 text-[12.5px]"
                 >
-                  <span className="truncate">{file}</span>
+                  <span className="truncate">{file.fileName}</span>
                   <button
                     type="button"
                     onClick={() => setAttachments((prev) => prev.filter((_, idx) => idx !== i))}
@@ -230,8 +245,8 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
               <path d="M12 3v12M7 8l5-5 5 5" />
               <path d="M5 21h14" />
             </svg>
-            Thêm tệp
-            <input type="file" multiple className="hidden" onChange={handleFilePick} />
+            {uploadingCount > 0 ? "Đang tải lên…" : "Thêm tệp"}
+            <input type="file" multiple className="hidden" onChange={handleFilePick} disabled={uploadingCount > 0} />
           </label>
         </div>
 
@@ -247,7 +262,7 @@ export function NewProjectModal({ open, role, onCancel, onCreate }: NewProjectMo
           </button>
           <button
             type="submit"
-            disabled={!name.trim() || submitting}
+            disabled={!name.trim() || submitting || uploadingCount > 0}
             className="h-9 rounded-lg bg-accent px-3.5 text-[13px] font-bold text-white hover:bg-accent-hover disabled:opacity-40"
           >
             {submitting ? "Đang lưu…" : isCustomer ? "Gửi yêu cầu" : "Tạo dự án"}

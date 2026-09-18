@@ -496,7 +496,7 @@ export interface Project {
   deadline: string;
   brief: string;
   isMine: boolean;
-  attachments: string[];
+  attachments: { fileName: string; fileUrl: string }[];
   // Stamped by markCompleted — feeds "Ngày hoàn thành thực tế" on the
   // R&D To Do List (see RndTask / my-tasks page), which needs the real
   // day this happened rather than recomputing "today" on every render.
@@ -513,125 +513,6 @@ export interface Project {
   rndImportantNote?: string;
   rndNeedsSupport?: string;
 }
-
-export const PROJECTS: Project[] = [
-  {
-    code: "PRJ-2025-014",
-    name: "JYSK Storage 2025",
-    type: "CUSTOMER",
-    customer: "JYSK",
-    sales: "Hà",
-    rndOwner: "An",
-    createdByName: "Hà",
-    createdAt: "15/07/2026",
-    status: "DEVELOPING",
-    deadline: "20/09/2026",
-    brief: "Bộ sưu tập giỏ đựng đồ & kệ lưu trữ mây tre cho dòng Storage Q1 2025 — 4 sản phẩm, ưu tiên tái sử dụng từ Library hiện có.",
-    isMine: true,
-    attachments: ["brief-jysk-storage-2025.pdf", "moodboard.jpg"],
-  },
-  {
-    code: "PRJ-2026-002",
-    name: "ADE Storage 2026",
-    type: "CUSTOMER",
-    customer: "ADE",
-    sales: "Hà",
-    rndOwner: "An",
-    createdByName: "Hà",
-    createdAt: "01/08/2026",
-    status: "DEVELOPING",
-    deadline: "05/10/2026",
-    brief: "Mở rộng dòng Storage cho ADE, tái sử dụng thiết kế đã release.",
-    isMine: false,
-    attachments: [],
-  },
-  {
-    code: "PRJ-2026-006",
-    name: "SCG Basket 2026",
-    type: "CUSTOMER",
-    customer: "SCG",
-    sales: "Minh",
-    rndOwner: "An",
-    createdByName: "Minh",
-    createdAt: "10/08/2026",
-    status: "DEVELOPING",
-    deadline: "30/10/2026",
-    brief: "Bộ giỏ mới theo brief riêng của SCG, phối hợp 3 chất liệu.",
-    isMine: false,
-    attachments: [],
-  },
-  {
-    code: "PRJ-2026-011",
-    name: "JYSK Lighting Q4",
-    type: "CUSTOMER",
-    customer: "JYSK",
-    sales: "Hà",
-    rndOwner: "Lan",
-    createdByName: "Hà",
-    createdAt: "20/08/2026",
-    status: "CREATED",
-    deadline: "—",
-    brief: "Ý tưởng ban đầu cho dòng đèn Q4, chưa chốt brief.",
-    isMine: true,
-    attachments: [],
-  },
-  {
-    code: "PRJ-2026-003",
-    name: "Habitat Kitchen Set",
-    type: "CUSTOMER",
-    customer: "Habitat",
-    sales: "Minh",
-    rndOwner: "An",
-    createdByName: "Minh",
-    createdAt: "10/03/2026",
-    status: "COMPLETED",
-    deadline: "15/06/2026",
-    brief: "Bộ sản phẩm bếp hoàn thiện, đã release toàn bộ.",
-    isMine: false,
-    attachments: [],
-  },
-  {
-    code: "PRJ-2025-021",
-    name: "ADE Decor Refresh",
-    type: "CUSTOMER",
-    customer: "ADE",
-    sales: "Hà",
-    rndOwner: "Lan",
-    createdByName: "Hà",
-    createdAt: "05/11/2025",
-    status: "CLOSED",
-    deadline: "01/02/2026",
-    brief: "Dự án làm mới dòng Decor, đã đóng — RND-00440 vừa được release từ đây.",
-    isMine: false,
-    attachments: [],
-  },
-  {
-    code: "PRJ-INT-001",
-    name: "Vật liệu tái chế 2026",
-    type: "INTERNAL",
-    rndOwner: "An",
-    createdByName: "Minh",
-    createdAt: "01/06/2026",
-    status: "DEVELOPING",
-    deadline: "—",
-    brief: "Nghiên cứu kết hợp mây tre với nhựa tái chế cho dòng sản phẩm ngoài trời.",
-    isMine: false,
-    attachments: [],
-  },
-  {
-    code: "PRJ-MKT-001",
-    name: "Bộ sưu tập Xuân 2027",
-    type: "MARKETING",
-    rndOwner: "Lan",
-    createdByName: "Linh",
-    createdAt: "15/08/2026",
-    status: "CREATED",
-    deadline: "01/03/2027",
-    brief: "Chuẩn bị bộ sưu tập mới cho triển lãm Xuân 2027 — sẽ xuất Collection để gửi đối tác.",
-    isMine: false,
-    attachments: [],
-  },
-];
 
 // A lightweight, un-vetted image dump attached to a Project — distinct
 // from a real Product: no category/material, not part of the approval
