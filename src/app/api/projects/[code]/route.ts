@@ -16,6 +16,15 @@ function isOwner(me: { id: string; role: string }, project: { createdById: strin
   return me.role === "ADMIN" || project.createdById === me.id;
 }
 
+// The assigned R&D owner isn't the project's "owner" (isOwner above) —
+// often a different person entirely (Sales/Marketing creates it, R&D
+// executes it) — but the My Task To Do List still lets them update
+// their own status fields for it (priority, needs-support flag, the
+// note, and now completedAt), same as they already can for an ad-hoc
+// RndTask they own. Anything else (rename, reassign, deadline, brief,
+// attachments) stays owner/Admin-only.
+const RND_STATUS_FIELDS = ["rndPriority", "rndNeedsSupport", "rndImportantNote", "completedAt"] as const;
+
 interface PatchBody {
   name?: string;
   rndOwner?: string | null;
@@ -25,6 +34,12 @@ interface PatchBody {
   rndNeedsSupport?: string | null;
   rndImportantNote?: string | null;
   attachments?: { fileName: string; fileUrl: string }[];
+  // A manual correction from the To Do List's "Hoàn thành" column —
+  // separate from POST .../complete, which stamps "now" when a project
+  // is actually marked done. This just lets Admin/the owner fix the
+  // recorded date after the fact (e.g. it was really finished a day
+  // earlier than whoever clicked the button got around to it).
+  completedAt?: string | null;
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ code: string }> }) {
@@ -34,9 +49,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   const { code } = await params;
   const project = await findByCode(code);
   if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!isOwner(me, project)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body: PatchBody = await request.json();
+  const bodyKeys = Object.keys(body);
+  const onlyRndStatusFields =
+    bodyKeys.length > 0 && bodyKeys.every((k) => (RND_STATUS_FIELDS as readonly string[]).includes(k));
+  const allowed = isOwner(me, project) || (onlyRndStatusFields && project.rndOwnerId === me.id);
+  if (!allowed) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
   const data: Record<string, unknown> = {};
 
   if ("name" in body && body.name) data.projectName = body.name.trim();
@@ -45,6 +65,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ co
   if ("rndPriority" in body && body.rndPriority) data.rndPriority = PRIORITY_VALUE[body.rndPriority];
   if ("rndNeedsSupport" in body) data.rndNeedsSupport = body.rndNeedsSupport || null;
   if ("rndImportantNote" in body) data.rndImportantNote = body.rndImportantNote || null;
+  if ("completedAt" in body) data.completedAt = body.completedAt ? parseDeadline(body.completedAt) : null;
   // EditProjectModal sends its whole local list back (existing minus any
   // removed, plus newly-uploaded ones) — replace wholesale rather than
   // diffing, same as ProductSizeVariant's full-replace on Product PATCH.

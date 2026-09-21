@@ -438,6 +438,17 @@ export default function MyTasksPage() {
     if (row.kind === "task" && row.taskId) updateTask(row.taskId, { priority: value });
   }
 
+  // A project row had no way to edit anything from this table before —
+  // its title links out instead of opening the task-style edit mode
+  // (row.kind === "task" only) — so "Hoàn thành" always showed the
+  // date /complete stamped and nothing else. This lets Admin or the
+  // assigned R&D owner correct it directly, same as an RndTask row
+  // already could.
+  function handleCompletedAt(row: TodoRow, value: string) {
+    if (row.kind === "project" && row.projectCode) updateProject(row.projectCode, { completedAt: value || undefined });
+    if (row.kind === "task" && row.taskId) updateTask(row.taskId, { completedAt: value || undefined });
+  }
+
   async function handleExportImage() {
     if (!checkinRef.current) return;
     setExporting(true);
@@ -773,23 +784,11 @@ export default function MyTasksPage() {
                     ) : (
                       <span className="text-text-muted">{row.deadline}</span>
                     )}
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        defaultValue={row.completedAt ?? ""}
-                        onBlur={(e) => updateTask(row.taskId!, { completedAt: e.target.value.trim() || undefined })}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            setEditingTaskId(null);
-                            (e.target as HTMLInputElement).blur();
-                          }
-                        }}
-                        placeholder="dd/mm/yyyy"
-                        className="h-8 w-full rounded-md border border-line px-2 text-[12px] focus:border-accent focus:outline-none"
-                      />
-                    ) : (
-                      <span className="text-text-muted">{row.completedAt ?? "—"}</span>
-                    )}
+                    <DateInput
+                      value={row.completedAt ?? ""}
+                      onChange={(v) => handleCompletedAt(row, v)}
+                      className="h-8 rounded-md border border-line px-1.5 text-[12px] focus:border-accent focus:outline-none"
+                    />
                     {isAdmin ? (
                       <StagedTextCell
                         value={row.importantNote ?? ""}
