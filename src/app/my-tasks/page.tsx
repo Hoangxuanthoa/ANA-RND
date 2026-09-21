@@ -872,7 +872,7 @@ export default function MyTasksPage() {
               {isAdmin ? (
                 <>
                   <p className="mb-3 text-[13px] font-bold">
-                    Check-in Trọng tâm — {userName} — {todayDDMMYYYY()}
+                    Check-in -R&D- — {userName} — {todayDDMMYYYY()}
                   </p>
                   <CheckinSection
                     title="Công việc hoàn thành tuần trước"
@@ -882,18 +882,18 @@ export default function MyTasksPage() {
                     emptyText="Không có việc Trọng tâm nào hoàn thành tuần trước."
                   />
                   <CheckinSection
-                    title="Công việc chưa hoàn thành"
-                    rows={notDoneTrongTam}
-                    dateLabel="Còn lại"
-                    dateValue={(row) => daysLeftLabel(row).text}
-                    emptyText="Không có việc Trọng tâm nào đang làm."
-                  />
-                  <CheckinSection
-                    title="Công việc hoàn thành tuần này (kế hoạch)"
+                    title="Kế hoạch công việc tuần này"
                     rows={dueThisWeek}
                     dateLabel="Deadline"
                     dateValue={(row) => row.deadline}
                     emptyText="Không có việc Trọng tâm nào đến hạn tuần này."
+                  />
+                  <CheckinSection
+                    title="Toàn bộ công việc chưa hoàn thành"
+                    rows={notDoneTrongTam}
+                    dateLabel="Còn lại"
+                    dateValue={(row) => daysLeftLabel(row).text}
+                    emptyText="Không có việc Trọng tâm nào đang làm."
                   />
                 </>
               ) : (
