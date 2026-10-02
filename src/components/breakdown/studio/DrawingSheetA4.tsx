@@ -171,6 +171,12 @@ const DIM_COLOR_PRESETS = [
 const PAGE_W_MM = 297;
 const PAGE_H_MM = 210;
 const A4_RATIO = PAGE_W_MM / PAGE_H_MM;
+// Standard drafting-frame margin (ISO 5457) — the drawing's own border/
+// content sits this far in from the physical paper edge on every side,
+// instead of running flush to it. Matches pdfExport.ts's own MARGIN
+// constant so the on-screen preview, "Xuất ảnh"/"Copy ảnh" (which rasterize
+// this same DOM), and the PDF all agree on where the frame sits.
+const PAGE_MARGIN_MM = 10;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 2.5;
 const SHEET_PADDING = 32; // the scroll container's own p-4 (16px) on each side
@@ -624,6 +630,8 @@ function DrawingSheetContent({
   // real mm value at any zoom level, same as pdfExport.ts prints it.
   const sheetHeightPx = (fitWidth * zoom) / A4_RATIO;
   const rowMinHeightPx = (template.fieldRowMinHeightMm / PAGE_H_MM) * sheetHeightPx;
+  const pageMarginXPx = (PAGE_MARGIN_MM / PAGE_W_MM) * fitWidth * zoom;
+  const pageMarginYPx = (PAGE_MARGIN_MM / PAGE_H_MM) * sheetHeightPx;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
@@ -1068,10 +1076,19 @@ function DrawingSheetContent({
       <div ref={scrollRef} className="min-w-0 flex-1 overflow-auto rounded-lg border border-line bg-bg p-4">
         <div
           ref={sheetRef}
-          className="overflow-hidden rounded-lg border-2 border-black bg-white shadow-sm"
+          className="relative overflow-hidden rounded-lg bg-white shadow-sm"
           style={{ width: fitWidth * zoom, aspectRatio: "297 / 210", flexShrink: 0 }}
         >
-          <div className="flex h-full">
+          {/* The drafting frame — inset PAGE_MARGIN_MM (1cm) from the
+              physical paper edge on every side (ISO 5457), rather than
+              running flush to it. `inset` with no explicit width/height
+              lets CSS compute both dimensions to exactly fill that margin,
+              instead of hand-computing a reduced width/height that would
+              also need to agree with the margin on every resize/zoom. */}
+          <div
+            className="absolute flex border-2 border-black"
+            style={{ top: pageMarginYPx, bottom: pageMarginYPx, left: pageMarginXPx, right: pageMarginXPx }}
+          >
             <div
               className="grid min-w-0 flex-1 gap-2 p-3"
               style={{

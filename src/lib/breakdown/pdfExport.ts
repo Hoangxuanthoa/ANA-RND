@@ -19,7 +19,10 @@ export interface PdfViewSpec {
 
 const PAGE_W = 297;
 const PAGE_H = 210;
-const MARGIN = 6;
+// Standard drafting-frame margin (ISO 5457) — matches DrawingSheetA4.tsx's
+// own PAGE_MARGIN_MM so the exported PDF and the on-screen preview agree on
+// where the frame sits relative to the physical paper edge.
+const MARGIN = 10;
 const GAP = 3;
 const CELL_HEADER_H = 5;
 // Blank border between a view's own drawing and the cell's outer rule —
