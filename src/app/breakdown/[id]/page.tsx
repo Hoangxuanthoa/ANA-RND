@@ -276,6 +276,12 @@ function BreakdownStudio({ id }: { id: string }) {
   // endpoints address) — populated from the initial GET, and whenever a
   // product is created.
   const dbIdByCodeRef = useRef<Record<string, string>>({});
+  // Guards the "brand-new breakdown, create a default product" POST below
+  // against firing twice — React Strict Mode double-invokes this effect in
+  // dev (mount → cleanup → remount), and a plain `cancelled` flag doesn't
+  // help here since each invocation starts fresh, unaware of the other.
+  // A ref survives across that synthetic pair within the same real mount.
+  const bootstrappedRef = useRef(false);
 
   const [products, setProducts] = useState<ProductState[]>(() => [createProduct(1)]);
   const [activeId, setActiveId] = useState<string>(() => products[0].id);
@@ -308,6 +314,8 @@ function BreakdownStudio({ id }: { id: string }) {
         // Brand-new breakdown, no products yet — same default-product
         // bootstrap ANASU always did, just persisted to the server right
         // away so a reload before any edit doesn't lose it.
+        if (bootstrappedRef.current) return;
+        bootstrappedRef.current = true;
         productSeqRef.current = 1;
         const fresh = createProduct(productSeqRef.current++);
         setProducts([fresh]);

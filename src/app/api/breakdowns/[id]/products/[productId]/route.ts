@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
+import { parseJsonBody } from "@/lib/server/parse-json";
 
 // The main autosave endpoint — the studio page PATCHes whichever product is
 // currently active after its own debounce, same cadence the old IndexedDB
@@ -12,7 +13,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, productId } = await params;
-  const body = await request.json();
+  const body = await parseJsonBody(request);
+  if (!body) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   const data: { name?: string; data?: Prisma.InputJsonValue } = {};
   if (typeof body.name === "string") data.name = body.name;
   if (body.data !== undefined) data.data = body.data as Prisma.InputJsonValue;
