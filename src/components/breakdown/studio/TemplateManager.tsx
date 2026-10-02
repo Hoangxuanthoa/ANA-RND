@@ -248,6 +248,16 @@ export function TemplateManager({ templates, activeTemplateId, onSelectTemplate,
               <p className="mt-2 text-[11px] text-text-faint">
                 Chọn bao nhiêu view cũng được — bản vẽ tự sắp lưới cho vừa. Back/Left/Right/Bottom hiện giống Front/Side/Top vì sản phẩm hiện tại luôn đối xứng 2 bên.
               </p>
+              <label className="mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-[12.5px] font-semibold text-text">
+                <input
+                  type="checkbox"
+                  checked={editing.showViewFrame}
+                  onChange={(e) => updateEditing({ showViewFrame: e.target.checked })}
+                  className="h-3.5 w-3.5 accent-[var(--accent)]"
+                />
+                Hiện tên + khung viền từng view
+              </label>
+              <p className="mt-1 text-[11px] text-text-faint">Tắt đi để chỉ còn hình, không có ô viền hay chữ MẶT ĐỨNG/ISO... quanh mỗi view.</p>
             </div>
 
             <div className="rounded-lg border border-line bg-white p-3">

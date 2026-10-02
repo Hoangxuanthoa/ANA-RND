@@ -61,10 +61,10 @@ export const ROW_VALUE_WEIGHT = 6.2;
 // rather than always exactly 2×2; every view in the SAME sheet still
 // shares one row height (a uniform grid), so callers compute this once per
 // sheet render from computeGridLayout(views.length).rows.
-export function computeCellContentHeightMm(rows: number): number {
+export function computeCellContentHeightMm(rows: number, showViewFrame: boolean = true): number {
   const drawAreaH = PAGE_H - MARGIN * 2;
   const cellH = (drawAreaH - GAP * (rows - 1)) / rows;
-  return cellH - CELL_HEADER_H - CELL_PAD * 2;
+  return cellH - (showViewFrame ? CELL_HEADER_H : 0) - CELL_PAD * 2;
 }
 
 // svg2pdf can't render <foreignObject> (our notes and the transient dim-edit
@@ -172,6 +172,7 @@ export async function exportDrawingSheetPdf({
   fieldRowMinHeightMm,
   fields,
   views,
+  showViewFrame,
 }: {
   productName: string;
   companyName: string;
@@ -180,6 +181,7 @@ export async function exportDrawingSheetPdf({
   fieldRowMinHeightMm: number;
   fields: PdfTitleField[];
   views: PdfViewSpec[];
+  showViewFrame: boolean;
 }): Promise<void> {
   const { jsPDF } = await import("jspdf");
   const { svg2pdf } = await import("svg2pdf.js");
@@ -200,29 +202,32 @@ export async function exportDrawingSheetPdf({
   const cellW = (drawAreaW - GAP * (cols - 1)) / cols;
   const cellH = (drawAreaH - GAP * (rows - 1)) / rows;
 
+  const headerH = showViewFrame ? CELL_HEADER_H : 0;
   for (let i = 0; i < views.length; i++) {
     const view = views[i];
     const col = i % cols;
     const row = Math.floor(i / cols);
     const pos = { x: drawAreaX + col * (cellW + GAP), y: drawAreaY + row * (cellH + GAP) };
-    pdf.rect(pos.x, pos.y, cellW, cellH);
-    pdf.setFontSize(7.5);
-    pdf.setTextColor(0);
-    pdf.text(view.label.toUpperCase(), pos.x + 1.5, pos.y + CELL_HEADER_H - 1);
-    pdf.line(pos.x, pos.y + CELL_HEADER_H, pos.x + cellW, pos.y + CELL_HEADER_H);
+    if (showViewFrame) {
+      pdf.rect(pos.x, pos.y, cellW, cellH);
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(0);
+      pdf.text(view.label.toUpperCase(), pos.x + 1.5, pos.y + CELL_HEADER_H - 1);
+      pdf.line(pos.x, pos.y + CELL_HEADER_H, pos.x + cellW, pos.y + CELL_HEADER_H);
+    }
 
     if (view.visible && view.svgEl) {
       const clone = prepareSvgClone(view.svgEl);
       await svg2pdf(clone, pdf, {
         x: pos.x + CELL_PAD,
-        y: pos.y + CELL_HEADER_H + CELL_PAD,
+        y: pos.y + headerH + CELL_PAD,
         width: cellW - CELL_PAD * 2,
-        height: cellH - CELL_HEADER_H - CELL_PAD * 2,
+        height: cellH - headerH - CELL_PAD * 2,
       });
     } else if (!view.visible) {
       pdf.setFontSize(9);
       pdf.setTextColor(170);
-      pdf.text("Đã ẩn", pos.x + cellW / 2, pos.y + CELL_HEADER_H + (cellH - CELL_HEADER_H) / 2, { align: "center" });
+      pdf.text("Đã ẩn", pos.x + cellW / 2, pos.y + headerH + (cellH - headerH) / 2, { align: "center" });
     }
   }
 

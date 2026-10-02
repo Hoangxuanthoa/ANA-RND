@@ -87,17 +87,25 @@ interface Selection {
 function ViewCell({
   label,
   visible,
+  showFrame,
   contentRef,
   children,
 }: {
   label: string;
   visible: boolean;
+  // Per-template option (DrawingTemplate.showViewFrame) — off hides both
+  // the border around this cell and its name strip, leaving just the bare
+  // drawing floating in its grid cell (some sheets want the "shop drawing"
+  // boxed-and-labeled look, others prefer plain ISO-style views).
+  showFrame: boolean;
   contentRef?: (el: HTMLDivElement | null) => void;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-0 flex-col rounded-md border border-black bg-white">
-      <div className="flex-shrink-0 border-b border-black px-2 py-0.5 text-[10px] font-bold tracking-wide text-black uppercase">{label}</div>
+    <div className={showFrame ? "flex min-h-0 flex-col rounded-md border border-black bg-white" : "flex min-h-0 flex-col bg-white"}>
+      {showFrame && (
+        <div className="flex-shrink-0 border-b border-black px-2 py-0.5 text-[10px] font-bold tracking-wide text-black uppercase">{label}</div>
+      )}
       <div ref={contentRef} className="min-h-0 flex-1 p-3">
         {visible ? children : <div className="flex h-full items-center justify-center text-[11px] text-text-faint">Đã ẩn</div>}
       </div>
@@ -462,7 +470,7 @@ function DrawingSheetContent({
   }
 
   const { cols, rows } = computeGridLayout(template.views.length);
-  const cellContentHeightMm = computeCellContentHeightMm(rows);
+  const cellContentHeightMm = computeCellContentHeightMm(rows, template.showViewFrame);
 
   async function handleExportPdf() {
     setExporting(true);
@@ -481,6 +489,7 @@ function DrawingSheetContent({
         fieldRowMinHeightMm: template.fieldRowMinHeightMm,
         fields: fields.map((f) => ({ label: f.label, value: f.value })),
         views,
+        showViewFrame: template.showViewFrame,
       });
     } finally {
       setExporting(false);
@@ -1071,7 +1080,13 @@ function DrawingSheetContent({
               }}
             >
               {template.views.map((key) => (
-                <ViewCell key={key} label={DRAWING_VIEW_LABELS[key]} visible={visible[key] ?? true} contentRef={(el) => (cellRefs.current[key] = el)}>
+                <ViewCell
+                  key={key}
+                  label={DRAWING_VIEW_LABELS[key]}
+                  visible={visible[key] ?? true}
+                  showFrame={template.showViewFrame}
+                  contentRef={(el) => (cellRefs.current[key] = el)}
+                >
                   {renderView(key)}
                 </ViewCell>
               ))}

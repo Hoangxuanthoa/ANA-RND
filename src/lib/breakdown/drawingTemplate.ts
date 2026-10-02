@@ -63,6 +63,12 @@ export interface DrawingTemplate {
   // it. Also drives the on-screen row's minimum height at the same
   // proportion of the sheet.
   fieldRowMinHeightMm: number;
+  // When false, each view's own border + name label (MẶT ĐỨNG, ISO, …) is
+  // hidden — just the bare drawing floating in its grid cell, no box/label
+  // around it. A per-template toggle, not a global switch, since some
+  // sheets want the "shop drawing" boxed-and-labeled look and others want
+  // plain ISO-style views with nothing around them.
+  showViewFrame: boolean;
 }
 
 export const DEFAULT_TITLE_BLOCK_WIDTH_MM = 70;
@@ -85,6 +91,7 @@ export function createDefaultTemplate(): DrawingTemplate {
     views: ["front", "left", "top", "iso"],
     titleBlockWidthMm: DEFAULT_TITLE_BLOCK_WIDTH_MM,
     fieldRowMinHeightMm: DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
+    showViewFrame: true,
     fields: [
       { id: newFieldId(), label: "Tên bản vẽ", autoFill: "productName" },
       { id: newFieldId(), label: "Mã bản vẽ" },
@@ -108,6 +115,7 @@ export function createBlankTemplate(name: string): DrawingTemplate {
     views: ["front", "left", "top", "iso"],
     titleBlockWidthMm: DEFAULT_TITLE_BLOCK_WIDTH_MM,
     fieldRowMinHeightMm: DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
+    showViewFrame: true,
     fields: [{ id: newFieldId(), label: "Tên bản vẽ", autoFill: "productName" }],
   };
 }
@@ -144,6 +152,7 @@ export async function loadTemplates(): Promise<PersistedTemplates> {
         ...t,
         titleBlockWidthMm: t.titleBlockWidthMm ?? DEFAULT_TITLE_BLOCK_WIDTH_MM,
         fieldRowMinHeightMm: t.fieldRowMinHeightMm ?? DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
+        showViewFrame: t.showViewFrame ?? true,
       })),
     };
   }
