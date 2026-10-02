@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "RND" | "SALES" | "MARKETING" | "CUSTOMER";
+export type Role = "ADMIN" | "RND" | "SALES" | "MARKETING" | "CUSTOMER" | "PURCHASING";
 
 export const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Admin",
@@ -6,6 +6,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   SALES: "Sales",
   MARKETING: "Marketing",
   CUSTOMER: "Customer",
+  PURCHASING: "Mua hàng",
 };
 
 // Plain name of "the person currently previewing this role" — matches the
@@ -18,6 +19,7 @@ export const CURRENT_USER_NAME: Record<Role, string> = {
   SALES: "Hà",
   MARKETING: "Linh",
   CUSTOMER: "JYSK",
+  PURCHASING: "Mua hàng",
 };
 
 // Company roster — used to be a hardcoded mock array here. Now real: see

@@ -18,6 +18,13 @@ export const canManageSettings = (role: Role) => role === "ADMIN";
 // same as everyone else who isn't the Customer being shared with.
 export const canManageCollections = (role: Role) => role !== "CUSTOMER";
 
+// "Bóc tách kỹ thuật" (technical breakdown, ported from the standalone
+// ANASU Web app) — an internal R&D/production tool, not a customer- or
+// sales-facing feature. Purchasing also needs it (to read off BOM
+// quantities/materials for sourcing) — agreed with the user 2026-10-02 when
+// porting this into ANA-RND, same decision that added the PURCHASING role.
+export const canViewBreakdown = (role: Role) => role === "ADMIN" || role === "RND" || role === "PURCHASING";
+
 // Which DRAFT collections show up when adding a product to one — same
 // ownership scoping as getPickableProjects: Admin sees every draft,
 // everyone else only the ones they created.

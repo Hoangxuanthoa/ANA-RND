@@ -20,7 +20,7 @@ const TABS = [
   { key: "pptx", label: "Mẫu PPTX" },
 ] as const;
 
-const STAFF_ROLES: Exclude<Role, "CUSTOMER">[] = ["ADMIN", "RND", "SALES", "MARKETING"];
+const STAFF_ROLES: Exclude<Role, "CUSTOMER">[] = ["ADMIN", "RND", "SALES", "MARKETING", "PURCHASING"];
 
 function TagListEditor({
   items,

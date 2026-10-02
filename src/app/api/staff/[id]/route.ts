@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const { id } = await params;
   const body = await request.json();
-  const data: { role?: "ADMIN" | "RND" | "SALES" | "MARKETING"; isActive?: boolean } = {};
+  const data: { role?: "ADMIN" | "RND" | "SALES" | "MARKETING" | "PURCHASING"; isActive?: boolean } = {};
   if (typeof body.role === "string") data.role = body.role;
   if (typeof body.isActive === "boolean") data.isActive = body.isActive;
   const password = typeof body.password === "string" ? body.password : undefined;

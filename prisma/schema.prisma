@@ -49,6 +49,7 @@ model User {
   uploadedPhotos          ProjectPhoto[]      @relation("PhotoUploader")
   ownedTasks              RndTask[]           @relation("TaskOwner")
   requestedTasks          RndTask[]           @relation("TaskRequester")
+  createdBreakdowns       Breakdown[]
 
   @@map("users")
 }
@@ -59,6 +60,11 @@ enum Role {
   SALES
   MARKETING
   CUSTOMER
+  // "Mua hàng" (Purchasing) — added 2026-10-02 specifically so Purchasing
+  // can see the Bóc tách kỹ thuật (technical breakdown) tab alongside
+  // Admin/R&D; no real staff account uses it yet (the user creates that
+  // later, same as any other staff account — see scripts/seed-users.mjs).
+  PURCHASING
 }
 
 // CUSTOMERS
@@ -617,6 +623,60 @@ model CollectionPitch {
   createdAt    DateTime   @default(now())
 
   @@map("collection_pitches")
+}
+
+// BÓC TÁCH KỸ THUẬT (technical breakdown) — ported from the standalone
+// ANASU Web app (its own repo, local-IndexedDB-only) as a real ANA-RND tab.
+// One Breakdown groups the products broken down for one sales quote (e.g.
+// "ANA-ADE-022026"); each BreakdownProduct holds that ENTIRE product's state
+// (rings, frame, material incl. base64 texture images, lid, handle,
+// scallop, …) as one JSON blob rather than a fully normalized schema — the
+// geometry engine already treats it as one cohesive object end to end (see
+// anasu-web's ProductState type), nothing here needs to be queried field by
+// field in SQL, and this keeps the port fast and exactly in sync with
+// whatever ANASU's own geometry engine's shape evolves into, instead of a
+// 100+ column table that would need a migration every time that engine
+// grows a field. Material/photo images stay inline base64 inside this JSON
+// for now (not Supabase Storage/R2 like ProductAsset) — a deliberate,
+// revisit-later simplification agreed with the user (2026-10-02) to keep
+// this first port small; swapping to real object storage later only
+// touches the material-image read/write code, not this schema.
+model Breakdown {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  createdById String   @db.Uuid
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  // Which of its own products the studio should reopen to by default —
+  // a plain id, not a real relation, so deleting that product doesn't need
+  // a cascade/SetNull rule of its own; a stale/missing id just falls back
+  // to "first product" client-side, same as ANASU's original
+  // `products.find(...) ?? products[0]` behavior.
+  activeProductId String?  @db.Uuid
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  products BreakdownProduct[]
+
+  @@map("breakdowns")
+}
+
+model BreakdownProduct {
+  id          String    @id @default(uuid()) @db.Uuid
+  breakdownId String    @db.Uuid
+  breakdown   Breakdown @relation(fields: [breakdownId], references: [id], onDelete: Cascade)
+  // ANASU's own per-product id, e.g. "P001" — unique within its breakdown,
+  // kept as a plain display/sort field (not this row's own primary key)
+  // since the geometry engine already mints and relies on these ids inside
+  // `data` itself.
+  code      String
+  name      String
+  sortOrder Int      @default(0)
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([breakdownId, code])
+  @@map("breakdown_products")
 }
 
 // APP SETTINGS — a singleton row (Admin-only, Settings' "Mẫu PPTX" tab)

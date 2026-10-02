@@ -9,7 +9,7 @@ import { useNotifications } from "@/components/NotificationsProvider";
 import { ProfileModal } from "@/components/ProfileModal";
 import { ROLE_LABEL, initialsFromName } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
-import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections } from "@/lib/permissions";
+import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections, canViewBreakdown } from "@/lib/permissions";
 
 function NavLink({
   href,
@@ -105,6 +105,7 @@ export function TopNav() {
       <NavLink href="/projects" fullWidth={fullWidth}>Projects</NavLink>
       {canViewMyTasks(role) && <NavLink href="/my-tasks" fullWidth={fullWidth}>My Task</NavLink>}
       {canManageCollections(role) && <NavLink href="/collections" fullWidth={fullWidth}>Collections</NavLink>}
+      {canViewBreakdown(role) && <NavLink href="/breakdown" fullWidth={fullWidth}>Bóc tách kỹ thuật</NavLink>}
       {canReviewProducts(role) && (
         <NavLink href="/review" badge={pendingCount} fullWidth={fullWidth}>
           Duyệt sản phẩm

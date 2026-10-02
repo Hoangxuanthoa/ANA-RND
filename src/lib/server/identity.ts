@@ -1,11 +1,12 @@
 import { ROLE_LABEL, initialsFromName, type Role } from "@/lib/mock-data";
 
-const TINT_BY_ROLE: Record<Role, "accent" | "blue" | "green" | "amber"> = {
+const TINT_BY_ROLE: Record<Role, "accent" | "blue" | "green" | "amber" | "slate"> = {
   ADMIN: "accent",
   RND: "blue",
   SALES: "amber",
   MARKETING: "accent",
   CUSTOMER: "green",
+  PURCHASING: "slate",
 };
 
 // Real-data equivalent of feedbackIdentity(role) in mock-data.ts — same

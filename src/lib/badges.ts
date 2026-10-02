@@ -129,4 +129,5 @@ export const TINT_AVATAR_BG: Record<Role, string> = {
   SALES: "bg-amber",
   MARKETING: "bg-teal",
   CUSTOMER: "bg-green",
+  PURCHASING: "bg-slate",
 };
