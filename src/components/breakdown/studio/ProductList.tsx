@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ProductState } from "@/lib/breakdown/geometry/types";
 
 interface ProductListProps {
@@ -13,6 +13,18 @@ interface ProductListProps {
   onCodeChange: (id: string, code: string) => void;
 }
 
+function productLabel(product: ProductState, index: number): string {
+  const name = product.name || `Sản phẩm ${index + 1}`;
+  return product.code ? `${name} — ${product.code}` : name;
+}
+
+// A searchable combobox + prev/next pager (not a vertical card list, nor a
+// plain <select>) — a tab strip needs sideways scrolling once it overflows
+// the panel, a vertical list pushes the rest of the form down, and a plain
+// dropdown still makes you scan/scroll a long list by eye once there are
+// dozens of products. Typing filters by name or code and jumps straight to
+// a match; ‹ › step through in order without opening anything. Only the
+// active product gets an edit row (name + code + delete).
 export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange }: ProductListProps) {
   // A native window.confirm() never appears at all inside an embedded
   // preview pane (it's OS/browser-chrome, not page content) — so deleting
@@ -20,84 +32,213 @@ export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onR
   // step (the "Xóa" link turning into "Xóa thật?" / "Hủy") always renders,
   // regardless of how the page is being viewed.
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const activeIndex = products.findIndex((p) => p.id === activeId);
+  const active = products[activeIndex];
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  const indexed = products.map((product, index) => ({ product, index }));
+  const filtered = query.trim()
+    ? indexed.filter(({ product, index }) => productLabel(product, index).toLowerCase().includes(query.trim().toLowerCase()))
+    : indexed;
+
+  useEffect(() => {
+    setHighlight(0);
+  }, [query, open]);
+
+  // Close on any click outside the input+list — clicks ON a list option are
+  // kept from ever blurring the input in the first place (see onMouseDown
+  // below), so this only has to handle "clicked elsewhere on the page".
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(e: MouseEvent) {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, [open]);
+
+  function choose(id: string) {
+    setConfirmingId(null);
+    onSelect(id);
+    setOpen(false);
+    setQuery("");
+    // Force a real blur so the NEXT focus (click or Tab back in) fires
+    // onFocus again and clears the field — otherwise, since the input is
+    // already focused post-selection, clicking it again doesn't re-fire
+    // focus at all, and typing would land on top of the still-displayed
+    // product label instead of starting a fresh search.
+    inputRef.current?.blur();
+  }
+
+  function step(delta: number) {
+    const next = products[activeIndex + delta];
+    if (next) {
+      setConfirmingId(null);
+      onSelect(next.id);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (!open) setOpen(true);
+      setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const match = filtered[highlight];
+      if (match) choose(match.product.id);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+      inputRef.current?.blur();
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-[11px] font-bold tracking-wide text-text-muted uppercase">Sản phẩm</span>
-      {products.map((product, i) => {
-        const active = product.id === activeId;
-        if (!active) {
-          return (
-            <button
-              key={product.id}
-              type="button"
-              onClick={() => {
-                setConfirmingId(null);
-                onSelect(product.id);
-              }}
-              className="flex h-10 items-center justify-between rounded-lg border border-line bg-surface px-3 text-left text-[13px] font-semibold text-text-muted hover:bg-bg"
-            >
-              <span>{product.name || `Sản phẩm ${i + 1}`}</span>
-              {product.code && <span className="truncate text-[11px] font-normal text-text-faint">{product.code}</span>}
-            </button>
-          );
-        }
-        return (
-          <div key={product.id} className="rounded-lg border border-accent bg-accent-soft/40 p-3">
-            <div className="flex items-center gap-2">
-              <input
-                value={product.name}
-                onChange={(e) => onRename(product.id, e.target.value)}
-                placeholder={`Sản phẩm ${i + 1}`}
-                className="h-8 flex-1 rounded-md border border-line bg-surface px-2.5 text-[13px] font-bold focus:border-accent focus:outline-none"
-              />
-              {products.length > 1 &&
-                (confirmingId === product.id ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11.5px] font-semibold text-text-faint">Xóa thật?</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setConfirmingId(null);
-                        onRemove(product.id);
-                      }}
-                      className="rounded bg-red px-2 py-1 text-[11.5px] font-bold text-white hover:opacity-90"
-                    >
-                      Xóa
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmingId(null)}
-                      className="text-[11.5px] font-semibold text-text-muted hover:underline"
-                    >
-                      Hủy
-                    </button>
-                  </div>
-                ) : (
+
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => step(-1)}
+          disabled={activeIndex <= 0}
+          title="Sản phẩm trước"
+          className="flex h-8 w-7 flex-shrink-0 items-center justify-center rounded-md border border-line bg-surface text-[13px] font-bold text-text-muted hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          ‹
+        </button>
+
+        <div ref={boxRef} className="relative min-w-0 flex-1">
+          <input
+            ref={inputRef}
+            value={open ? query : active ? productLabel(active, activeIndex) : ""}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!open) setOpen(true);
+            }}
+            onFocus={(e) => {
+              setOpen(true);
+              setQuery("");
+              e.target.select();
+            }}
+            onBlur={() => {
+              setOpen(false);
+              setQuery("");
+            }}
+            onKeyDown={handleKeyDown}
+            placeholder="Tìm sản phẩm theo tên hoặc mã…"
+            className="h-8 w-full rounded-md border border-line bg-surface px-2.5 text-[12.5px] font-semibold text-text focus:border-accent focus:outline-none"
+          />
+          {open && (
+            <div className="absolute top-[calc(100%+4px)] left-0 right-0 z-20 max-h-64 overflow-y-auto rounded-md border border-line bg-white shadow-lg">
+              {filtered.length === 0 ? (
+                <div className="px-3 py-2 text-[12.5px] text-text-faint">Không tìm thấy sản phẩm nào</div>
+              ) : (
+                filtered.map(({ product, index }, i) => (
                   <button
+                    key={product.id}
                     type="button"
-                    onClick={() => setConfirmingId(product.id)}
-                    className="text-[12px] font-semibold text-red hover:underline"
+                    // Keep the input focused across this click — otherwise its
+                    // own blur fires first and closes the list before onClick
+                    // below ever runs.
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => choose(product.id)}
+                    className={
+                      product.id === activeId
+                        ? "flex w-full items-center justify-between bg-accent-soft px-3 py-1.5 text-left text-[12.5px] font-bold text-text"
+                        : i === highlight
+                          ? "flex w-full items-center justify-between bg-bg px-3 py-1.5 text-left text-[12.5px] text-text"
+                          : "flex w-full items-center justify-between px-3 py-1.5 text-left text-[12.5px] text-text hover:bg-bg"
+                    }
                   >
-                    Xóa
+                    <span className="truncate">
+                      {index + 1}. {product.name || `Sản phẩm ${index + 1}`}
+                    </span>
+                    {product.code && <span className="flex-shrink-0 truncate pl-2 text-[11px] text-text-faint">{product.code}</span>}
                   </button>
-                ))}
+                ))
+              )}
             </div>
-            <input
-              value={product.code}
-              onChange={(e) => onCodeChange(product.id, e.target.value)}
-              placeholder="Mã sản phẩm (tùy chọn)"
-              className="mt-1.5 h-8 w-full rounded-md border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
-            />
-          </div>
-        );
-      })}
-      <button
-        type="button"
-        onClick={onAdd}
-        className="h-9 rounded-lg border border-dashed border-line text-[13px] font-semibold text-text-muted hover:border-accent hover:text-accent"
-      >
-        + Thêm sản phẩm
-      </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => step(1)}
+          disabled={activeIndex >= products.length - 1}
+          title="Sản phẩm tiếp theo"
+          className="flex h-8 w-7 flex-shrink-0 items-center justify-center rounded-md border border-line bg-surface text-[13px] font-bold text-text-muted hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          ›
+        </button>
+        <span className="flex-shrink-0 text-[11px] text-text-faint">
+          {activeIndex + 1}/{products.length}
+        </span>
+        <button
+          type="button"
+          onClick={onAdd}
+          title="Thêm sản phẩm"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-line text-[15px] font-bold text-text-muted hover:border-accent hover:text-accent"
+        >
+          +
+        </button>
+      </div>
+
+      {active && (
+        <div className="flex items-center gap-2">
+          <input
+            value={active.name}
+            onChange={(e) => onRename(active.id, e.target.value)}
+            placeholder={`Sản phẩm ${activeIndex + 1}`}
+            className="h-8 flex-1 rounded-md border border-line bg-surface px-2.5 text-[13px] font-bold focus:border-accent focus:outline-none"
+          />
+          <input
+            value={active.code}
+            onChange={(e) => onCodeChange(active.id, e.target.value)}
+            placeholder="Mã sản phẩm (tùy chọn)"
+            className="h-8 w-44 flex-shrink-0 rounded-md border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
+          />
+          {products.length > 1 &&
+            (confirmingId === active.id ? (
+              <div className="flex flex-shrink-0 items-center gap-1.5">
+                <span className="text-[11.5px] font-semibold text-text-faint">Xóa thật?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirmingId(null);
+                    onRemove(active.id);
+                  }}
+                  className="rounded bg-red px-2 py-1 text-[11.5px] font-bold text-white hover:opacity-90"
+                >
+                  Xóa
+                </button>
+                <button type="button" onClick={() => setConfirmingId(null)} className="text-[11.5px] font-semibold text-text-muted hover:underline">
+                  Hủy
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingId(active.id)}
+                className="flex-shrink-0 text-[12px] font-semibold text-red hover:underline"
+              >
+                Xóa
+              </button>
+            ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -16,7 +16,7 @@ export function ActionBar({
   bomEnabled: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2 border-t border-line pt-3.5">
+    <div className="flex items-center gap-2">
       <button
         type="button"
         onClick={onCalculateBom}
@@ -24,8 +24,8 @@ export function ActionBar({
         title={bomEnabled ? undefined : "Chưa dựng được khung sắt cho sản phẩm này"}
         className={
           bomEnabled
-            ? "flex h-10 items-center justify-center rounded-lg border border-line bg-white text-[13px] font-bold text-text hover:bg-bg"
-            : "flex h-10 cursor-not-allowed items-center justify-center rounded-lg border border-line bg-bg text-[13px] font-bold text-text-faint"
+            ? "flex h-8 items-center justify-center rounded-md border border-line bg-white px-3 text-[12.5px] font-bold text-text hover:bg-bg"
+            : "flex h-8 cursor-not-allowed items-center justify-center rounded-md border border-line bg-bg px-3 text-[12.5px] font-bold text-text-faint"
         }
       >
         Calculate (BOM)
@@ -37,8 +37,8 @@ export function ActionBar({
         title={exportEnabled ? undefined : "Sắp có"}
         className={
           exportEnabled
-            ? "flex h-10 items-center justify-center rounded-lg bg-accent text-[13px] font-bold text-white hover:bg-accent-hover"
-            : "flex h-10 cursor-not-allowed items-center justify-between rounded-lg border border-line bg-bg px-3.5 text-[13px] font-bold text-text-faint"
+            ? "flex h-8 items-center justify-center rounded-md bg-accent px-3 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+            : "flex h-8 cursor-not-allowed items-center gap-1.5 rounded-md border border-line bg-bg px-3 text-[12.5px] font-bold text-text-faint"
         }
       >
         {exportEnabled ? <span>Xuất bản vẽ</span> : (

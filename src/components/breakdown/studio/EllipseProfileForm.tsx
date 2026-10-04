@@ -137,7 +137,7 @@ export function EllipseProfileForm({ profile, lid, handle, photoCurve, onChange,
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5">
               <Field label="Chiều cao (mm)">
                 <input
                   type="number"
@@ -159,8 +159,6 @@ export function EllipseProfileForm({ profile, lid, handle, photoCurve, onChange,
                   className={locked ? `${inputClass} bg-bg text-text-faint` : inputClass}
                 />
               </Field>
-            </div>
-            <div className="mt-2.5 grid grid-cols-2 items-end gap-2.5">
               <Field label="Chiều rộng (mm)">
                 <input
                   type="number"
@@ -170,8 +168,8 @@ export function EllipseProfileForm({ profile, lid, handle, photoCurve, onChange,
                   className={locked ? `${inputClass} bg-bg text-text-faint` : inputClass}
                 />
               </Field>
-              <span className="pb-2.5 text-[11px] text-text-faint">Elip thật — không góc bo, cong đều toàn bộ</span>
             </div>
+            <p className="mt-1 text-[11px] text-text-faint">Elip thật — không góc bo, cong đều toàn bộ</p>
 
             {nextLabel && !locked && (
               <div className="mt-2.5 grid grid-cols-2 gap-2.5">
@@ -263,15 +261,13 @@ function EllipseLidCard({ lid, mouth, onChange }: { lid: LidInput; mouth: Ellips
       {lid.mode === "cover" && (
         <div className="mt-2.5 border-t border-line pt-2.5">
           <span className="text-[10px] font-bold tracking-wide text-text-faint uppercase">Nắp trùm</span>
-          <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+          <div className="mt-1.5 grid grid-cols-3 gap-2.5">
             <Field label="Dài miệng nắp (mm)">
               <input type="number" value={coverLength} onChange={(e) => set("length", e.target.value === "" ? undefined : Number(e.target.value))} className={inputClass} />
             </Field>
             <Field label="Rộng miệng nắp (mm)">
               <input type="number" value={coverWidth} onChange={(e) => set("width", e.target.value === "" ? undefined : Number(e.target.value))} className={inputClass} />
             </Field>
-          </div>
-          <div className="mt-2.5">
             <Field label="Chiều cao nắp (mm)">
               <input type="number" value={lid.height ?? 60} onChange={(e) => set("height", Number(e.target.value))} className={inputClass} />
             </Field>
@@ -311,7 +307,7 @@ function EllipseHandleCard({ handle, onChange }: { handle: HandleInput; onChange
 
       {handle.type === "standing" && (
         <>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          <div className="mt-2.5 grid grid-cols-4 gap-2.5">
             <Field label="Hình dạng quai">
               <select value={handle.shape} onChange={(e) => set("shape", e.target.value as HandleInput["shape"])} className={selectClass}>
                 <option value="curve">Cong</option>
@@ -324,8 +320,6 @@ function EllipseHandleCard({ handle, onChange }: { handle: HandleInput; onChange
                 <option value={2}>2</option>
               </select>
             </Field>
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
             <Field label="Chiều rộng (mm)">
               <input type="number" value={handle.width} onChange={(e) => set("width", Number(e.target.value))} className={inputClass} />
             </Field>
@@ -365,24 +359,20 @@ function EllipseHandleCard({ handle, onChange }: { handle: HandleInput; onChange
       )}
 
       {handle.type === "cutout" && (
-        <>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <Field label="Chiều rộng khoét (mm)">
-              <input type="number" value={handle.cutoutWidth} onChange={(e) => set("cutoutWidth", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Chiều sâu khoét (mm)">
-              <input type="number" value={handle.cutoutDepth} onChange={(e) => set("cutoutDepth", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <Field label="Cách miệng (mm)">
-              <input type="number" value={handle.cutoutOffset} onChange={(e) => set("cutoutOffset", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Bo góc (mm)">
-              <input type="number" value={handle.fillet} onChange={(e) => set("fillet", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </div>
-        </>
+        <div className="mt-2.5 grid grid-cols-4 gap-2.5">
+          <Field label="Chiều rộng khoét (mm)">
+            <input type="number" value={handle.cutoutWidth} onChange={(e) => set("cutoutWidth", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Chiều sâu khoét (mm)">
+            <input type="number" value={handle.cutoutDepth} onChange={(e) => set("cutoutDepth", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Cách miệng (mm)">
+            <input type="number" value={handle.cutoutOffset} onChange={(e) => set("cutoutOffset", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Bo góc (mm)">
+            <input type="number" value={handle.fillet} onChange={(e) => set("fillet", Number(e.target.value))} className={inputClass} />
+          </Field>
+        </div>
       )}
     </div>
   );

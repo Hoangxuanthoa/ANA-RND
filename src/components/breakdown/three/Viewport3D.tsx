@@ -202,9 +202,13 @@ export function Viewport3D({ label, bounds, children }: { label: string; bounds:
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-1.5 border-b border-line bg-surface px-3 py-1.5">
-        <span className="text-[10px] font-bold tracking-wide text-text-faint uppercase">{label}</span>
-        <label className="flex items-center gap-1.5 text-[10px] font-semibold text-text-muted">
+      {/* This toolbar lives in a HALF-width 3D view pane (two sit side by
+          side), so it stays tight on room. Dropping the KHUNG SẮT/SOLID
+          label (the 3D model itself already makes that obvious) and keeping
+          export/copy icon-only frees up enough width for the 7 view-angle
+          presets to stay one-click buttons instead of a dropdown. */}
+      <div className="flex flex-shrink-0 items-center gap-1.5 border-b border-line bg-surface px-2 py-1.5">
+        <label className="flex flex-shrink-0 items-center gap-1 text-[10px] font-semibold text-text-muted">
           <input
             type="checkbox"
             checked={perspective}
@@ -213,7 +217,7 @@ export function Viewport3D({ label, bounds, children }: { label: string; bounds:
           />
           Phối cảnh
         </label>
-        <div className="flex flex-wrap gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-wrap gap-0.5">
           {VIEW_PRESETS.map((v) => (
             <button
               key={v.key}
@@ -229,22 +233,22 @@ export function Viewport3D({ label, bounds, children }: { label: string; bounds:
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-shrink-0 items-center gap-0.5">
           <button
             type="button"
             onClick={exportImage}
             title="Xuất ảnh (PNG) theo góc nhìn hiện tại"
-            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-text-muted hover:bg-bg hover:text-text"
+            className="rounded px-1.5 py-0.5 text-[11px] font-semibold text-text-muted hover:bg-bg hover:text-text"
           >
-            ⬇ Xuất ảnh
+            ⬇
           </button>
           <button
             type="button"
             onClick={copyImage}
-            title="Copy ảnh theo góc nhìn hiện tại"
-            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-text-muted hover:bg-bg hover:text-text"
+            title={copyStatus === "done" ? "Đã copy" : copyStatus === "error" ? "Lỗi copy" : "Copy ảnh theo góc nhìn hiện tại"}
+            className="rounded px-1.5 py-0.5 text-[11px] font-semibold text-text-muted hover:bg-bg hover:text-text"
           >
-            {copyStatus === "done" ? "✓ Đã copy" : copyStatus === "error" ? "Lỗi copy" : "⧉ Copy ảnh"}
+            {copyStatus === "done" ? "✓" : copyStatus === "error" ? "✕" : "⧉"}
           </button>
         </div>
       </div>

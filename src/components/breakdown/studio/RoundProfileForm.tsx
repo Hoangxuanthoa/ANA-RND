@@ -158,7 +158,11 @@ export function RoundProfileForm({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+            <div
+              className={`grid gap-2.5 ${
+                nextLabel && !locked ? (ring.transition && ring.transition !== "straight" ? "grid-cols-4" : "grid-cols-3") : "grid-cols-2"
+              }`}
+            >
               <Field label="Chiều cao (mm)">
                 <input
                   type="number"
@@ -185,10 +189,7 @@ export function RoundProfileForm({
                   className={locked ? `${inputClass} bg-bg text-text-faint` : inputClass}
                 />
               </Field>
-            </div>
-
-            {nextLabel && !locked && (
-              <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+              {nextLabel && !locked && (
                 <Field label={`Đường biên đến ${nextLabel}`}>
                   <select
                     value={ring.transition || "straight"}
@@ -200,21 +201,21 @@ export function RoundProfileForm({
                     <option value="inward">Lõm</option>
                   </select>
                 </Field>
-                {ring.transition && ring.transition !== "straight" && (
-                  <Field label="Độ cong (0–0.65)">
-                    <input
-                      type="number"
-                      step="0.05"
-                      min={0}
-                      max={0.65}
-                      value={ring.curveDepth ?? 0.34}
-                      onChange={(e) => updateRing(i, { curveDepth: Number(e.target.value) })}
-                      className={inputClass}
-                    />
-                  </Field>
-                )}
-              </div>
-            )}
+              )}
+              {nextLabel && !locked && ring.transition && ring.transition !== "straight" && (
+                <Field label="Độ cong (0–0.65)">
+                  <input
+                    type="number"
+                    step="0.05"
+                    min={0}
+                    max={0.65}
+                    value={ring.curveDepth ?? 0.34}
+                    onChange={(e) => updateRing(i, { curveDepth: Number(e.target.value) })}
+                    className={inputClass}
+                  />
+                </Field>
+              )}
+            </div>
 
             {isLast && (
               <label className="mt-2.5 flex items-center gap-2 text-[12.5px] font-semibold text-text">
@@ -251,35 +252,22 @@ export function RoundProfileForm({
       </div>
 
       <div className="mt-2 rounded-lg border border-line bg-surface p-3.5 shadow-sm">
-        <div className="grid grid-cols-2 gap-2.5">
-          <Field label="Kiểu nắp">
-            <select
-              value={lid.mode || "none"}
-              onChange={(e) => onChangeLid({ ...lid, mode: e.target.value as LidInput["mode"] })}
-              className={selectClass}
-            >
-              <option value="none">Không có</option>
-              <option value="flat">Flat</option>
-              <option value="cover">Cover</option>
-            </select>
-          </Field>
-          <Field label="Kiểu quai">
-            <select
-              value={handle.type}
-              onChange={(e) => onChangeHandle({ ...handle, type: e.target.value as HandleInput["type"] })}
-              className={selectClass}
-            >
-              <option value="none">Không có</option>
-              <option value="standing">Đứng</option>
-              <option value="cutout">Khoét thân</option>
-            </select>
-          </Field>
-        </div>
+        <Field label="Kiểu nắp">
+          <select
+            value={lid.mode || "none"}
+            onChange={(e) => onChangeLid({ ...lid, mode: e.target.value as LidInput["mode"] })}
+            className={selectClass}
+          >
+            <option value="none">Không có</option>
+            <option value="flat">Flat</option>
+            <option value="cover">Cover</option>
+          </select>
+        </Field>
 
         {lid.mode !== "none" && (
           <div className="mt-3 border-t border-line pt-2.5">
             <span className="text-[10px] font-bold tracking-wide text-text-faint uppercase">Thông số nắp</span>
-            <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+            <div className={`mt-1.5 grid gap-2.5 ${lid.mode === "cover" ? "grid-cols-3" : "grid-cols-2"}`}>
               <Field label="Đường kính nắp (mm)">
                 <input
                   type="number"
@@ -297,9 +285,7 @@ export function RoundProfileForm({
                   className={inputClass}
                 />
               </Field>
-            </div>
-            {lid.mode === "cover" && (
-              <div className="mt-2.5">
+              {lid.mode === "cover" && (
                 <Field label="Đường kính đáy nắp (mm)">
                   <input
                     type="number"
@@ -309,10 +295,24 @@ export function RoundProfileForm({
                     className={inputClass}
                   />
                 </Field>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
+      </div>
+
+      <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
+        <Field label="Kiểu quai">
+          <select
+            value={handle.type}
+            onChange={(e) => onChangeHandle({ ...handle, type: e.target.value as HandleInput["type"] })}
+            className={selectClass}
+          >
+            <option value="none">Không có</option>
+            <option value="standing">Đứng</option>
+            <option value="cutout">Khoét thân</option>
+          </select>
+        </Field>
 
         {handle.type !== "none" && (
           <div className="mt-3 border-t border-line pt-2.5">
@@ -320,7 +320,7 @@ export function RoundProfileForm({
 
             {handle.type === "standing" && (
               <>
-                <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+                <div className="mt-1.5 grid grid-cols-4 gap-2.5">
                   <Field label="Hình dạng quai">
                     <select
                       value={handle.shape}
@@ -341,8 +341,6 @@ export function RoundProfileForm({
                       <option value={2}>2</option>
                     </select>
                   </Field>
-                </div>
-                <div className="mt-2.5 grid grid-cols-2 gap-2.5">
                   <Field label="Chiều rộng (mm)">
                     <input
                       type="number"
@@ -411,16 +409,26 @@ export function RoundProfileForm({
             )}
 
             {handle.type === "cutout" && (
-              <>
-                <div className="mt-1.5 grid grid-cols-2 gap-2.5">
-                  <Field label="Chiều rộng khoét (mm)">
-                    <input
-                      type="number"
-                      value={handle.cutoutWidth}
-                      onChange={(e) => onChangeHandle({ ...handle, cutoutWidth: Number(e.target.value) })}
-                      className={inputClass}
-                    />
-                  </Field>
+              <div className="mt-1.5 grid grid-cols-4 gap-2.5">
+                <Field label="Hình dạng khoét">
+                  <select
+                    value={handle.cutoutShape ?? "rect"}
+                    onChange={(e) => onChangeHandle({ ...handle, cutoutShape: e.target.value as "rect" | "round" })}
+                    className={selectClass}
+                  >
+                    <option value="rect">Chữ nhật</option>
+                    <option value="round">Tròn</option>
+                  </select>
+                </Field>
+                <Field label={handle.cutoutShape === "round" ? "Đường kính khoét (mm)" : "Chiều rộng khoét (mm)"}>
+                  <input
+                    type="number"
+                    value={handle.cutoutWidth}
+                    onChange={(e) => onChangeHandle({ ...handle, cutoutWidth: Number(e.target.value) })}
+                    className={inputClass}
+                  />
+                </Field>
+                {handle.cutoutShape !== "round" && (
                   <Field label="Chiều sâu khoét (mm)">
                     <input
                       type="number"
@@ -429,16 +437,16 @@ export function RoundProfileForm({
                       className={inputClass}
                     />
                   </Field>
-                </div>
-                <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-                  <Field label="Cách miệng (mm)">
-                    <input
-                      type="number"
-                      value={handle.cutoutOffset}
-                      onChange={(e) => onChangeHandle({ ...handle, cutoutOffset: Number(e.target.value) })}
-                      className={inputClass}
-                    />
-                  </Field>
+                )}
+                <Field label="Cách miệng (mm)">
+                  <input
+                    type="number"
+                    value={handle.cutoutOffset}
+                    onChange={(e) => onChangeHandle({ ...handle, cutoutOffset: Number(e.target.value) })}
+                    className={inputClass}
+                  />
+                </Field>
+                {handle.cutoutShape !== "round" && (
                   <Field label="Bo góc (mm)">
                     <input
                       type="number"
@@ -447,8 +455,14 @@ export function RoundProfileForm({
                       className={inputClass}
                     />
                   </Field>
-                </div>
-              </>
+                )}
+              </div>
+            )}
+            {handle.type === "cutout" && handle.cutoutShape === "round" && (
+              <p className="mt-1.5 text-[11px] text-text-faint">
+                Quai tròn: nan dọc tại tâm quai bị cắt đúng đoạn trong vòng tròn; nếu "Cách miệng" &gt; 0, một đoạn nan dọc ngắn sẽ nối từ
+                đỉnh vòng tròn lên miệng.
+              </p>
             )}
           </div>
         )}
@@ -494,23 +508,23 @@ function ScallopCard({
 
       {scallop.enabled && !disabled && (
         <div className="mt-2.5 flex flex-col gap-2.5">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
             <Field label="Số cánh hoa">
               <input type="number" min={3} value={scallop.count} onChange={(e) => set("count", Number(e.target.value))} className={inputClass} />
             </Field>
             <Field label="Chiều rộng cánh hoa (mm)">
               <input type="number" value={Math.round(autoWidth)} disabled className={`${inputClass} bg-bg text-text-faint`} />
             </Field>
+            <Field label="Chiều cao cánh hoa (mm)">
+              <input
+                type="number"
+                value={scallop.height ?? ""}
+                placeholder={`Mặc định ${autoHeight.toFixed(1)} (= nửa chiều rộng)`}
+                onChange={(e) => set("height", e.target.value === "" ? undefined : Number(e.target.value))}
+                className={inputClass}
+              />
+            </Field>
           </div>
-          <Field label="Chiều cao cánh hoa (mm)">
-            <input
-              type="number"
-              value={scallop.height ?? ""}
-              placeholder={`Mặc định ${autoHeight.toFixed(1)} (= nửa chiều rộng)`}
-              onChange={(e) => set("height", e.target.value === "" ? undefined : Number(e.target.value))}
-              className={inputClass}
-            />
-          </Field>
 
           <div className="grid grid-cols-2 gap-2.5">
             <Field label="Kiểu khung sắt miệng">

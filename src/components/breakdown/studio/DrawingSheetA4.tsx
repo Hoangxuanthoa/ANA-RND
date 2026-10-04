@@ -3,19 +3,32 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FrontSideSVG, IsoSVG, TopSVG, type CustomDim, type DimPickMode, type DimSettings, type DimSettingsMap, type DrawMode, type Note, type TextBoxItem } from "./TechnicalDrawing";
 import { TemplateManager } from "./TemplateManager";
-import { exportDrawingSheetPdf, computeCellContentHeightMm, sanitizeFileName, ROW_LABEL_WEIGHT, ROW_VALUE_WEIGHT } from "@/lib/breakdown/pdfExport";
+import {
+  exportDrawingSheetPdf,
+  computeCellContentHeightMm,
+  sanitizeFileName,
+  ROW_LABEL_WEIGHT,
+  ROW_VALUE_WEIGHT,
+  type PdfTitleField,
+  type PdfViewSpec,
+} from "@/lib/breakdown/pdfExport";
 import {
   computeGridLayout,
+  createDrawingTemplateRemote,
+  deleteDrawingTemplateRemote,
   DRAWING_VIEW_LABELS,
-  loadTemplates,
-  saveTemplates,
+  fetchDrawingTemplates,
+  loadActiveTemplateId,
+  saveActiveTemplateId,
+  updateDrawingTemplateRemote,
   type DrawingTemplate,
   type DrawingViewKey,
-  type PersistedTemplates,
 } from "@/lib/breakdown/drawingTemplate";
 import type { SteelFrameResult } from "@/lib/breakdown/geometry/frameEngine";
 import type { ShapeDrawingInput } from "@/lib/breakdown/geometry/drawingEngine";
 import type { HandleInput, MaterialInput } from "@/lib/breakdown/geometry/types";
+import { canManageDrawingTemplates } from "@/lib/permissions";
+import { useRole } from "@/components/RoleProvider";
 
 type Point3 = { x: number; y: number; z: number };
 
@@ -216,9 +229,15 @@ interface DrawingSheetContentProps {
   activeTemplateId: string;
   onSelectTemplate: (id: string) => void;
   onClose: () => void;
+  // Fires once after this sheet's first render, with the exact same
+  // {views, fields} shape handleExportPdf below builds for a single export —
+  // used by the "Xuất gộp nhiều sản phẩm" flow, which mounts one of these
+  // per selected product OFF-SCREEN (see MultiDrawingExport.tsx) purely to
+  // get at its rendered SVGs, never shown to the user directly.
+  onCaptured?: (capture: { views: PdfViewSpec[]; fields: PdfTitleField[] }) => void;
 }
 
-function DrawingSheetContent({
+export function DrawingSheetContent({
   drawing,
   productName,
   frameResult,
@@ -232,6 +251,7 @@ function DrawingSheetContent({
   activeTemplateId,
   onSelectTemplate,
   onClose,
+  onCaptured,
 }: DrawingSheetContentProps) {
   const [doc, setDoc] = useState<DocState>(() => ({
     fields: template.fields.map((f) => ({ id: f.id, label: f.label, value: fieldValue(f, productName) })),
@@ -419,6 +439,22 @@ function DrawingSheetContent({
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
+
+  // Fires once — this component's `doc` is always fresh defaults on mount
+  // (never persisted, see its useState initializer above), so "after the
+  // first render" already IS "this product's default sheet, fully drawn" —
+  // no further settling to wait for.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!onCaptured) return;
+    const views: PdfViewSpec[] = template.views.map((key) => ({
+      key,
+      label: DRAWING_VIEW_LABELS[key],
+      visible: true,
+      svgEl: cellRefs.current[key]?.querySelector("svg") ?? null,
+    }));
+    onCaptured({ views, fields: doc.fields.map((f) => ({ label: f.label, value: f.value })) });
+  }, []);
 
   const customizedDimCount = Object.values(dimSettings).reduce((sum, map) => sum + Object.keys(map).length, 0);
   const customDimCount = Object.values(customDims).reduce((sum, list) => sum + list.length, 0);
@@ -1175,37 +1211,72 @@ export function DrawingSheetA4({
   material: MaterialInput;
   onClose: () => void;
 }) {
-  const [templatesState, setTemplatesState] = useState<PersistedTemplates | null>(null);
+  const { role } = useRole();
+  const canManage = canManageDrawingTemplates(role);
+  const [templates, setTemplates] = useState<DrawingTemplate[] | null>(null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  // Debounced per-template-id, same 400ms cadence the breakdown product
+  // autosave uses — editing a template field fires on every keystroke
+  // (TemplateManager has no debounce of its own), so without this each
+  // keystroke would PATCH immediately instead of coalescing into one write
+  // once typing pauses.
+  const updateTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingPatches = useRef<Record<string, Partial<DrawingTemplate>>>({});
 
   useEffect(() => {
     let cancelled = false;
-    loadTemplates().then((s) => {
-      if (!cancelled) setTemplatesState(s);
+    Promise.all([fetchDrawingTemplates(), loadActiveTemplateId()]).then(([list, savedActiveId]) => {
+      if (cancelled) return;
+      setTemplates(list);
+      setActiveTemplateId(savedActiveId && list.some((t) => t.id === savedActiveId) ? savedActiveId : list[0].id);
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  function persist(next: PersistedTemplates) {
-    setTemplatesState(next);
-    saveTemplates(next);
-  }
-
-  function updateTemplates(templates: DrawingTemplate[], activeTemplateId?: string) {
-    persist({ templates, activeTemplateId: activeTemplateId ?? templatesState?.activeTemplateId ?? templates[0].id });
-  }
-
   function selectTemplate(id: string) {
-    persist({ templates: templatesState?.templates ?? [], activeTemplateId: id });
+    setActiveTemplateId(id);
+    saveActiveTemplateId(id);
   }
 
-  if (!templatesState) {
+  // Admin-only mutations — TemplateManager itself hides the controls that
+  // call these for anyone else, this is just the belt (server-side
+  // canManageDrawingTemplates is the actual suspenders).
+  async function createTemplate(template: DrawingTemplate) {
+    const created = await createDrawingTemplateRemote(template);
+    if (!created) return;
+    setTemplates((prev) => [...(prev ?? []), created]);
+    selectTemplate(created.id);
+  }
+
+  function updateTemplate(id: string, patch: Partial<DrawingTemplate>) {
+    setTemplates((prev) => (prev ?? []).map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    pendingPatches.current[id] = { ...pendingPatches.current[id], ...patch };
+    clearTimeout(updateTimers.current[id]);
+    updateTimers.current[id] = setTimeout(() => {
+      const toSend = pendingPatches.current[id];
+      delete pendingPatches.current[id];
+      if (toSend) updateDrawingTemplateRemote(id, toSend);
+    }, 400);
+  }
+
+  async function deleteTemplate(id: string) {
+    const ok = await deleteDrawingTemplateRemote(id);
+    if (!ok) return;
+    setTemplates((prev) => {
+      const next = (prev ?? []).filter((t) => t.id !== id);
+      if (activeTemplateId === id && next.length) selectTemplate(next[0].id);
+      return next;
+    });
+  }
+
+  if (!templates || activeTemplateId === null) {
     return <div className="flex h-full items-center justify-center text-[13px] text-text-faint">Đang tải template…</div>;
   }
 
-  const activeTemplate = templatesState.templates.find((t) => t.id === templatesState.activeTemplateId) ?? templatesState.templates[0];
+  const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? templates[0];
 
   return (
     <>
@@ -1220,17 +1291,20 @@ export function DrawingSheetA4({
         material={material}
         template={activeTemplate}
         onOpenManager={() => setManagerOpen(true)}
-        templateOptions={templatesState.templates.map((t) => ({ id: t.id, name: t.name }))}
+        templateOptions={templates.map((t) => ({ id: t.id, name: t.name }))}
         activeTemplateId={activeTemplate.id}
         onSelectTemplate={selectTemplate}
         onClose={onClose}
       />
       {managerOpen && (
         <TemplateManager
-          templates={templatesState.templates}
+          templates={templates}
           activeTemplateId={activeTemplate.id}
+          canManage={canManage}
           onSelectTemplate={selectTemplate}
-          onChangeTemplates={updateTemplates}
+          onCreateTemplate={createTemplate}
+          onUpdateTemplate={updateTemplate}
+          onDeleteTemplate={deleteTemplate}
           onClose={() => setManagerOpen(false)}
         />
       )}

@@ -64,6 +64,7 @@ import { RoundProfileForm } from "@/components/breakdown/studio/RoundProfileForm
 import { ShapeTabs } from "@/components/breakdown/studio/ShapeTabs";
 import { SteelFrameForm } from "@/components/breakdown/studio/SteelFrameForm";
 import { DrawingSheetA4 } from "@/components/breakdown/studio/DrawingSheetA4";
+import { MultiDrawingExport } from "@/components/breakdown/studio/MultiDrawingExport";
 import { BomSheet } from "@/components/breakdown/studio/BomSheet";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
@@ -365,6 +366,7 @@ function BreakdownStudio({ id }: { id: string }) {
   }, [products, activeId, hydrated, id]);
   const [showDrawing, setShowDrawing] = useState(false);
   const [showBom, setShowBom] = useState(false);
+  const [showMultiExport, setShowMultiExport] = useState(false);
 
   const active = products.find((p) => p.id === activeId) ?? products[0];
 
@@ -876,6 +878,11 @@ function BreakdownStudio({ id }: { id: string }) {
   }
 
   function addProduct() {
+    // Refuse to touch the product list before the server-confirmed list has
+    // actually loaded — acting on the pre-hydration placeholder (or mid-GET)
+    // state here would POST/DELETE against a `dbIdByCodeRef` that doesn't
+    // yet reflect what's really in the database.
+    if (!hydrated) return;
     const product = createProduct(productSeqRef.current++);
     setProducts((prev) => [...prev, product]);
     setActiveId(product.id);
@@ -895,6 +902,10 @@ function BreakdownStudio({ id }: { id: string }) {
   }
 
   function removeProduct(code: string) {
+    // Same pre-hydration guard as addProduct — never delete against a
+    // product list/dbIdByCodeRef that hasn't been confirmed from the server
+    // yet.
+    if (!hydrated) return;
     if (products.length <= 1) return; // always keep at least one product
     setProducts((prev) => prev.filter((p) => p.id !== code));
     if (code === activeId) {
@@ -925,17 +936,29 @@ function BreakdownStudio({ id }: { id: string }) {
           <span className="text-[13px] text-text-faint">Bóc tách kỹ thuật ·</span>
           <span className="text-[13px] font-semibold text-text">{breakdownName}</span>
         </div>
-        <Link
-          href="/breakdown"
-          className="rounded-md border border-line bg-white px-3 py-1 text-[12.5px] font-semibold text-text-muted hover:bg-bg hover:text-text"
-        >
-          ← Bóc tách kỹ thuật
-        </Link>
+        <div className="flex items-center gap-3">
+          <ActionBar exportEnabled={!!drawingInput} onExportDrawing={() => setShowDrawing(true)} bomEnabled={bomEnabled} onCalculateBom={() => setShowBom(true)} />
+          {products.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setShowMultiExport(true)}
+              className="flex h-8 items-center justify-center rounded-md border border-line bg-white px-3 text-[12.5px] font-bold text-text hover:bg-bg"
+            >
+              Xuất gộp nhiều SP
+            </button>
+          )}
+          <Link
+            href="/breakdown"
+            className="rounded-md border border-line bg-white px-3 py-1 text-[12.5px] font-semibold text-text-muted hover:bg-bg hover:text-text"
+          >
+            ← Bóc tách kỹ thuật
+          </Link>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1">
         {/* Left: sản phẩm + nhập liệu */}
-        <div className="flex w-[480px] flex-shrink-0 flex-col gap-4 overflow-y-auto border-r border-line bg-bg p-4">
+        <div className="flex w-[720px] flex-shrink-0 flex-col gap-4 overflow-y-auto border-r border-line bg-bg p-4">
           <ProductList
             products={products}
             activeId={active.id}
@@ -1049,13 +1072,11 @@ function BreakdownStudio({ id }: { id: string }) {
                 : { minZ: 0, maxZ: Math.max(...active.rings.map((r) => r.z), 1) }
             }
           />
-
-          <ActionBar exportEnabled={!!drawingInput} onExportDrawing={() => setShowDrawing(true)} bomEnabled={bomEnabled} onCalculateBom={() => setShowBom(true)} />
         </div>
 
         {/* Right: 2 view (khung sắt | solid) phía trên, thông số khung sắt phía dưới */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1">
+          <div className="flex min-h-[240px] flex-1 basis-0">
             <div className="w-1/2 border-r border-line">
               {active.shape === "round" && frameResult ? (
                 <FrameScene result={frameResult} bounds={bounds} liftLid={active.lid.mode === "cover"} />
@@ -1095,11 +1116,13 @@ function BreakdownStudio({ id }: { id: string }) {
               )}
             </div>
           </div>
-          <div className="max-h-[38%] flex-shrink-0 overflow-y-auto border-t border-line bg-surface p-4">
+          <div className="min-h-[160px] flex-1 basis-0 overflow-y-auto border-t border-line bg-surface p-4">
             {isRect ? (
               <RectFrameForm
                 rectFrame={active.rectFrame}
                 frame={active.frame}
+                lid={active.lid}
+                hasHorizontalRings={active.rectProfile.horizontalRings.length > 0}
                 onChangeRectFrame={(rectFrame) => updateActive({ rectFrame })}
                 onChangeFrame={(frame) => updateActive({ frame })}
               />
@@ -1107,6 +1130,8 @@ function BreakdownStudio({ id }: { id: string }) {
               <OvalFrameForm
                 ovalFrame={active.ovalFrame}
                 frame={active.frame}
+                lid={active.lid}
+                hasHorizontalRings={active.ovalProfile.rings.length > 2}
                 onChangeOvalFrame={(ovalFrame) => updateActive({ ovalFrame })}
                 onChangeFrame={(frame) => updateActive({ frame })}
               />
@@ -1114,6 +1139,8 @@ function BreakdownStudio({ id }: { id: string }) {
               <EllipseFrameForm
                 ellipseFrame={active.ellipseFrame}
                 frame={active.frame}
+                lid={active.lid}
+                hasHorizontalRings={active.ellipseProfile.rings.length > 2}
                 onChangeEllipseFrame={(ellipseFrame) => updateActive({ ellipseFrame })}
                 onChangeFrame={(frame) => updateActive({ frame })}
               />
@@ -1124,6 +1151,7 @@ function BreakdownStudio({ id }: { id: string }) {
                 segmentCount={Math.max(active.rings.length - 1, 1)}
                 lid={active.lid}
                 handle={active.handle}
+                hasHorizontalRings={active.rings.length > 2}
               />
             )}
           </div>
@@ -1145,6 +1173,10 @@ function BreakdownStudio({ id }: { id: string }) {
             />
           </div>
         </div>
+      )}
+
+      {showMultiExport && (
+        <MultiDrawingExport products={products} breakdownName={breakdownName} onClose={() => setShowMultiExport(false)} />
       )}
 
       {showBom && bomEnabled && (

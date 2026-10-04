@@ -1,6 +1,6 @@
 "use client";
 
-import type { FrameInput, OvalFrameInput } from "@/lib/breakdown/geometry/types";
+import type { FrameInput, LidInput, OvalFrameInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
 
 const COLOR_PRESETS = [
@@ -22,11 +22,13 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 interface OvalFrameFormProps {
   ovalFrame: OvalFrameInput;
   frame: FrameInput;
+  lid: LidInput;
+  hasHorizontalRings: boolean;
   onChangeOvalFrame: (ovalFrame: OvalFrameInput) => void;
   onChangeFrame: (frame: FrameInput) => void;
 }
 
-export function OvalFrameForm({ ovalFrame, frame, onChangeOvalFrame, onChangeFrame }: OvalFrameFormProps) {
+export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onChangeOvalFrame, onChangeFrame }: OvalFrameFormProps) {
   function set<K extends keyof OvalFrameInput>(key: K, value: OvalFrameInput[K]) {
     onChangeOvalFrame({ ...ovalFrame, [key]: value });
   }
@@ -77,14 +79,16 @@ export function OvalFrameForm({ ovalFrame, frame, onChangeOvalFrame, onChangeFra
           )}
         </Column>
 
-        <Column title="Vòng ngang">
-          <Field label="Vị trí vòng">
-            <select value={frame.ringPlacement} onChange={(e) => setFrame("ringPlacement", e.target.value as FrameInput["ringPlacement"])} className={selectClass}>
-              <option value="outside">Nằm ngoài nan dọc</option>
-              <option value="inside">Nằm trong nan dọc</option>
-            </select>
-          </Field>
-        </Column>
+        {hasHorizontalRings && (
+          <Column title="Vòng ngang">
+            <Field label="Vị trí vòng">
+              <select value={frame.ringPlacement} onChange={(e) => setFrame("ringPlacement", e.target.value as FrameInput["ringPlacement"])} className={selectClass}>
+                <option value="outside">Nằm ngoài nan dọc</option>
+                <option value="inside">Nằm trong nan dọc</option>
+              </select>
+            </Field>
+          </Column>
+        )}
 
         <Column title="Đáy">
           <Field label="Hướng nan">
@@ -98,17 +102,19 @@ export function OvalFrameForm({ ovalFrame, frame, onChangeOvalFrame, onChangeFra
           </Field>
         </Column>
 
-        <Column title="Nắp">
-          <Field label="Hướng nan">
-            <select value={ovalFrame.lidDirection} onChange={(e) => set("lidDirection", e.target.value as OvalFrameInput["lidDirection"])} className={selectClass}>
-              <option value="length">Theo chiều dài</option>
-              <option value="width">Theo chiều rộng</option>
-            </select>
-          </Field>
-          <Field label="Số nan (0 = không có nan)">
-            <input type="number" min={0} value={ovalFrame.lidCount} onChange={(e) => set("lidCount", Number(e.target.value))} className={inputClass} />
-          </Field>
-        </Column>
+        {lid.mode !== "none" && (
+          <Column title="Nắp">
+            <Field label="Hướng nan">
+              <select value={ovalFrame.lidDirection} onChange={(e) => set("lidDirection", e.target.value as OvalFrameInput["lidDirection"])} className={selectClass}>
+                <option value="length">Theo chiều dài</option>
+                <option value="width">Theo chiều rộng</option>
+              </select>
+            </Field>
+            <Field label="Số nan (0 = không có nan)">
+              <input type="number" min={0} value={ovalFrame.lidCount} onChange={(e) => set("lidCount", Number(e.target.value))} className={inputClass} />
+            </Field>
+          </Column>
+        )}
 
         <Column title="FI sắt">
           <Field label="Chế độ FI">
@@ -157,9 +163,11 @@ export function OvalFrameForm({ ovalFrame, frame, onChangeOvalFrame, onChangeFra
             <Field label="Miệng">
               <input type="number" value={frame.topDiameter} onChange={(e) => setFrame("topDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
-            <Field label="Vòng ngang thân">
-              <input type="number" value={frame.bodyDiameter} onChange={(e) => setFrame("bodyDiameter", Number(e.target.value))} className={inputClass} />
-            </Field>
+            {hasHorizontalRings && (
+              <Field label="Vòng ngang thân">
+                <input type="number" value={frame.bodyDiameter} onChange={(e) => setFrame("bodyDiameter", Number(e.target.value))} className={inputClass} />
+              </Field>
+            )}
             <Field label="Đáy (viền)">
               <input type="number" value={frame.bottomRimDiameter} onChange={(e) => setFrame("bottomRimDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
@@ -169,9 +177,11 @@ export function OvalFrameForm({ ovalFrame, frame, onChangeOvalFrame, onChangeFra
             <Field label="Nan đáy">
               <input type="number" value={frame.bottomParallelDiameter} onChange={(e) => setFrame("bottomParallelDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
-            <Field label="Nan nắp">
-              <input type="number" value={frame.lidParallelDiameter} onChange={(e) => setFrame("lidParallelDiameter", Number(e.target.value))} className={inputClass} />
-            </Field>
+            {lid.mode !== "none" && (
+              <Field label="Nan nắp">
+                <input type="number" value={frame.lidParallelDiameter} onChange={(e) => setFrame("lidParallelDiameter", Number(e.target.value))} className={inputClass} />
+              </Field>
+            )}
           </div>
         </div>
       )}

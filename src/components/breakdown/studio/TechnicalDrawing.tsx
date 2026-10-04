@@ -266,7 +266,7 @@ function DiameterDim({
   if (settings.hidden) return null;
   const offset = settings.offset ?? defaultOffset;
   const y = toY(ring.zMm) + offset;
-  const text = settings.valueOverride ?? (isRound ? `Ø${ring.diameterMm}` : `${ring.diameterMm}`);
+  const text = settings.valueOverride ?? (isRound ? `Ø${Math.round(ring.diameterMm)}` : `${Math.round(ring.diameterMm)}`);
   const ringY = toY(ring.zMm);
   const { color: itemColor, fontSize: itemFontSize } = resolveDimStyle(settings, color, fontSize);
   const select = () => onSelectDim?.(id);
@@ -351,7 +351,7 @@ function HeightChain({
   const totalSettings = dimSettings[totalId] ?? EMPTY_DIM;
   const totalOffset = totalSettings.offset ?? 0;
   const ox = outerX + totalOffset;
-  const total = Math.abs(rings[0].zMm - rings[rings.length - 1].zMm);
+  const total = Math.round(Math.abs(rings[0].zMm - rings[rings.length - 1].zMm));
 
   return (
     <g>
@@ -368,7 +368,7 @@ function HeightChain({
         const ya = toY(r.zMm);
         const yb = toY(next.zMm);
         const mid = (ya + yb) / 2;
-        const height = Math.abs(r.zMm - next.zMm);
+        const height = Math.round(Math.abs(r.zMm - next.zMm));
         const text = settings.valueOverride ?? `${height}`;
         const { color: itemColor, fontSize: itemFontSize } = resolveDimStyle(settings, color, fontSize);
         const select = () => onSelectDim?.(id);
@@ -521,7 +521,7 @@ function HandleDims({
           <DimText
             x={0}
             y={dimY - 4}
-            text={wSettings.valueOverride ?? `Quai ${handle.width}`}
+            text={wSettings.valueOverride ?? `Quai ${Math.round(handle.width)}`}
             fontSize={w.fontSize}
             color={w.color}
             selected={selectedId === wId}
@@ -557,7 +557,7 @@ function HandleDims({
           <DimText
             x={sideX + 6}
             y={(yBase + yApex) / 2 + fontSize * 0.35}
-            text={hSettings.valueOverride ?? `${handle.height}`}
+            text={hSettings.valueOverride ?? `${Math.round(handle.height)}`}
             fontSize={h.fontSize}
             color={h.color}
             anchor="start"
@@ -661,7 +661,7 @@ function CutoutHandleDims({
           <DimText
             x={0}
             y={wy - 4}
-            text={wSettings.valueOverride ?? `${handle.cutoutWidth}`}
+            text={wSettings.valueOverride ?? `${Math.round(handle.cutoutWidth)}`}
             fontSize={w.fontSize}
             color={w.color}
             selected={selectedId === wId}
@@ -697,7 +697,7 @@ function CutoutHandleDims({
           <DimText
             x={offsetX + 6}
             y={(yMouth + yUpper) / 2 + fontSize * 0.35}
-            text={offsetSettings.valueOverride ?? `${handle.cutoutOffset}`}
+            text={offsetSettings.valueOverride ?? `${Math.round(handle.cutoutOffset)}`}
             fontSize={o.fontSize}
             color={o.color}
             anchor="start"
@@ -734,7 +734,7 @@ function CutoutHandleDims({
           <DimText
             x={depthX + 6}
             y={(yUpper + yLower) / 2 + fontSize * 0.35}
-            text={depthSettings.valueOverride ?? `${handle.cutoutDepth}`}
+            text={depthSettings.valueOverride ?? `${Math.round(handle.cutoutDepth)}`}
             fontSize={d.fontSize}
             color={d.color}
             anchor="start"

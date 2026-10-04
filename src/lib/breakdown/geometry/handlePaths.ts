@@ -191,13 +191,53 @@ function computeCutoutPaths(top: Section, samples: Sample[], handle: HandleInput
   return paths;
 }
 
+// Round variant of the cutout handle: one full circular opening (diameter =
+// cutoutWidth, cutoutDepth unused — a circle has no separate depth) per
+// side, instead of the rect cutout's rounded rectangle. Only ONE member
+// shape per side here — the circle's own rim, traced on the curved body
+// surface. Unlike the rect cutout, there's no "side bars reconnecting to
+// the mouth" member to draw: when there's a gap (cutoutOffset > 0), the
+// reconnecting piece above the circle is just the EXISTING central vertical
+// rib's own upper remnant, already produced by frameEngine.ts's addVerticals
+// (its cutRange cuts that rib through exactly the circle's vertical span,
+// instead of truncating it above `low` the way the rect cutout does — a
+// rect cutout has no "reconnect above" because its own side bars already
+// reach the mouth; the round opening has no side bars, so that same central
+// rib (cut, not replaced) is what bridges the gap instead.
+function computeRoundCutoutPaths(top: Section, samples: Sample[], handle: HandleInput): THREE.Vector3[][] {
+  const paths: THREE.Vector3[][] = [];
+  const mouthZ = top.zMm;
+  const offset = Math.max(handle.cutoutOffset, 0);
+  const diameter = Math.max(handle.cutoutWidth, 10);
+  const radius = diameter / 2;
+  const zTop = mouthZ - offset;
+  const zCenter = zTop - radius;
+  const segments = 48;
+
+  for (let side = 0; side < 2; side++) {
+    const center = side === 0 ? 0 : Math.PI;
+
+    const ring: THREE.Vector3[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const theta = (2 * Math.PI * i) / segments;
+      const x = radius * Math.cos(theta);
+      const z = zCenter + radius * Math.sin(theta);
+      ring.push(surfacePointAtLocalChord(samples, z, center, x));
+    }
+    paths.push(ring);
+  }
+  return paths;
+}
+
 // One path per physical member (2 sides x N lines for standing, or the
 // left/right/lower[/upper] bars per side for cutout). Each path is a plain
 // point list — the caller decides whether to sweep it into a steel tube
 // (FrameEngine) or draw it as a thin guide line (Solid view).
 export function computeHandlePaths(top: Section, samples: Sample[], handle: HandleInput): THREE.Vector3[][] {
   if (handle.type === "none") return [];
-  if (handle.type === "cutout") return computeCutoutPaths(top, samples, handle);
+  if (handle.type === "cutout") {
+    return handle.cutoutShape === "round" ? computeRoundCutoutPaths(top, samples, handle) : computeCutoutPaths(top, samples, handle);
+  }
   return computeStandingPaths(top, handle);
 }
 

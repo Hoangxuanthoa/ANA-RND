@@ -89,9 +89,12 @@ interface SteelFrameFormProps {
   segmentCount: number; // rings.length - 1, drives the per-curve count fields
   lid: LidInput;
   handle: HandleInput;
+  // Whether the body actually has any middle rings beyond mouth/base — with
+  // none, "Vị trí vòng" has nothing to place, so the whole column is noise.
+  hasHorizontalRings: boolean;
 }
 
-export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle }: SteelFrameFormProps) {
+export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, hasHorizontalRings }: SteelFrameFormProps) {
   function set<K extends keyof FrameInput>(key: K, value: FrameInput[K]) {
     onChange({ ...frame, [key]: value });
   }
@@ -141,18 +144,20 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle }: S
           )}
         </Column>
 
-        <Column title="Vòng ngang">
-          <Field label="Vị trí vòng">
-            <select
-              value={frame.ringPlacement}
-              onChange={(e) => set("ringPlacement", e.target.value as FrameInput["ringPlacement"])}
-              className={selectClass}
-            >
-              <option value="outside">Nằm ngoài nan dọc</option>
-              <option value="inside">Nằm trong nan dọc</option>
-            </select>
-          </Field>
-        </Column>
+        {hasHorizontalRings && (
+          <Column title="Vòng ngang">
+            <Field label="Vị trí vòng">
+              <select
+                value={frame.ringPlacement}
+                onChange={(e) => set("ringPlacement", e.target.value as FrameInput["ringPlacement"])}
+                className={selectClass}
+              >
+                <option value="outside">Nằm ngoài nan dọc</option>
+                <option value="inside">Nằm trong nan dọc</option>
+              </select>
+            </Field>
+          </Column>
+        )}
 
         <Column title="Đáy">
           <PatternFields
@@ -169,6 +174,7 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle }: S
           />
         </Column>
 
+        {lid.mode !== "none" && (
         <Column title="Nắp">
           {lid.mode === "cover" && (
             <Field label="Số nan dọc thân nắp">
@@ -206,6 +212,7 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle }: S
             onParallelLinesChange={(v) => set("lidParallelLines", v)}
           />
         </Column>
+        )}
 
         <Column title="FI sắt">
           <Field label="Chế độ FI">
@@ -274,9 +281,11 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle }: S
             <Field label="Miệng">
               <input type="number" value={frame.topDiameter} onChange={(e) => set("topDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
-            <Field label="Vòng thân">
-              <input type="number" value={frame.bodyDiameter} onChange={(e) => set("bodyDiameter", Number(e.target.value))} className={inputClass} />
-            </Field>
+            {hasHorizontalRings && (
+              <Field label="Vòng thân">
+                <input type="number" value={frame.bodyDiameter} onChange={(e) => set("bodyDiameter", Number(e.target.value))} className={inputClass} />
+              </Field>
+            )}
             <Field label="Viền đáy">
               <input type="number" value={frame.bottomRimDiameter} onChange={(e) => set("bottomRimDiameter", Number(e.target.value))} className={inputClass} />
             </Field>

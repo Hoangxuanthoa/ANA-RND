@@ -33,15 +33,13 @@ function CornerFields({
   return (
     <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
       <span className="mb-2 block text-[11px] font-bold tracking-wide text-text-muted uppercase">{label}</span>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-4 gap-2.5">
         <Field label="Chiều cao (mm)">
           <input type="number" value={corner.z} onChange={(e) => onChange({ z: Number(e.target.value) })} className={inputClass} />
         </Field>
         <Field label="Góc bo R (mm)">
           <input type="number" min={0} value={corner.cornerR} onChange={(e) => onChange({ cornerR: Number(e.target.value) })} className={inputClass} />
         </Field>
-      </div>
-      <div className="mt-2.5 grid grid-cols-2 gap-2.5">
         {isSquare ? (
           <Field label="Kích thước (mm)">
             <input
@@ -162,7 +160,7 @@ function RectHandleCard({ handle, onChange }: { handle: HandleInput; onChange: (
 
       {handle.type === "standing" && (
         <>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          <div className="mt-2.5 grid grid-cols-4 gap-2.5">
             <Field label="Hình dạng quai">
               <select value={handle.shape} onChange={(e) => set("shape", e.target.value as HandleInput["shape"])} className={selectClass}>
                 <option value="curve">Cong</option>
@@ -175,8 +173,6 @@ function RectHandleCard({ handle, onChange }: { handle: HandleInput; onChange: (
                 <option value={2}>2</option>
               </select>
             </Field>
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
             <Field label="Chiều rộng (mm)">
               <input type="number" value={handle.width} onChange={(e) => set("width", Number(e.target.value))} className={inputClass} />
             </Field>
@@ -216,24 +212,20 @@ function RectHandleCard({ handle, onChange }: { handle: HandleInput; onChange: (
       )}
 
       {handle.type === "cutout" && (
-        <>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <Field label="Chiều rộng khoét (mm)">
-              <input type="number" value={handle.cutoutWidth} onChange={(e) => set("cutoutWidth", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Chiều sâu khoét (mm)">
-              <input type="number" value={handle.cutoutDepth} onChange={(e) => set("cutoutDepth", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <Field label="Cách miệng (mm)">
-              <input type="number" value={handle.cutoutOffset} onChange={(e) => set("cutoutOffset", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Bo góc (mm)">
-              <input type="number" value={handle.fillet} onChange={(e) => set("fillet", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </div>
-        </>
+        <div className="mt-2.5 grid grid-cols-4 gap-2.5">
+          <Field label="Chiều rộng khoét (mm)">
+            <input type="number" value={handle.cutoutWidth} onChange={(e) => set("cutoutWidth", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Chiều sâu khoét (mm)">
+            <input type="number" value={handle.cutoutDepth} onChange={(e) => set("cutoutDepth", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Cách miệng (mm)">
+            <input type="number" value={handle.cutoutOffset} onChange={(e) => set("cutoutOffset", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Bo góc (mm)">
+            <input type="number" value={handle.fillet} onChange={(e) => set("fillet", Number(e.target.value))} className={inputClass} />
+          </Field>
+        </div>
       )}
     </div>
   );
@@ -327,7 +319,7 @@ export function RectLidCard({ lid, isSquare, mouth, onChange }: { lid: LidInput;
       {lid.mode === "cover" && (
         <div className="mt-2.5 border-t border-line pt-2.5">
           <span className="text-[10px] font-bold tracking-wide text-text-faint uppercase">Nắp trùm</span>
-          <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+          <div className={`mt-1.5 grid gap-2.5 ${isSquare ? "grid-cols-2" : "grid-cols-3"}`}>
             {isSquare ? (
               <Field label={`${sizeLabel} miệng nắp (mm)`}>
                 <input
@@ -360,8 +352,6 @@ export function RectLidCard({ lid, isSquare, mouth, onChange }: { lid: LidInput;
                 </Field>
               </>
             )}
-          </div>
-          <div className="mt-2.5">
             <Field label="Chiều cao nắp (mm)">
               <input type="number" value={lid.height ?? 60} onChange={(e) => set("height", Number(e.target.value))} className={inputClass} />
             </Field>

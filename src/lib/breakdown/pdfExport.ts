@@ -167,35 +167,63 @@ export function sanitizeFileName(name: string): string {
   );
 }
 
-export async function exportDrawingSheetPdf({
-  productName,
-  companyName,
-  logoDataUrl,
-  titleBlockWidthMm,
-  fieldRowMinHeightMm,
-  fields,
-  views,
-  showViewFrame,
-}: {
-  productName: string;
-  companyName: string;
-  logoDataUrl: string | null;
-  titleBlockWidthMm: number;
-  fieldRowMinHeightMm: number;
-  fields: PdfTitleField[];
-  views: PdfViewSpec[];
-  showViewFrame: boolean;
-}): Promise<void> {
+// Minimal structural type for the jsPDF instance both createA4Pdf and
+// addDrawingSheetPage pass around — avoids a static top-level `import
+// type {jsPDF} from "jspdf"` pulling the real module in at module-eval time
+// for every caller of this file, matching the existing dynamic-import
+// convention (jsPDF/svg2pdf are only ever loaded inside these async
+// functions, right before they're actually needed).
+type PdfDoc = InstanceType<typeof import("jspdf").jsPDF>;
+
+// Creates and configures one shared A4 landscape document — callers that
+// export MULTIPLE products into one combined file create this ONCE, then
+// call addDrawingSheetPage once per product (with pdf.addPage() between
+// them), instead of each product getting its own separate PDF.
+export async function createA4Pdf(): Promise<PdfDoc> {
   const { jsPDF } = await import("jspdf");
-  const { svg2pdf } = await import("svg2pdf.js");
-
-  const flatLogo = logoDataUrl ? await flattenLogoOnWhite(logoDataUrl) : null;
-
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   await ensureManropeFont(pdf);
   pdf.setFont("Manrope", "normal");
   pdf.setLineWidth(THIN_LINE_MM);
   pdf.setDrawColor(0); // view-cell borders/dividers black, matching the on-screen panel
+  return pdf;
+}
+
+// Draws one product's A4 sheet (views grid + title block) onto `pdf`'s
+// CURRENT page — the caller is responsible for calling pdf.addPage() first
+// when this isn't the first sheet in the document. Split out of
+// exportDrawingSheetPdf (below, which still creates its own single-page
+// document and saves it — unchanged for every existing single-product
+// caller) so a multi-product export can reuse the exact same per-sheet
+// drawing logic without re-deriving it.
+export async function addDrawingSheetPage(
+  pdf: PdfDoc,
+  {
+    productName,
+    companyName,
+    logoDataUrl,
+    titleBlockWidthMm,
+    fieldRowMinHeightMm,
+    fields,
+    views,
+    showViewFrame,
+  }: {
+    productName: string;
+    companyName: string;
+    logoDataUrl: string | null;
+    titleBlockWidthMm: number;
+    fieldRowMinHeightMm: number;
+    fields: PdfTitleField[];
+    views: PdfViewSpec[];
+    showViewFrame: boolean;
+  },
+): Promise<void> {
+  const { svg2pdf } = await import("svg2pdf.js");
+
+  const flatLogo = logoDataUrl ? await flattenLogoOnWhite(logoDataUrl) : null;
+  pdf.setFont("Manrope", "normal");
+  pdf.setLineWidth(THIN_LINE_MM);
+  pdf.setDrawColor(0);
 
   const drawAreaX = MARGIN;
   const drawAreaY = MARGIN;
@@ -299,6 +327,21 @@ export async function exportDrawingSheetPdf({
     rowY += rowValueH;
     pdf.line(tbX, rowY, tbX + titleBlockWidthMm, rowY);
   }
+}
 
-  pdf.save(`${sanitizeFileName(productName)}-ban-ve.pdf`);
+// Single-product export — unchanged behaviour/signature for every existing
+// caller: creates its own one-page document, draws the sheet, saves it.
+export async function exportDrawingSheetPdf(params: {
+  productName: string;
+  companyName: string;
+  logoDataUrl: string | null;
+  titleBlockWidthMm: number;
+  fieldRowMinHeightMm: number;
+  fields: PdfTitleField[];
+  views: PdfViewSpec[];
+  showViewFrame: boolean;
+}): Promise<void> {
+  const pdf = await createA4Pdf();
+  await addDrawingSheetPage(pdf, params);
+  pdf.save(`${sanitizeFileName(params.productName)}-ban-ve.pdf`);
 }

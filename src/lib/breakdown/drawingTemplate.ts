@@ -133,33 +133,66 @@ export function computeGridLayout(n: number): { cols: number; rows: number } {
   return { cols, rows };
 }
 
-const TEMPLATES_KEY = "drawing-templates-v1";
-export interface PersistedTemplates {
-  templates: DrawingTemplate[];
-  activeTemplateId: string;
+// Templates themselves are GLOBAL, Admin-managed, server-backed (see
+// /api/drawing-templates) — every role that can open the breakdown studio
+// reads the same shared list; only Admin can create/edit/delete (see
+// canManageDrawingTemplates). Which one THIS browser currently has picked
+// to export with is a much lighter, per-user preference that doesn't need
+// sharing or write permission, so it alone stays in local IndexedDB (see
+// loadActiveTemplateId/saveActiveTemplateId below).
+function normalizeTemplate(t: Partial<DrawingTemplate> & { id: string; name: string }): DrawingTemplate {
+  return {
+    id: t.id,
+    name: t.name,
+    companyName: t.companyName ?? "",
+    logoDataUrl: t.logoDataUrl ?? null,
+    views: t.views ?? ["front", "left", "top", "iso"],
+    fields: t.fields ?? [],
+    titleBlockWidthMm: t.titleBlockWidthMm ?? DEFAULT_TITLE_BLOCK_WIDTH_MM,
+    fieldRowMinHeightMm: t.fieldRowMinHeightMm ?? DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
+    showViewFrame: t.showViewFrame ?? true,
+  };
 }
 
-export async function loadTemplates(): Promise<PersistedTemplates> {
-  const saved = await loadState<PersistedTemplates>(TEMPLATES_KEY);
-  if (saved && saved.templates?.length) {
-    // Forward-compat: templates saved before titleBlockWidthMm/
-    // fieldRowMinHeightMm existed still deserialize fine, just missing the
-    // fields — fill them in here rather than making every reader handle
-    // `undefined`.
-    return {
-      ...saved,
-      templates: saved.templates.map((t) => ({
-        ...t,
-        titleBlockWidthMm: t.titleBlockWidthMm ?? DEFAULT_TITLE_BLOCK_WIDTH_MM,
-        fieldRowMinHeightMm: t.fieldRowMinHeightMm ?? DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
-        showViewFrame: t.showViewFrame ?? true,
-      })),
-    };
-  }
-  const def = createDefaultTemplate();
-  return { templates: [def], activeTemplateId: def.id };
+export async function fetchDrawingTemplates(): Promise<DrawingTemplate[]> {
+  const res = await fetch("/api/drawing-templates");
+  if (!res.ok) return [createDefaultTemplate()];
+  const data = await res.json();
+  const templates = (data.templates ?? []) as DrawingTemplate[];
+  return templates.length ? templates.map(normalizeTemplate) : [createDefaultTemplate()];
 }
 
-export async function saveTemplates(state: PersistedTemplates): Promise<void> {
-  await saveState(TEMPLATES_KEY, state);
+export async function createDrawingTemplateRemote(template: DrawingTemplate): Promise<DrawingTemplate | null> {
+  const res = await fetch("/api/drawing-templates", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(template),
+  });
+  if (!res.ok) return null;
+  return normalizeTemplate(await res.json());
+}
+
+export async function updateDrawingTemplateRemote(id: string, patch: Partial<DrawingTemplate>): Promise<DrawingTemplate | null> {
+  const res = await fetch(`/api/drawing-templates/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) return null;
+  return normalizeTemplate(await res.json());
+}
+
+export async function deleteDrawingTemplateRemote(id: string): Promise<boolean> {
+  const res = await fetch(`/api/drawing-templates/${id}`, { method: "DELETE" });
+  return res.ok;
+}
+
+const ACTIVE_TEMPLATE_KEY = "drawing-active-template-id-v1";
+
+export async function loadActiveTemplateId(): Promise<string | null> {
+  return (await loadState<string>(ACTIVE_TEMPLATE_KEY)) ?? null;
+}
+
+export async function saveActiveTemplateId(id: string): Promise<void> {
+  await saveState(ACTIVE_TEMPLATE_KEY, id);
 }

@@ -176,29 +176,33 @@ function pushTube(tubes: FrameTube[], pts: THREE.Vector3[], dia: number, opts?: 
 // A cutout handle removes the part of whichever vertical rib sits at the
 // exact centre of each opening (angle 0 / angle π) that falls inside the
 // opening's Z band — matching ANASU's build_split_cutout_vertical instead
-// of running the rod straight through. `cutBottom` is the GLOBAL cutout
-// floor (computed once from the mouth), never a per-segment value — reusing
+// of running the rod straight through. `cutRange` is the GLOBAL cutout
+// band (computed once from the mouth), never a per-segment value — reusing
 // a segment's own local top/bottom here was the bug that cut an unrelated
 // second gap lower down the rib in "per segment" (per_curve) mode.
-function pushVerticalOrSplit(tubes: FrameTube[], pts: THREE.Vector3[], dia: number, cutBottom: number | null, part?: BomPart) {
-  if (cutBottom === null) {
+//
+// `high` is finite only for a ROUND opening: a rect cutout's own side bars
+// (computeCutoutPaths) already reach the mouth, so the rib just truncates at
+// `low` with nothing above. A round opening has no side bars — just a
+// circular rim — so the rib instead resumes above `high` (the circle's own
+// top) and runs up to the mouth, reconnecting through the gap exactly like
+// handlePaths.ts's computeRoundCutoutPaths draws it.
+function pushVerticalOrSplit(tubes: FrameTube[], pts: THREE.Vector3[], dia: number, cutRange: { low: number; high: number } | null, part?: BomPart) {
+  if (cutRange === null) {
     pushTube(tubes, pts, dia, { part });
     return;
   }
+  const { low, high } = cutRange;
   const segTop = Math.max(...pts.map((p) => p.z));
   const segBottom = Math.min(...pts.map((p) => p.z));
-  if (segTop <= cutBottom + 0.001) {
-    // Entirely below the opening — draw unchanged.
-    pushTube(tubes, pts, dia, { part });
-    return;
+
+  if (segBottom < low - 0.001) {
+    const lower = pathSliceBetweenZ(pts, segBottom, Math.min(low, segTop));
+    if (lower.length >= 2) pushTube(tubes, lower, dia, { part });
   }
-  if (segBottom >= cutBottom - 0.001) {
-    // Entirely inside/above the opening — this piece doesn't exist.
-    return;
-  }
-  const lower = pathSliceBetweenZ(pts, segBottom, cutBottom);
-  if (lower.length >= 2) {
-    pushTube(tubes, lower, dia, { part });
+  if (Number.isFinite(high) && segTop > high + 0.001) {
+    const upper = pathSliceBetweenZ(pts, Math.max(high, segBottom), segTop);
+    if (upper.length >= 2) pushTube(tubes, upper, dia, { part });
   }
 }
 
@@ -238,8 +242,16 @@ function scallopVerticalPoints(samples: Sample[], geo: ScallopGeometry, angle: n
 
 function addVerticals(tubes: FrameTube[], sections: Section[], samples: Sample[], handle: HandleInput, spec: ResolvedSpec, scallop: ScallopInput) {
   const dia = spec.diameters.vertical;
-  const cutBottom =
-    handle.type === "cutout" ? sections[0].zMm - Math.max(handle.cutoutOffset, 0) - Math.max(handle.cutoutDepth, 5) : null;
+  const cutRange: { low: number; high: number } | null =
+    handle.type !== "cutout"
+      ? null
+      : handle.cutoutShape === "round"
+        ? (() => {
+            const zTop = sections[0].zMm - Math.max(handle.cutoutOffset, 0);
+            const radius = Math.max(handle.cutoutWidth, 10) / 2;
+            return { low: zTop - 2 * radius, high: zTop };
+          })()
+        : { low: sections[0].zMm - Math.max(handle.cutoutOffset, 0) - Math.max(handle.cutoutDepth, 5), high: Infinity };
   const part: BomPart = { group: "Thân", label: "Nan dọc" };
 
   if (scallop.enabled) {
@@ -266,7 +278,7 @@ function addVerticals(tubes: FrameTube[], sections: Section[], samples: Sample[]
       for (let j = 0; j < n; j++) {
         const angle = (Math.PI * 2 * j) / n;
         const pts = segSamples.map(([r, z]) => polarPoint(r, angle, z));
-        pushVerticalOrSplit(tubes, pts, dia, cutoutCentralRib(j, n) ? cutBottom : null, part);
+        pushVerticalOrSplit(tubes, pts, dia, cutoutCentralRib(j, n) ? cutRange : null, part);
       }
     }
     return;
@@ -275,7 +287,7 @@ function addVerticals(tubes: FrameTube[], sections: Section[], samples: Sample[]
   for (let i = 0; i < spec.verticalCount; i++) {
     const angle = (Math.PI * 2 * i) / spec.verticalCount;
     const pts = samples.map(([r, z]) => polarPoint(r, angle, z));
-    pushVerticalOrSplit(tubes, pts, dia, cutoutCentralRib(i, spec.verticalCount) ? cutBottom : null, part);
+    pushVerticalOrSplit(tubes, pts, dia, cutoutCentralRib(i, spec.verticalCount) ? cutRange : null, part);
   }
 }
 

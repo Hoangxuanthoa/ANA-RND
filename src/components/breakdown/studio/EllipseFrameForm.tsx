@@ -1,6 +1,6 @@
 "use client";
 
-import type { EllipseFrameInput, FrameInput } from "@/lib/breakdown/geometry/types";
+import type { EllipseFrameInput, FrameInput, LidInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
 
 const COLOR_PRESETS = [
@@ -22,11 +22,13 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 interface EllipseFrameFormProps {
   ellipseFrame: EllipseFrameInput;
   frame: FrameInput;
+  lid: LidInput;
+  hasHorizontalRings: boolean;
   onChangeEllipseFrame: (ellipseFrame: EllipseFrameInput) => void;
   onChangeFrame: (frame: FrameInput) => void;
 }
 
-export function EllipseFrameForm({ ellipseFrame, frame, onChangeEllipseFrame, onChangeFrame }: EllipseFrameFormProps) {
+export function EllipseFrameForm({ ellipseFrame, frame, lid, hasHorizontalRings, onChangeEllipseFrame, onChangeFrame }: EllipseFrameFormProps) {
   function set<K extends keyof EllipseFrameInput>(key: K, value: EllipseFrameInput[K]) {
     onChangeEllipseFrame({ ...ellipseFrame, [key]: value });
   }
@@ -77,14 +79,16 @@ export function EllipseFrameForm({ ellipseFrame, frame, onChangeEllipseFrame, on
           )}
         </Column>
 
-        <Column title="Vòng ngang">
-          <Field label="Vị trí vòng">
-            <select value={frame.ringPlacement} onChange={(e) => setFrame("ringPlacement", e.target.value as FrameInput["ringPlacement"])} className={selectClass}>
-              <option value="outside">Nằm ngoài nan dọc</option>
-              <option value="inside">Nằm trong nan dọc</option>
-            </select>
-          </Field>
-        </Column>
+        {hasHorizontalRings && (
+          <Column title="Vòng ngang">
+            <Field label="Vị trí vòng">
+              <select value={frame.ringPlacement} onChange={(e) => setFrame("ringPlacement", e.target.value as FrameInput["ringPlacement"])} className={selectClass}>
+                <option value="outside">Nằm ngoài nan dọc</option>
+                <option value="inside">Nằm trong nan dọc</option>
+              </select>
+            </Field>
+          </Column>
+        )}
 
         <Column title="Đáy">
           <Field label="Hướng nan">
@@ -98,17 +102,19 @@ export function EllipseFrameForm({ ellipseFrame, frame, onChangeEllipseFrame, on
           </Field>
         </Column>
 
-        <Column title="Nắp">
-          <Field label="Hướng nan">
-            <select value={ellipseFrame.lidDirection} onChange={(e) => set("lidDirection", e.target.value as EllipseFrameInput["lidDirection"])} className={selectClass}>
-              <option value="length">Theo chiều dài</option>
-              <option value="width">Theo chiều rộng</option>
-            </select>
-          </Field>
-          <Field label="Số nan (0 = không có nan)">
-            <input type="number" min={0} value={ellipseFrame.lidCount} onChange={(e) => set("lidCount", Number(e.target.value))} className={inputClass} />
-          </Field>
-        </Column>
+        {lid.mode !== "none" && (
+          <Column title="Nắp">
+            <Field label="Hướng nan">
+              <select value={ellipseFrame.lidDirection} onChange={(e) => set("lidDirection", e.target.value as EllipseFrameInput["lidDirection"])} className={selectClass}>
+                <option value="length">Theo chiều dài</option>
+                <option value="width">Theo chiều rộng</option>
+              </select>
+            </Field>
+            <Field label="Số nan (0 = không có nan)">
+              <input type="number" min={0} value={ellipseFrame.lidCount} onChange={(e) => set("lidCount", Number(e.target.value))} className={inputClass} />
+            </Field>
+          </Column>
+        )}
 
         <Column title="FI sắt">
           <Field label="Chế độ FI">
@@ -157,9 +163,11 @@ export function EllipseFrameForm({ ellipseFrame, frame, onChangeEllipseFrame, on
             <Field label="Miệng">
               <input type="number" value={frame.topDiameter} onChange={(e) => setFrame("topDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
-            <Field label="Vòng ngang thân">
-              <input type="number" value={frame.bodyDiameter} onChange={(e) => setFrame("bodyDiameter", Number(e.target.value))} className={inputClass} />
-            </Field>
+            {hasHorizontalRings && (
+              <Field label="Vòng ngang thân">
+                <input type="number" value={frame.bodyDiameter} onChange={(e) => setFrame("bodyDiameter", Number(e.target.value))} className={inputClass} />
+              </Field>
+            )}
             <Field label="Đáy (viền)">
               <input type="number" value={frame.bottomRimDiameter} onChange={(e) => setFrame("bottomRimDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
@@ -169,9 +177,11 @@ export function EllipseFrameForm({ ellipseFrame, frame, onChangeEllipseFrame, on
             <Field label="Nan đáy">
               <input type="number" value={frame.bottomParallelDiameter} onChange={(e) => setFrame("bottomParallelDiameter", Number(e.target.value))} className={inputClass} />
             </Field>
-            <Field label="Nan nắp">
-              <input type="number" value={frame.lidParallelDiameter} onChange={(e) => setFrame("lidParallelDiameter", Number(e.target.value))} className={inputClass} />
-            </Field>
+            {lid.mode !== "none" && (
+              <Field label="Nan nắp">
+                <input type="number" value={frame.lidParallelDiameter} onChange={(e) => setFrame("lidParallelDiameter", Number(e.target.value))} className={inputClass} />
+              </Field>
+            )}
           </div>
         </div>
       )}

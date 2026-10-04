@@ -383,14 +383,32 @@ function cutoutSurfaceIntervals(radius: number, z: number, width: number, segmen
 function buildBodyGeometryWithCutout(samples: Sample[], handle: HandleInput, segments = DEFAULT_SEGMENTS): THREE.BufferGeometry {
   const mouthZ = samples[0][1];
   const offset = Math.max(handle.cutoutOffset, 0);
-  const depth = Math.max(handle.cutoutDepth, 5);
+  const isRound = handle.cutoutShape === "round";
+  // `cutoutWidth` doubles as the opening's diameter when round — a circle
+  // has no separate depth, so the band is forced to span exactly one
+  // diameter instead of reading the (irrelevant, possibly stale)
+  // cutoutDepth field.
   const width = Math.max(handle.cutoutWidth, 10);
+  const depth = isRound ? width : Math.max(handle.cutoutDepth, 5);
 
   const zs = samples.map((s) => s[1]);
   const maxZ = Math.max(...zs);
   const minZ = Math.min(...zs);
   const zTop = Math.min(mouthZ - offset, maxZ);
   const zBottom = Math.max(zTop - depth, minZ);
+  // Round: the opening's width at a given Z isn't constant like the rect
+  // cutout's — it tapers to a point at zTop/zBottom and is widest exactly
+  // at the circle's own mid-height, per the circle equation. This is the
+  // ONLY change needed to turn the rect cutout's banded loft into a true
+  // circular hole: cutoutSurfaceIntervals already just takes a width per
+  // row, so feeding it this instead of the constant `width` does the rest.
+  const zCenter = (zTop + zBottom) / 2;
+  const halfSpan = (zTop - zBottom) / 2;
+  function widthAtZ(z: number): number {
+    if (!isRound) return width;
+    const d = z - zCenter;
+    return 2 * Math.sqrt(Math.max(halfSpan * halfSpan - d * d, 0));
+  }
 
   const zValues = [...zs, zTop, zBottom].sort((a, b) => b - a);
   const uniqueZ: number[] = [];
@@ -423,8 +441,8 @@ function buildBodyGeometryWithCutout(samples: Sample[], handle: HandleInput, seg
     const inBand = zMid < zTop - EPSILON && zMid > zBottom + EPSILON;
 
     if (inBand) {
-      const intervalsA = cutoutSurfaceIntervals(ra, za, width, 24);
-      const intervalsB = cutoutSurfaceIntervals(rb, zb, width, 24);
+      const intervalsA = cutoutSurfaceIntervals(ra, za, widthAtZ(za), 24);
+      const intervalsB = cutoutSurfaceIntervals(rb, zb, widthAtZ(zb), 24);
       intervalsA.forEach((ia, idx) => {
         const ib = intervalsB[idx];
         const n = Math.min(ia.length, ib.length);

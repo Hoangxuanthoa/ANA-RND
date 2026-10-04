@@ -281,9 +281,13 @@ export interface HandleInput {
   leanMode: LeanMode;
   leanAngle: number; // degrees, only used when leanMode === "manual"
   fillet: number; // mm, corner rounding for shape === "square" and for cutout
-  cutoutWidth: number;
+  // Optional (not in older saves) — treat missing as "rect" everywhere this
+  // is read, same convention as every other field added to HandleInput
+  // after launch.
+  cutoutShape?: "rect" | "round";
+  cutoutWidth: number; // rect: opening width. round: opening diameter.
   cutoutOffset: number; // mm, gap from the mouth to the top of the cutout
-  cutoutDepth: number;
+  cutoutDepth: number; // rect only — round has no separate depth, the opening is a single circle
   side: RectAxis; // Rect/Square only: which pair of faces the handle sits on — "thường là ở cạnh rộng" (width faces), so that's the default
 }
 
@@ -297,6 +301,7 @@ export const DEFAULT_HANDLE: HandleInput = {
   leanMode: "center_axis",
   leanAngle: 0,
   fillet: 5,
+  cutoutShape: "rect",
   cutoutWidth: 90,
   cutoutOffset: 0,
   cutoutDepth: 40,

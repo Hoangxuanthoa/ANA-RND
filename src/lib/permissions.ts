@@ -25,6 +25,12 @@ export const canManageCollections = (role: Role) => role !== "CUSTOMER";
 // porting this into ANA-RND, same decision that added the PURCHASING role.
 export const canViewBreakdown = (role: Role) => role === "ADMIN" || role === "RND" || role === "PURCHASING";
 
+// Drawing export templates (title-block branding, views, fields) are
+// GLOBAL — shared by every breakdown/product, not owned by any one of them.
+// Admin alone creates/edits/deletes them; every other role that can open the
+// breakdown studio can still read the list and pick one to export with.
+export const canManageDrawingTemplates = (role: Role) => role === "ADMIN";
+
 // Which DRAFT collections show up when adding a product to one — same
 // ownership scoping as getPickableProjects: Admin sees every draft,
 // everyone else only the ones they created.

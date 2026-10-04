@@ -142,7 +142,7 @@ export function OvalProfileForm({ profile, lid, handle, photoCurve, onChange, on
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-3 gap-2.5">
               <Field label="Chiều cao (mm)">
                 <input
                   type="number"
@@ -168,8 +168,6 @@ export function OvalProfileForm({ profile, lid, handle, photoCurve, onChange, on
                   className={locked ? `${inputClass} bg-bg text-text-faint` : inputClass}
                 />
               </Field>
-            </div>
-            <div className="mt-2.5 grid grid-cols-2 items-end gap-2.5">
               <Field label="Chiều rộng (mm)">
                 <input
                   type="number"
@@ -179,8 +177,8 @@ export function OvalProfileForm({ profile, lid, handle, photoCurve, onChange, on
                   className={locked ? `${inputClass} bg-bg text-text-faint` : inputClass}
                 />
               </Field>
-              <span className="pb-2.5 text-[11px] text-text-faint">2 đầu bo tròn, R = Rộng/2</span>
             </div>
+            <p className="mt-1 text-[11px] text-text-faint">2 đầu bo tròn, R = Rộng/2</p>
 
             {nextLabel && !locked && (
               <div className="mt-2.5 grid grid-cols-2 gap-2.5">
@@ -254,7 +252,7 @@ function OvalHandleCard({ handle, onChange }: { handle: HandleInput; onChange: (
 
       {handle.type === "standing" && (
         <>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          <div className="mt-2.5 grid grid-cols-4 gap-2.5">
             <Field label="Hình dạng quai">
               <select value={handle.shape} onChange={(e) => set("shape", e.target.value as HandleInput["shape"])} className={selectClass}>
                 <option value="curve">Cong</option>
@@ -267,8 +265,6 @@ function OvalHandleCard({ handle, onChange }: { handle: HandleInput; onChange: (
                 <option value={2}>2</option>
               </select>
             </Field>
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
             <Field label="Chiều rộng (mm)">
               <input type="number" value={handle.width} onChange={(e) => set("width", Number(e.target.value))} className={inputClass} />
             </Field>
@@ -308,24 +304,20 @@ function OvalHandleCard({ handle, onChange }: { handle: HandleInput; onChange: (
       )}
 
       {handle.type === "cutout" && (
-        <>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <Field label="Chiều rộng khoét (mm)">
-              <input type="number" value={handle.cutoutWidth} onChange={(e) => set("cutoutWidth", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Chiều sâu khoét (mm)">
-              <input type="number" value={handle.cutoutDepth} onChange={(e) => set("cutoutDepth", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </div>
-          <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-            <Field label="Cách miệng (mm)">
-              <input type="number" value={handle.cutoutOffset} onChange={(e) => set("cutoutOffset", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Bo góc (mm)">
-              <input type="number" value={handle.fillet} onChange={(e) => set("fillet", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </div>
-        </>
+        <div className="mt-2.5 grid grid-cols-4 gap-2.5">
+          <Field label="Chiều rộng khoét (mm)">
+            <input type="number" value={handle.cutoutWidth} onChange={(e) => set("cutoutWidth", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Chiều sâu khoét (mm)">
+            <input type="number" value={handle.cutoutDepth} onChange={(e) => set("cutoutDepth", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Cách miệng (mm)">
+            <input type="number" value={handle.cutoutOffset} onChange={(e) => set("cutoutOffset", Number(e.target.value))} className={inputClass} />
+          </Field>
+          <Field label="Bo góc (mm)">
+            <input type="number" value={handle.fillet} onChange={(e) => set("fillet", Number(e.target.value))} className={inputClass} />
+          </Field>
+        </div>
       )}
     </div>
   );
