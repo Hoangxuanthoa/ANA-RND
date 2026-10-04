@@ -443,8 +443,9 @@ export function DrawingSheetContent({
   // Fires once — this component's `doc` is always fresh defaults on mount
   // (never persisted, see its useState initializer above), so "after the
   // first render" already IS "this product's default sheet, fully drawn" —
-  // no further settling to wait for.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // no further settling to wait for. Deliberately NOT re-run on every
+  // doc/template change like a normal effect would: it's a one-shot "report
+  // what mounted" signal, not a live subscription.
   useEffect(() => {
     if (!onCaptured) return;
     const views: PdfViewSpec[] = template.views.map((key) => ({
@@ -454,6 +455,7 @@ export function DrawingSheetContent({
       svgEl: cellRefs.current[key]?.querySelector("svg") ?? null,
     }));
     onCaptured({ views, fields: doc.fields.map((f) => ({ label: f.label, value: f.value })) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const customizedDimCount = Object.values(dimSettings).reduce((sum, map) => sum + Object.keys(map).length, 0);

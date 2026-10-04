@@ -199,7 +199,6 @@ export async function createA4Pdf(): Promise<PdfDoc> {
 export async function addDrawingSheetPage(
   pdf: PdfDoc,
   {
-    productName,
     companyName,
     logoDataUrl,
     titleBlockWidthMm,
@@ -208,7 +207,12 @@ export async function addDrawingSheetPage(
     views,
     showViewFrame,
   }: {
-    productName: string;
+    // Not read here — the title block's own "Tên bản vẽ" field (inside
+    // `fields`) already carries the product name onto the page; this is
+    // only still accepted (and ignored) so callers can pass the exact same
+    // params object exportDrawingSheetPdf's own signature takes, filename
+    // included, without having to shape two slightly different param types.
+    productName?: string;
     companyName: string;
     logoDataUrl: string | null;
     titleBlockWidthMm: number;

@@ -460,7 +460,7 @@ export function RoundProfileForm({
             )}
             {handle.type === "cutout" && handle.cutoutShape === "round" && (
               <p className="mt-1.5 text-[11px] text-text-faint">
-                Quai tròn: nan dọc tại tâm quai bị cắt đúng đoạn trong vòng tròn; nếu "Cách miệng" &gt; 0, một đoạn nan dọc ngắn sẽ nối từ
+                Quai tròn: nan dọc tại tâm quai bị cắt đúng đoạn trong vòng tròn; nếu &ldquo;Cách miệng&rdquo; &gt; 0, một đoạn nan dọc ngắn sẽ nối từ
                 đỉnh vòng tròn lên miệng.
               </p>
             )}
