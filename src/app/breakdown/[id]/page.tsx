@@ -949,6 +949,43 @@ function BreakdownStudio({ id }: { id: string }) {
     );
   }
 
+  // "Nhân bản" in ProductList: a full deep copy (shape, frame, material, saved
+  // drawing session…) inserted right after the original and selected. The
+  // product's own "Mã sản phẩm" is left blank on purpose so two products never
+  // share one; only the internal P00x id is new. It's POSTed like addProduct
+  // (which appends at the end), then the whole order is PUT so the copy ends up
+  // next to its source — both on the same chain as ▲/▼ so they can't race.
+  function duplicateProduct(code: string) {
+    if (!hydrated || readOnly) return;
+    const from = products.findIndex((p) => p.id === code);
+    if (from < 0) return;
+    const source = products[from];
+    const copy: ProductState = { ...structuredClone(source), id: `P${String(productSeqRef.current++).padStart(3, "0")}`, name: `${source.name} (bản sao)`, code: "" };
+    const next = [...products.slice(0, from + 1), copy, ...products.slice(from + 1)];
+    setProducts(next);
+    setActiveId(copy.id);
+    reorderChainRef.current = reorderChainRef.current.then(async () => {
+      try {
+        const res = await fetch(`/api/breakdowns/${id}/products`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code: copy.id, name: copy.name, data: copy }),
+        });
+        if (!res.ok) return;
+        const created: ApiProduct = await res.json();
+        dbIdByCodeRef.current[copy.id] = created.id;
+        const order = next.map((p) => dbIdByCodeRef.current[p.id]).filter((x): x is string => !!x);
+        await fetch(`/api/breakdowns/${id}/products/reorder`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ order }),
+        });
+      } catch {
+        // Autosave/reload will reconcile; nothing useful to surface here.
+      }
+    });
+  }
+
   function removeProduct(code: string) {
     // Same pre-hydration guard as addProduct — never delete against a
     // product list/dbIdByCodeRef that hasn't been confirmed from the server
@@ -1018,6 +1055,7 @@ function BreakdownStudio({ id }: { id: string }) {
             onAdd={addProduct}
             onRemove={removeProduct}
             onMove={moveProduct}
+            onDuplicate={duplicateProduct}
             onRename={(id, name) => setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)))}
             onCodeChange={(id, code) => setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, code } : p)))}
           />

@@ -13,6 +13,8 @@ interface ProductListProps {
   onCodeChange: (id: string, code: string) => void;
   // Swap a product with its neighbour: -1 = one place earlier, +1 = one later.
   onMove: (id: string, delta: -1 | 1) => void;
+  // Copy a product (placed right after it, then selected).
+  onDuplicate: (id: string) => void;
   // Shared-with-me breakdown: browse products but not add/rename/delete.
   readOnly?: boolean;
 }
@@ -29,7 +31,7 @@ function productLabel(product: ProductState, index: number): string {
 // dozens of products. Typing filters by name or code and jumps straight to
 // a match; ‹ › step through in order without opening anything. Only the
 // active product gets an edit row (name + code + delete).
-export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange, onMove, readOnly = false }: ProductListProps) {
+export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange, onMove, onDuplicate, readOnly = false }: ProductListProps) {
   // A native window.confirm() never appears at all inside an embedded
   // preview pane (it's OS/browser-chrome, not page content) — so deleting
   // silently did nothing there with no visible prompt. An in-page confirm
@@ -218,6 +220,16 @@ export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onR
             placeholder="Mã sản phẩm (tùy chọn)"
             className="h-8 w-44 flex-shrink-0 rounded-md border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
           />
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => onDuplicate(active.id)}
+              title="Nhân bản sản phẩm này (đặt ngay sau nó)"
+              className="h-8 flex-shrink-0 rounded-md border border-line bg-surface px-2 text-[12px] font-semibold text-text-muted hover:bg-bg hover:text-text"
+            >
+              Nhân bản
+            </button>
+          )}
           {!readOnly && products.length > 1 && (
             <div className="flex flex-shrink-0 items-center gap-1">
               <button
