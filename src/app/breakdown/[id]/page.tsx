@@ -288,6 +288,12 @@ function BreakdownStudio({ id }: { id: string }) {
   const [activeId, setActiveId] = useState<string>(() => products[0].id);
   const [inputMode, setInputMode] = useState<InputMode>("params");
   const [breakdownName, setBreakdownName] = useState("");
+  // A breakdown shared WITH me (not mine, and I'm not Admin) opens read-only:
+  // the server already rejects every write (lib/server/breakdown-access.ts),
+  // this flag just keeps the UI from offering edits that would be refused —
+  // and from autosaving, which would otherwise fire PATCHes that 403.
+  const [canEdit, setCanEdit] = useState(false);
+  const readOnly = !canEdit;
 
   // Server-backed equivalent of ANASU's original IndexedDB hydration —
   // `hydrated` gates the render AND the autosave effect the exact same way
@@ -298,9 +304,10 @@ function BreakdownStudio({ id }: { id: string }) {
     let cancelled = false;
     fetch(`/api/breakdowns/${id}/products`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((payload: { breakdown: { name: string; activeProductId: string | null }; products: ApiProduct[] } | null) => {
+      .then((payload: { breakdown: { name: string; activeProductId: string | null; canEdit: boolean }; products: ApiProduct[] } | null) => {
         if (cancelled || !payload) return;
         setBreakdownName(payload.breakdown.name);
+        setCanEdit(payload.breakdown.canEdit);
         if (payload.products.length > 0) {
           const nextProducts = payload.products.map((p) => migrateProduct(p.data));
           dbIdByCodeRef.current = Object.fromEntries(payload.products.map((p) => [p.data.id, p.id]));
@@ -309,6 +316,11 @@ function BreakdownStudio({ id }: { id: string }) {
           const restored = payload.breakdown.activeProductId && payload.products.find((p) => p.id === payload.breakdown.activeProductId);
           setProducts(nextProducts);
           setActiveId(restored ? restored.data.id : nextProducts[0].id);
+          setHydrated(true);
+          return;
+        }
+        // A read-only viewer must never bootstrap (it would POST and 403).
+        if (!payload.breakdown.canEdit) {
           setHydrated(true);
           return;
         }
@@ -345,7 +357,7 @@ function BreakdownStudio({ id }: { id: string }) {
   // data, so skipping here never loses anything, just avoids a duplicate
   // write racing the POST.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || readOnly) return;
     const timer = setTimeout(() => {
       for (const p of products) {
         const dbId = dbIdByCodeRef.current[p.id];
@@ -363,7 +375,7 @@ function BreakdownStudio({ id }: { id: string }) {
       });
     }, 400);
     return () => clearTimeout(timer);
-  }, [products, activeId, hydrated, id]);
+  }, [products, activeId, hydrated, readOnly, id]);
   const [showDrawing, setShowDrawing] = useState(false);
   const [showBom, setShowBom] = useState(false);
   const [showMultiExport, setShowMultiExport] = useState(false);
@@ -371,6 +383,7 @@ function BreakdownStudio({ id }: { id: string }) {
   const active = products.find((p) => p.id === activeId) ?? products[0];
 
   function updateActive(patch: Partial<ProductState>) {
+    if (readOnly) return;
     setProducts((prev) => prev.map((p) => (p.id === active.id ? { ...p, ...patch } : p)));
   }
 
@@ -882,7 +895,7 @@ function BreakdownStudio({ id }: { id: string }) {
     // actually loaded — acting on the pre-hydration placeholder (or mid-GET)
     // state here would POST/DELETE against a `dbIdByCodeRef` that doesn't
     // yet reflect what's really in the database.
-    if (!hydrated) return;
+    if (!hydrated || readOnly) return;
     const product = createProduct(productSeqRef.current++);
     setProducts((prev) => [...prev, product]);
     setActiveId(product.id);
@@ -905,7 +918,7 @@ function BreakdownStudio({ id }: { id: string }) {
     // Same pre-hydration guard as addProduct — never delete against a
     // product list/dbIdByCodeRef that hasn't been confirmed from the server
     // yet.
-    if (!hydrated) return;
+    if (!hydrated || readOnly) return;
     if (products.length <= 1) return; // always keep at least one product
     setProducts((prev) => prev.filter((p) => p.id !== code));
     if (code === activeId) {
@@ -935,6 +948,9 @@ function BreakdownStudio({ id }: { id: string }) {
         <div className="flex items-center gap-2">
           <span className="text-[13px] text-text-faint">Bóc tách kỹ thuật ·</span>
           <span className="text-[13px] font-semibold text-text">{breakdownName}</span>
+          {readOnly && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800">Chỉ xem · được chia sẻ</span>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <ActionBar exportEnabled={!!drawingInput} onExportDrawing={() => setShowDrawing(true)} bomEnabled={bomEnabled} onCalculateBom={() => setShowBom(true)} />
@@ -962,6 +978,7 @@ function BreakdownStudio({ id }: { id: string }) {
           <ProductList
             products={products}
             activeId={active.id}
+            readOnly={readOnly}
             onSelect={setActiveId}
             onAdd={addProduct}
             onRemove={removeProduct}
@@ -969,6 +986,7 @@ function BreakdownStudio({ id }: { id: string }) {
             onCodeChange={(id, code) => setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, code } : p)))}
           />
 
+          <fieldset disabled={readOnly} className="contents">
           <InputModeToggle value={inputMode} onChange={setInputMode} />
 
           {inputMode === "photo" || inputMode === "draw" ? (
@@ -1072,6 +1090,7 @@ function BreakdownStudio({ id }: { id: string }) {
                 : { minZ: 0, maxZ: Math.max(...active.rings.map((r) => r.z), 1) }
             }
           />
+          </fieldset>
         </div>
 
         {/* Right: 2 view (khung sắt | solid) phía trên, thông số khung sắt phía dưới */}
@@ -1116,7 +1135,7 @@ function BreakdownStudio({ id }: { id: string }) {
               )}
             </div>
           </div>
-          <div className="min-h-[160px] flex-1 basis-0 overflow-y-auto border-t border-line bg-surface p-4">
+          <fieldset disabled={readOnly} className="min-h-[160px] min-w-0 flex-1 basis-0 overflow-y-auto border-t border-line bg-surface p-4">
             {isRect ? (
               <RectFrameForm
                 rectFrame={active.rectFrame}
@@ -1154,7 +1173,7 @@ function BreakdownStudio({ id }: { id: string }) {
                 hasHorizontalRings={active.rings.length > 2}
               />
             )}
-          </div>
+          </fieldset>
         </div>
       </div>
 

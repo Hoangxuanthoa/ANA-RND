@@ -50,6 +50,7 @@ model User {
   ownedTasks              RndTask[]           @relation("TaskOwner")
   requestedTasks          RndTask[]           @relation("TaskRequester")
   createdBreakdowns       Breakdown[]
+  sharedBreakdowns        BreakdownShare[]    @relation("BreakdownSharedWith")
 
   @@map("users")
 }
@@ -485,21 +486,21 @@ enum TaskPriority {
 // project+product pairing (no separate FK to ProjectProduct needed, since
 // that pair is already unique there).
 model Feedback {
-  id        String          @id @default(uuid()) @db.Uuid
-  projectId String?         @db.Uuid
-  project   Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  productId String?         @db.Uuid
-  product   Product?        @relation(fields: [productId], references: [id])
-  versionId String?         @db.Uuid
-  version   ProductVersion? @relation(fields: [versionId], references: [id])
+  id             String          @id @default(uuid()) @db.Uuid
+  projectId      String?         @db.Uuid
+  project        Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  productId      String?         @db.Uuid
+  product        Product?        @relation(fields: [productId], references: [id])
+  versionId      String?         @db.Uuid
+  version        ProductVersion? @relation(fields: [versionId], references: [id])
   // A row with only this FK set is a comment on an unreleased Ảnh dự án
   // photo — distinct from project/product feedback above.
-  projectPhotoId String?      @db.Uuid
-  projectPhoto   ProjectPhoto? @relation(fields: [projectPhotoId], references: [id], onDelete: Cascade)
-  userId    String          @db.Uuid
-  user      User            @relation(fields: [userId], references: [id])
-  content   String
-  createdAt DateTime        @default(now())
+  projectPhotoId String?         @db.Uuid
+  projectPhoto   ProjectPhoto?   @relation(fields: [projectPhotoId], references: [id], onDelete: Cascade)
+  userId         String          @db.Uuid
+  user           User            @relation(fields: [userId], references: [id])
+  content        String
+  createdAt      DateTime        @default(now())
 
   @@map("feedback")
 }
@@ -642,10 +643,10 @@ model CollectionPitch {
 // this first port small; swapping to real object storage later only
 // touches the material-image read/write code, not this schema.
 model Breakdown {
-  id          String   @id @default(uuid()) @db.Uuid
-  name        String
-  createdById String   @db.Uuid
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  createdById     String   @db.Uuid
+  createdBy       User     @relation(fields: [createdById], references: [id])
   // Which of its own products the studio should reopen to by default —
   // a plain id, not a real relation, so deleting that product doesn't need
   // a cascade/SetNull rule of its own; a stale/missing id just falls back
@@ -656,8 +657,25 @@ model Breakdown {
   updatedAt       DateTime @updatedAt
 
   products BreakdownProduct[]
+  shares   BreakdownShare[]
 
   @@map("breakdowns")
+}
+
+// Sharing a breakdown with another staff member: a row here gives that user
+// READ-ONLY access (they see it in their list and can open every product,
+// drawing and BOM, but not edit/delete) — the owner (createdBy) and Admin keep
+// full control, and Admin sees every breakdown regardless.
+model BreakdownShare {
+  id          String    @id @default(uuid()) @db.Uuid
+  breakdownId String    @db.Uuid
+  breakdown   Breakdown @relation(fields: [breakdownId], references: [id], onDelete: Cascade)
+  userId      String    @db.Uuid
+  user        User      @relation("BreakdownSharedWith", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([breakdownId, userId])
+  @@map("breakdown_shares")
 }
 
 model BreakdownProduct {
@@ -668,12 +686,12 @@ model BreakdownProduct {
   // kept as a plain display/sort field (not this row's own primary key)
   // since the geometry engine already mints and relies on these ids inside
   // `data` itself.
-  code      String
-  name      String
-  sortOrder Int      @default(0)
-  data      Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  code        String
+  name        String
+  sortOrder   Int       @default(0)
+  data        Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@unique([breakdownId, code])
   @@map("breakdown_products")

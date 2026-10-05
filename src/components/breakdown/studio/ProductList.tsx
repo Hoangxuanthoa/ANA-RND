@@ -11,6 +11,8 @@ interface ProductListProps {
   onRemove: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onCodeChange: (id: string, code: string) => void;
+  // Shared-with-me breakdown: browse products but not add/rename/delete.
+  readOnly?: boolean;
 }
 
 function productLabel(product: ProductState, index: number): string {
@@ -25,7 +27,7 @@ function productLabel(product: ProductState, index: number): string {
 // dozens of products. Typing filters by name or code and jumps straight to
 // a match; ‹ › step through in order without opening anything. Only the
 // active product gets an edit row (name + code + delete).
-export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange }: ProductListProps) {
+export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange, readOnly = false }: ProductListProps) {
   // A native window.confirm() never appears at all inside an embedded
   // preview pane (it's OS/browser-chrome, not page content) — so deleting
   // silently did nothing there with no visible prompt. An in-page confirm
@@ -186,31 +188,35 @@ export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onR
         <span className="flex-shrink-0 text-[11px] text-text-faint">
           {activeIndex + 1}/{products.length}
         </span>
-        <button
-          type="button"
-          onClick={onAdd}
-          title="Thêm sản phẩm"
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-line text-[15px] font-bold text-text-muted hover:border-accent hover:text-accent"
-        >
-          +
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={onAdd}
+            title="Thêm sản phẩm"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-line text-[15px] font-bold text-text-muted hover:border-accent hover:text-accent"
+          >
+            +
+          </button>
+        )}
       </div>
 
       {active && (
         <div className="flex items-center gap-2">
           <input
             value={active.name}
+            readOnly={readOnly}
             onChange={(e) => onRename(active.id, e.target.value)}
             placeholder={`Sản phẩm ${activeIndex + 1}`}
             className="h-8 flex-1 rounded-md border border-line bg-surface px-2.5 text-[13px] font-bold focus:border-accent focus:outline-none"
           />
           <input
             value={active.code}
+            readOnly={readOnly}
             onChange={(e) => onCodeChange(active.id, e.target.value)}
             placeholder="Mã sản phẩm (tùy chọn)"
             className="h-8 w-44 flex-shrink-0 rounded-md border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
           />
-          {products.length > 1 &&
+          {!readOnly && products.length > 1 &&
             (confirmingId === active.id ? (
               <div className="flex flex-shrink-0 items-center gap-1.5">
                 <span className="text-[11.5px] font-semibold text-text-faint">Xóa thật?</span>

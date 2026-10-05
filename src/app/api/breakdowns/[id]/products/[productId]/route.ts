@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
 import { parseJsonBody } from "@/lib/server/parse-json";
+import { canEditBreakdown, getBreakdownAccess } from "@/lib/server/breakdown-access";
 
 // The main autosave endpoint — the studio page PATCHes whichever product is
 // currently active after its own debounce, same cadence the old IndexedDB
@@ -13,6 +14,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, productId } = await params;
+  const access = await getBreakdownAccess(me, id);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canEditBreakdown(access)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await parseJsonBody(request);
   if (!body) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   const data: { name?: string; data?: Prisma.InputJsonValue } = {};
@@ -32,6 +36,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, productId } = await params;
+  const access = await getBreakdownAccess(me, id);
+  if (!access) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!canEditBreakdown(access)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   await prisma.breakdownProduct.delete({ where: { id: productId, breakdownId: id } });
   return NextResponse.json({ ok: true });
 }
