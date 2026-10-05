@@ -11,6 +11,8 @@ interface ProductListProps {
   onRemove: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onCodeChange: (id: string, code: string) => void;
+  // Swap a product with its neighbour: -1 = one place earlier, +1 = one later.
+  onMove: (id: string, delta: -1 | 1) => void;
   // Shared-with-me breakdown: browse products but not add/rename/delete.
   readOnly?: boolean;
 }
@@ -27,7 +29,7 @@ function productLabel(product: ProductState, index: number): string {
 // dozens of products. Typing filters by name or code and jumps straight to
 // a match; ‹ › step through in order without opening anything. Only the
 // active product gets an edit row (name + code + delete).
-export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange, readOnly = false }: ProductListProps) {
+export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onRename, onCodeChange, onMove, readOnly = false }: ProductListProps) {
   // A native window.confirm() never appears at all inside an embedded
   // preview pane (it's OS/browser-chrome, not page content) — so deleting
   // silently did nothing there with no visible prompt. An in-page confirm
@@ -216,6 +218,28 @@ export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onR
             placeholder="Mã sản phẩm (tùy chọn)"
             className="h-8 w-44 flex-shrink-0 rounded-md border border-line bg-surface px-2.5 text-[12.5px] focus:border-accent focus:outline-none"
           />
+          {!readOnly && products.length > 1 && (
+            <div className="flex flex-shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onMove(active.id, -1)}
+                disabled={activeIndex <= 0}
+                title="Chuyển lên (đổi chỗ với sản phẩm trước)"
+                className="flex h-8 w-7 items-center justify-center rounded-md border border-line bg-surface text-[11px] font-bold text-text-muted hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ▲
+              </button>
+              <button
+                type="button"
+                onClick={() => onMove(active.id, 1)}
+                disabled={activeIndex >= products.length - 1}
+                title="Chuyển xuống (đổi chỗ với sản phẩm sau)"
+                className="flex h-8 w-7 items-center justify-center rounded-md border border-line bg-surface text-[11px] font-bold text-text-muted hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ▼
+              </button>
+            </div>
+          )}
           {!readOnly && products.length > 1 &&
             (confirmingId === active.id ? (
               <div className="flex flex-shrink-0 items-center gap-1.5">

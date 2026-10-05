@@ -287,6 +287,8 @@ function BreakdownStudio({ id }: { id: string }) {
   // help here since each invocation starts fresh, unaware of the other.
   // A ref survives across that synthetic pair within the same real mount.
   const bootstrappedRef = useRef(false);
+  // Serializes the ▲/▼ reorder PUTs (see moveProduct).
+  const reorderChainRef = useRef<Promise<void>>(Promise.resolve());
 
   const [products, setProducts] = useState<ProductState[]>(() => [createProduct(1)]);
   const [activeId, setActiveId] = useState<string>(() => products[0].id);
@@ -918,6 +920,33 @@ function BreakdownStudio({ id }: { id: string }) {
       });
   }
 
+  // ▲/▼ in ProductList: swap the product with its neighbour, then persist the
+  // whole new order right away (the autosave below only PATCHes name/data, never
+  // sortOrder). Row ids still missing from dbIdByCodeRef (create-POST in
+  // flight) are left out; the server keeps those after the listed ones.
+  function moveProduct(code: string, delta: -1 | 1) {
+    if (!hydrated || readOnly) return;
+    const from = products.findIndex((p) => p.id === code);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= products.length) return;
+    const next = [...products];
+    [next[from], next[to]] = [next[to], next[from]];
+    setProducts(next);
+    const order = next.map((p) => dbIdByCodeRef.current[p.id]).filter((x): x is string => !!x);
+    // Chained, not fired in parallel: two quick clicks must reach the server in
+    // click order, or an older order could land last and win.
+    reorderChainRef.current = reorderChainRef.current.then(() =>
+      fetch(`/api/breakdowns/${id}/products/reorder`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order }),
+      }).then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+  }
+
   function removeProduct(code: string) {
     // Same pre-hydration guard as addProduct — never delete against a
     // product list/dbIdByCodeRef that hasn't been confirmed from the server
@@ -986,6 +1015,7 @@ function BreakdownStudio({ id }: { id: string }) {
             onSelect={setActiveId}
             onAdd={addProduct}
             onRemove={removeProduct}
+            onMove={moveProduct}
             onRename={(id, name) => setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, name } : p)))}
             onCodeChange={(id, code) => setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, code } : p)))}
           />
