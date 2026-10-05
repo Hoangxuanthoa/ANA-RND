@@ -52,27 +52,42 @@ function cornerPointAtLocalAngle(length: number, width: number, cornerR: number,
   return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
 }
 
+// What a face's own ribs are spaced BETWEEN. With "tangent" (corner ribs at the
+// arc ends, or no bisector rib) the span is the straight remainder between the
+// two corner arcs. With "bisector" (1 nan ở tâm góc bo) the two corner ribs sit
+// INSIDE their arcs, at 45° — so the face's ribs are spaced between those two
+// corner ribs instead (measured along the face), which keeps every gap from one
+// rib to the next equal. Otherwise the outermost gaps came out wider than the
+// rest, since the corner rib is nearer the middle than the tangent point is.
+type EdgeAnchor = "tangent" | "bisector";
+// How far in from the face's outer end (half-length/half-width) the anchor sits.
+function edgeInset(r: number, anchor: EdgeAnchor): number {
+  return anchor === "bisector" ? r * (1 - Math.SQRT1_2) : r;
+}
+
 // The "mặt dài" (length-direction) edges sit at y = ±(half width), running
 // in X between the two corners that border them. t=0..1 sweeps from the
 // +X end to the -X end — always LANDING exactly on the corner tangent
 // points at t=0/1, so an edge's own N-evenly-spaced ribs always include
 // those 2 points by construction (never needs a separate "add the corner
 // point" step).
-function lengthEdgePoint(length: number, width: number, cornerR: number, side: 1 | -1, t: number): [number, number] {
+function lengthEdgePoint(length: number, width: number, cornerR: number, side: 1 | -1, t: number, anchor: EdgeAnchor): [number, number] {
   const hl = length / 2;
   const hw = width / 2;
   const r = Math.max(Math.min(cornerR, hl, hw), 0);
-  const x = hl - r - 2 * (hl - r) * t;
+  const reach = hl - edgeInset(r, anchor);
+  const x = reach - 2 * reach * t;
   return [x, side * hw];
 }
 
 // The "mặt rộng" (width-direction) edges sit at x = ±(half length), same
 // t=0..1 convention, running in Y.
-function widthEdgePoint(length: number, width: number, cornerR: number, side: 1 | -1, t: number): [number, number] {
+function widthEdgePoint(length: number, width: number, cornerR: number, side: 1 | -1, t: number, anchor: EdgeAnchor): [number, number] {
   const hl = length / 2;
   const hw = width / 2;
   const r = Math.max(Math.min(cornerR, hl, hw), 0);
-  const y = hw - r - 2 * (hw - r) * t;
+  const reach = hw - edgeInset(r, anchor);
+  const y = reach - 2 * reach * t;
   return [side * hl, y];
 }
 
@@ -182,6 +197,7 @@ function perimeterRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPos
 
 function verticalRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPosition[] {
   if (frame.bodyRibMode === "fixed_tips" || frame.bodyRibMode === "even") return perimeterRibPositions(frame, mouth);
+  const anchor: EdgeAnchor = frame.cornerRibMode === "bisector" ? "bisector" : "tangent";
   const positions: RibPosition[] = [];
   const lengthCount = Math.max(Math.round(frame.lengthRibCount), 0);
   const widthCount = Math.max(Math.round(frame.widthRibCount), 0);
@@ -191,15 +207,15 @@ function verticalRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPosi
       const t = (i + 1) / (lengthCount + 1); // strictly between the 2 tangent points
       // A "mặt dài" face runs along X, so a rib's offset from the face's own
       // center is its X (not the constant wall Y).
-      const [offsetX] = lengthEdgePoint(mouth.length, mouth.width, mouth.cornerR, side, t);
-      positions.push({ xy: (l, w, r) => lengthEdgePoint(l, w, r, side, t), onFace: "length", localOffsetAtMouth: offsetX });
+      const [offsetX] = lengthEdgePoint(mouth.length, mouth.width, mouth.cornerR, side, t, anchor);
+      positions.push({ xy: (l, w, r) => lengthEdgePoint(l, w, r, side, t, anchor), onFace: "length", localOffsetAtMouth: offsetX });
     }
     for (let i = 0; i < widthCount; i++) {
       const t = (i + 1) / (widthCount + 1);
       // widthEdgePoint returns [wallX, offsetY] — the rib's along-the-face
       // offset (from the face's own center) is its Y component.
-      const [, offsetOnFace] = widthEdgePoint(mouth.length, mouth.width, mouth.cornerR, side, t);
-      positions.push({ xy: (l, w, r) => widthEdgePoint(l, w, r, side, t), onFace: "width", localOffsetAtMouth: offsetOnFace });
+      const [, offsetOnFace] = widthEdgePoint(mouth.length, mouth.width, mouth.cornerR, side, t, anchor);
+      positions.push({ xy: (l, w, r) => widthEdgePoint(l, w, r, side, t, anchor), onFace: "width", localOffsetAtMouth: offsetOnFace });
     }
   }
 
