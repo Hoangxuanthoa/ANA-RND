@@ -196,12 +196,26 @@ export function buildTopViewData(input: ShapeDrawingInput, segments = TOP_SEGMEN
 // Parallel projection constants for a Z-up model. A true isometric camera
 // uses a 30° ground-plane angle, which read as "too high" (too much of the
 // top visible) — lowered to 22° for a flatter, more side-on camera.
-const ISO_ANGLE = (22 * Math.PI) / 180;
-const ISO_COS = Math.cos(ISO_ANGLE);
-const ISO_SIN = Math.sin(ISO_ANGLE);
+// The camera is now adjustable (Xuất bản vẽ → Góc nhìn Iso): azimuth spins
+// the product about the vertical axis (45° = the classic corner-on view),
+// elevation tilts the camera up from the horizon (0° = side-on, 90° = plan).
+// It's a TRUE orthographic projection of that camera, so a circle's silhouette
+// is always its real diameter wide at any angle.
+export interface IsoAngle {
+  azimuthDeg: number;
+  elevationDeg: number;
+}
+export const DEFAULT_ISO_ANGLE: IsoAngle = { azimuthDeg: 45, elevationDeg: 22 };
+// Below ~5° the rim ellipse collapses to a line and above ~85° the body
+// vanishes into its own top — both useless as an iso view.
+export const ISO_ELEVATION_RANGE = { min: 5, max: 85 } as const;
 
-function isoProject(x: number, y: number, z: number): [number, number] {
-  return [(x - y) * ISO_COS, (x + y) * ISO_SIN - z];
+function isoProject(x: number, y: number, z: number, a: IsoAngle = DEFAULT_ISO_ANGLE): [number, number] {
+  const az = (a.azimuthDeg * Math.PI) / 180;
+  const el = (a.elevationDeg * Math.PI) / 180;
+  const xr = x * Math.cos(az) - y * Math.sin(az);
+  const depth = x * Math.sin(az) + y * Math.cos(az);
+  return [xr, depth * Math.sin(el) - z * Math.cos(el)];
 }
 
 // The visible LEFT/RIGHT silhouette edge of a body in this projection is
@@ -218,24 +232,70 @@ function isoProject(x: number, y: number, z: number): [number, number] {
 // outline for any shape.
 const ISO_SEGMENTS = 96;
 
-function isoSilhouetteExtremesAtRow(input: ShapeDrawingInput, row: ShapeDrawingRow, segments: number): { right: [number, number]; left: [number, number] } {
+interface IsoRowSilhouette {
+  right: [number, number];
+  left: [number, number];
+  // The row's own projected outline split at its right/left extremes into
+  // the lower (nearer the viewer) and upper (far side) arcs. A bare
+  // right→left chord is NOT the true edge of a body's bottom — a box's
+  // nearest bottom corner, or a round base's front curve, hangs below that
+  // chord — so the body's silhouette closes along these arcs instead.
+  front: Array<[number, number]>; // right → left through the lower side
+  back: Array<[number, number]>; // left → right through the upper side
+}
+
+function isoSilhouetteExtremesAtRow(input: ShapeDrawingInput, row: ShapeDrawingRow, segments: number, angle: IsoAngle): IsoRowSilhouette {
   const pts2D = input.outline2D(row.halfLengthMm * 2, row.halfWidthMm * 2, row.cornerRMm, segments);
-  let right: [number, number] = isoProject(row.halfLengthMm, 0, row.zMm);
-  let left: [number, number] = isoProject(-row.halfLengthMm, 0, row.zMm);
+  let right: [number, number] = isoProject(row.halfLengthMm, 0, row.zMm, angle);
+  let left: [number, number] = isoProject(-row.halfLengthMm, 0, row.zMm, angle);
   let rightX = -Infinity;
   let leftX = Infinity;
-  for (const [x, y] of pts2D) {
-    const p = isoProject(x, y, row.zMm);
+  let iR = -1;
+  let iL = -1;
+  const projected: Array<[number, number]> = [];
+  pts2D.forEach(([x, y], i) => {
+    const p = isoProject(x, y, row.zMm, angle);
+    projected.push(p);
     if (p[0] > rightX) {
       rightX = p[0];
       right = p;
+      iR = i;
     }
     if (p[0] < leftX) {
       leftX = p[0];
       left = p;
+      iL = i;
     }
-  }
-  return { right, left };
+  });
+  const n = projected.length;
+  if (n < 3 || iR < 0 || iL < 0 || iR === iL) return { right, left, front: [right, left], back: [left, right] };
+  const walk = (step: 1 | -1) => {
+    const arc: Array<[number, number]> = [];
+    for (let i = iR; ; i = (i + step + n) % n) {
+      arc.push(projected[i]);
+      if (i === iL) break;
+    }
+    return arc;
+  };
+  const meanY = (arc: Array<[number, number]>) => arc.reduce((a, p) => a + p[1], 0) / arc.length;
+  const fwd = walk(1);
+  const bwd = walk(-1);
+  const [front, farSide] = meanY(fwd) >= meanY(bwd) ? [fwd, bwd] : [bwd, fwd];
+  return { right, left, front, back: [...farSide].reverse() };
+}
+
+// Body silhouette from a top-to-bottom list of rows: down the right edge,
+// along the bottom row's front arc, back up the left edge, then over the top
+// row's far-side arc.
+function isoOutlineFromRows(sils: IsoRowSilhouette[]): Array<[number, number]> {
+  const first = sils[0];
+  const last = sils[sils.length - 1];
+  return [
+    ...sils.map((r) => r.right),
+    ...last.front.slice(1, -1),
+    ...[...sils].reverse().map((r) => r.left),
+    ...first.back.slice(1, -1),
+  ];
 }
 
 export interface IsoViewData {
@@ -248,20 +308,13 @@ export interface IsoViewData {
   rows: ShapeDrawingRow[];
 }
 
-export function buildIsoViewData(input: ShapeDrawingInput, rimSegments = TOP_SEGMENTS, silhouetteSegments = ISO_SEGMENTS): IsoViewData {
-  const rightPts: Array<[number, number]> = [];
-  const leftPts: Array<[number, number]> = [];
-  for (const row of input.rows) {
-    const { right, left } = isoSilhouetteExtremesAtRow(input, row, silhouetteSegments);
-    rightPts.push(right);
-    leftPts.push(left);
-  }
-  const outline = [...rightPts, ...[...leftPts].reverse()];
+export function buildIsoViewData(input: ShapeDrawingInput, angle: IsoAngle = DEFAULT_ISO_ANGLE, rimSegments = TOP_SEGMENTS, silhouetteSegments = ISO_SEGMENTS): IsoViewData {
+  const outline = isoOutlineFromRows(input.rows.map((row) => isoSilhouetteExtremesAtRow(input, row, silhouetteSegments, angle)));
 
   const mouth = input.rows[0];
   const bottom = input.rows[input.rows.length - 1];
-  const mouthEllipse = input.outline2D(mouth.halfLengthMm * 2, mouth.halfWidthMm * 2, mouth.cornerRMm, rimSegments).map(([x, y]) => isoProject(x, y, mouth.zMm));
-  const bottomEllipse = input.outline2D(bottom.halfLengthMm * 2, bottom.halfWidthMm * 2, bottom.cornerRMm, rimSegments).map(([x, y]) => isoProject(x, y, bottom.zMm));
+  const mouthEllipse = input.outline2D(mouth.halfLengthMm * 2, mouth.halfWidthMm * 2, mouth.cornerRMm, rimSegments).map(([x, y]) => isoProject(x, y, mouth.zMm, angle));
+  const bottomEllipse = input.outline2D(bottom.halfLengthMm * 2, bottom.halfWidthMm * 2, bottom.cornerRMm, rimSegments).map(([x, y]) => isoProject(x, y, bottom.zMm, angle));
 
   const maxRadius = input.rows.reduce((m, r) => Math.max(m, r.halfLengthMm, r.halfWidthMm), 0);
   return { outline, mouthEllipse, bottomEllipse, minZ: bottom.zMm, maxZ: mouth.zMm, maxRadius, rows: input.rows };
@@ -272,21 +325,14 @@ export function buildIsoViewData(input: ShapeDrawingInput, rimSegments = TOP_SEG
 // TechnicalDrawing.tsx's MaterialBandFills when reused for Iso, so a split
 // band's own outline is genuinely re-derived from the shape's real
 // silhouette in that range rather than a whole-body shortcut.
-export function sliceIsoOutline(input: ShapeDrawingInput, zLow: number, zHigh: number, silhouetteSegments = ISO_SEGMENTS): Array<[number, number]> {
+export function sliceIsoOutline(input: ShapeDrawingInput, zLow: number, zHigh: number, angle: IsoAngle = DEFAULT_ISO_ANGLE, silhouetteSegments = ISO_SEGMENTS): Array<[number, number]> {
   const inside = input.rows.filter((r) => r.zMm <= zHigh && r.zMm >= zLow);
   const rows: ShapeDrawingRow[] = [];
   if (inside.length === 0 || inside[0].zMm < zHigh) rows.push(rowAtZ(input.rows, zHigh));
   rows.push(...inside);
   if (inside.length === 0 || inside[inside.length - 1].zMm > zLow) rows.push(rowAtZ(input.rows, zLow));
 
-  const rightPts: Array<[number, number]> = [];
-  const leftPts: Array<[number, number]> = [];
-  for (const row of rows) {
-    const { right, left } = isoSilhouetteExtremesAtRow(input, row, silhouetteSegments);
-    rightPts.push(right);
-    leftPts.push(left);
-  }
-  return [...rightPts, ...[...leftPts].reverse()];
+  return isoOutlineFromRows(rows.map((row) => isoSilhouetteExtremesAtRow(input, row, silhouetteSegments, angle)));
 }
 
 // Wireframe projections of the actual steel-frame member centerlines — used
@@ -337,8 +383,8 @@ export function projectTubesTop(tubes: FrameTube[]): WireSegment[] {
   return tubes.map((t) => ({ points: loopPoints(t).map((p): [number, number] => [p.x, -p.y]), diameterMm: t.diameterMm }));
 }
 
-export function projectTubesIso(tubes: FrameTube[]): WireSegment[] {
-  return tubes.map((t) => ({ points: loopPoints(t).map((p) => isoProject(p.x, p.y, p.z)), diameterMm: t.diameterMm }));
+export function projectTubesIso(tubes: FrameTube[], angle: IsoAngle = DEFAULT_ISO_ANGLE): WireSegment[] {
+  return tubes.map((t) => ({ points: loopPoints(t).map((p) => isoProject(p.x, p.y, p.z, angle)), diameterMm: t.diameterMm }));
 }
 
 // Same idea, but for raw handle centerline paths (Solid mode draws the
@@ -354,6 +400,6 @@ export function projectPathsSide(paths: Point3[][]): Polyline[] {
   return paths.map((pts) => pts.map((p): [number, number] => [p.y, p.z]));
 }
 
-export function projectPathsIso(paths: Point3[][]): Polyline[] {
-  return paths.map((pts) => pts.map((p) => isoProject(p.x, p.y, p.z)));
+export function projectPathsIso(paths: Point3[][], angle: IsoAngle = DEFAULT_ISO_ANGLE): Polyline[] {
+  return paths.map((pts) => pts.map((p) => isoProject(p.x, p.y, p.z, angle)));
 }

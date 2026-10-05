@@ -25,7 +25,7 @@ import {
   type DrawingViewKey,
 } from "@/lib/breakdown/drawingTemplate";
 import type { SteelFrameResult } from "@/lib/breakdown/geometry/frameEngine";
-import type { ShapeDrawingInput } from "@/lib/breakdown/geometry/drawingEngine";
+import { DEFAULT_ISO_ANGLE, ISO_ELEVATION_RANGE, type IsoAngle, type ShapeDrawingInput } from "@/lib/breakdown/geometry/drawingEngine";
 import type { HandleInput, MaterialInput } from "@/lib/breakdown/geometry/types";
 import { canManageDrawingTemplates } from "@/lib/permissions";
 import { useRole } from "@/components/RoleProvider";
@@ -213,6 +213,8 @@ export interface DocState {
   dimSettings: Record<ViewKey, DimSettingsMap>;
   customDims: Record<ViewKey, CustomDim[]>;
   viewScale: Record<ViewKey, ViewScaleState>;
+  // Camera for the Iso view (xoay trái/phải + nghiêng lên/xuống, in degrees).
+  isoAngle: IsoAngle;
 }
 
 interface DrawingSheetContentProps {
@@ -243,6 +245,13 @@ interface DrawingSheetContentProps {
   onDocChange?: (doc: DocState) => void;
 }
 
+const clampElevation = (deg: number) => Math.min(ISO_ELEVATION_RANGE.max, Math.max(ISO_ELEVATION_RANGE.min, deg));
+// Keeps azimuth in (-180, 180] so the slider/number box never drifts out of range.
+const wrapAzimuth = (deg: number) => {
+  const m = ((((deg + 180) % 360) + 360) % 360) - 180;
+  return m === -180 ? 180 : m;
+};
+
 const EMPTY_VIEW_BUCKETS = ["front", "side", "top", "iso"] as const;
 
 // Builds the sheet's starting doc: the defaults, overlaid with a previously
@@ -263,6 +272,7 @@ function buildInitialDoc(template: DrawingTemplate, productName: string, frameRe
     dimSettings: { front: {}, side: {}, top: {}, iso: {} },
     customDims: { front: [], side: [], top: [], iso: [] },
     viewScale: { front: DEFAULT_VIEW_SCALE, side: DEFAULT_VIEW_SCALE, top: DEFAULT_VIEW_SCALE, iso: DEFAULT_VIEW_SCALE },
+    isoAngle: DEFAULT_ISO_ANGLE,
   };
   if (!saved || typeof saved !== "object") return defaults;
   const s = saved as Partial<DocState>;
@@ -282,6 +292,11 @@ function buildInitialDoc(template: DrawingTemplate, productName: string, frameRe
     dimSettings: bucketsOk(s.dimSettings) ? s.dimSettings! : defaults.dimSettings,
     customDims: bucketsOk(s.customDims) ? s.customDims! : defaults.customDims,
     viewScale: bucketsOk(s.viewScale) ? s.viewScale! : defaults.viewScale,
+    // Older saved sessions predate the adjustable Iso camera — fall back to the default.
+    isoAngle:
+      s.isoAngle && Number.isFinite(s.isoAngle.azimuthDeg) && Number.isFinite(s.isoAngle.elevationDeg)
+        ? { azimuthDeg: s.isoAngle.azimuthDeg, elevationDeg: clampElevation(s.isoAngle.elevationDeg) }
+        : defaults.isoAngle,
   };
 }
 
@@ -349,7 +364,7 @@ export function DrawingSheetContent({
     setDoc({ ...doc, fields, visible: nextVisible });
   }
 
-  const { fields, visible, mode, fontScale, dimColor, notes, textBoxes, dimSettings, customDims, viewScale } = doc;
+  const { fields, visible, mode, fontScale, dimColor, notes, textBoxes, dimSettings, customDims, viewScale, isoAngle } = doc;
   const [history, setHistory] = useState<DocState[]>([]);
   const [future, setFuture] = useState<DocState[]>([]);
   // A ref here would trip the "no ref reads during render" lint rule the
@@ -710,7 +725,7 @@ export function DrawingSheetContent({
       case "bottom":
         return <TopSVG {...props} />;
       case "iso":
-        return <IsoSVG {...props} handlePaths={handlePaths} />;
+        return <IsoSVG {...props} handlePaths={handlePaths} isoAngle={isoAngle} />;
     }
   }
 
@@ -1049,6 +1064,93 @@ export function DrawingSheetContent({
             })}
           </div>
         </DropdownGroup>
+
+        {template.views.includes("iso") && (
+          <DropdownGroup
+            title="Góc nhìn Iso"
+            summary={
+              <span>
+                Xoay {isoAngle.azimuthDeg}° · Nghiêng {isoAngle.elevationDeg}°
+              </span>
+            }
+          >
+            {(() => {
+              const setAngle = (next: Partial<IsoAngle>) => commit({ ...doc, isoAngle: { ...doc.isoAngle, ...next } });
+              const isDefault = isoAngle.azimuthDeg === DEFAULT_ISO_ANGLE.azimuthDeg && isoAngle.elevationDeg === DEFAULT_ISO_ANGLE.elevationDeg;
+              const stepBtn = "h-7 w-8 rounded border border-line bg-white text-[13px] font-bold text-text-muted hover:bg-bg hover:text-text";
+              return (
+                <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-bold text-text">Xoay trái / phải</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" title="Xoay trái 15°" onClick={() => setAngle({ azimuthDeg: wrapAzimuth(isoAngle.azimuthDeg + 15) })} className={stepBtn}>
+                        ◀
+                      </button>
+                      <input
+                        type="range"
+                        min={-180}
+                        max={180}
+                        step={1}
+                        value={isoAngle.azimuthDeg}
+                        onChange={(e) => setAngle({ azimuthDeg: wrapAzimuth(Number(e.target.value)) })}
+                        className="min-w-0 flex-1"
+                      />
+                      <button type="button" title="Xoay phải 15°" onClick={() => setAngle({ azimuthDeg: wrapAzimuth(isoAngle.azimuthDeg - 15) })} className={stepBtn}>
+                        ▶
+                      </button>
+                      <input
+                        type="number"
+                        min={-180}
+                        max={180}
+                        value={isoAngle.azimuthDeg}
+                        onChange={(e) => setAngle({ azimuthDeg: wrapAzimuth(Math.round(Number(e.target.value) || 0)) })}
+                        className="h-7 w-14 rounded border border-line px-1 text-[11px]"
+                      />
+                      <span className="text-[11px] text-text-faint">°</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] font-bold text-text">Nghiêng lên / xuống</span>
+                    <div className="flex items-center gap-1">
+                      <button type="button" title="Hạ góc nhìn xuống 5° (nhìn ngang hơn)" onClick={() => setAngle({ elevationDeg: clampElevation(isoAngle.elevationDeg - 5) })} className={stepBtn}>
+                        ▼
+                      </button>
+                      <input
+                        type="range"
+                        min={ISO_ELEVATION_RANGE.min}
+                        max={ISO_ELEVATION_RANGE.max}
+                        step={1}
+                        value={isoAngle.elevationDeg}
+                        onChange={(e) => setAngle({ elevationDeg: clampElevation(Number(e.target.value)) })}
+                        className="min-w-0 flex-1"
+                      />
+                      <button type="button" title="Nâng góc nhìn lên 5° (nhìn từ trên xuống nhiều hơn)" onClick={() => setAngle({ elevationDeg: clampElevation(isoAngle.elevationDeg + 5) })} className={stepBtn}>
+                        ▲
+                      </button>
+                      <input
+                        type="number"
+                        min={ISO_ELEVATION_RANGE.min}
+                        max={ISO_ELEVATION_RANGE.max}
+                        value={isoAngle.elevationDeg}
+                        onChange={(e) => setAngle({ elevationDeg: clampElevation(Math.round(Number(e.target.value) || ISO_ELEVATION_RANGE.min)) })}
+                        className="h-7 w-14 rounded border border-line px-1 text-[11px]"
+                      />
+                      <span className="text-[11px] text-text-faint">°</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isDefault}
+                    onClick={() => setAngle({ ...DEFAULT_ISO_ANGLE })}
+                    className="self-start rounded border border-line bg-white px-2 py-1 text-[11px] font-semibold text-text-muted hover:text-text disabled:opacity-50"
+                  >
+                    ⟲ Về mặc định ({DEFAULT_ISO_ANGLE.azimuthDeg}° / {DEFAULT_ISO_ANGLE.elevationDeg}°)
+                  </button>
+                </div>
+              );
+            })()}
+          </DropdownGroup>
+        )}
 
         <ControlGroup title="Phóng to trang">
           <div className="flex items-center gap-1 rounded-md border border-line bg-white p-0.5">

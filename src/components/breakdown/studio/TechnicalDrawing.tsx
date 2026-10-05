@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildFrontViewData,
   buildIsoViewData,
+  DEFAULT_ISO_ANGLE,
+  type IsoAngle,
   buildSideViewData,
   buildTopViewData,
   projectPathsFront,
@@ -1842,6 +1844,8 @@ interface ViewProps {
   // to it, except wherever a view happened to need more room." Left
   // undefined for the normal auto-fit behaviour.
   fixedHalfExtent?: number;
+  // Iso view only: the camera azimuth/elevation (default = DEFAULT_ISO_ANGLE).
+  isoAngle?: IsoAngle;
   // Free drag-to-reposition within the view's own frame (mm offsets applied
   // on top of whatever half-extent — auto or fixed-scale — is in effect) —
   // lets the user recentre or push part of the object out of frame on
@@ -2291,6 +2295,7 @@ export function IsoSVG({
   onTextBoxPlaced,
   handlePaths,
   material,
+  isoAngle = DEFAULT_ISO_ANGLE,
   fixedHalfExtent,
   panX = 0,
   panY = 0,
@@ -2323,17 +2328,17 @@ export function IsoSVG({
   });
   const panHandlers = usePanDrag({ x: panX, y: panY }, onPanChange);
   const handlers = noteMode ? noteHandlers : textBoxMode ? textBoxHandlers : panHandlers;
-  const { outline, mouthEllipse, bottomEllipse, minZ, maxZ, maxRadius } = useMemo(() => buildIsoViewData(drawing), [drawing]);
+  const { outline, mouthEllipse, bottomEllipse, minZ, maxZ, maxRadius } = useMemo(() => buildIsoViewData(drawing, isoAngle), [drawing, isoAngle]);
 
   const framePolylines = useMemo(() => {
     if (mode !== "frame" || !tubes) return [];
-    return projectTubesIso(tubes);
-  }, [mode, tubes]);
+    return projectTubesIso(tubes, isoAngle);
+  }, [mode, tubes, isoAngle]);
 
   const handleLines = useMemo(() => {
     if (mode !== "solid" || !handlePaths?.length) return [];
-    return projectPathsIso(handlePaths);
-  }, [mode, handlePaths]);
+    return projectPathsIso(handlePaths, isoAngle);
+  }, [mode, handlePaths, isoAngle]);
 
   const solidPts = [...outline, ...mouthEllipse, ...bottomEllipse, ...handleLines.flat()];
   const allPts = mode === "frame" ? framePolylines.flatMap((seg) => seg.points) : solidPts;
@@ -2399,7 +2404,7 @@ export function IsoSVG({
               material={material}
               minZ={minZ}
               maxZ={maxZ}
-              sliceForPath={(zLow, zHigh) => sliceIsoOutline(drawing, zLow, zHigh)}
+              sliceForPath={(zLow, zHigh) => sliceIsoOutline(drawing, zLow, zHigh, isoAngle)}
               toPath={(pts) => path(pts, true)}
               patternIdPrefix="material-iso"
             />
