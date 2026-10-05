@@ -77,8 +77,8 @@ export function computeCellContentHeightMm(rows: number, showViewFrame: boolean 
 function prepareSvgClone(svgEl: SVGSVGElement): SVGSVGElement {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
   clone.querySelectorAll("foreignObject").forEach((fo) => {
-    const input = fo.querySelector("input");
-    const value = input ? input.value : (fo.textContent ?? "").trim();
+    const field = fo.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
+    const value = field ? field.value : (fo.textContent ?? "").trim();
     const x = Number(fo.getAttribute("x")) || 0;
     const y = Number(fo.getAttribute("y")) || 0;
     const h = Number(fo.getAttribute("height")) || 12;
@@ -86,13 +86,39 @@ function prepareSvgClone(svgEl: SVGSVGElement): SVGSVGElement {
       fo.remove();
       return;
     }
+    // The note/text box's own size and color live in the field's inline
+    // style (see NoteItem/TextBoxItem in TechnicalDrawing.tsx) in the SAME
+    // svg user-space units as everything else, so reading them back here is
+    // what keeps a resized/recolored note looking identical in the PDF —
+    // a fixed size here is what used to print every note tiny regardless of
+    // the on-screen font size.
+    const parsedSize = field ? parseFloat(field.style.fontSize) : NaN;
+    const fontSize = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 10.5;
+    const fill = (field && field.style.color) || "#1a1a1a";
+    const isTextarea = field instanceof HTMLTextAreaElement;
     const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    textEl.setAttribute("x", String(x + 4));
-    textEl.setAttribute("y", String(y + h * 0.68));
-    textEl.setAttribute("font-size", "10.5");
+    textEl.setAttribute("font-size", String(fontSize));
     textEl.setAttribute("font-family", "Manrope, sans-serif");
-    textEl.setAttribute("fill", "#1a1a1a");
-    textEl.textContent = value;
+    textEl.setAttribute("fill", fill);
+    const lines = value.split("\n");
+    if (isTextarea) {
+      // Top-anchored, multi-line: the textarea sits at its own `top` inside
+      // the foreignObject (offset down by the drag handle while selected).
+      const top = y + (parseFloat(field.style.top) || 0);
+      textEl.setAttribute("x", String(x + 1));
+      lines.forEach((line, i) => {
+        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
+        tspan.setAttribute("x", String(x + 1));
+        tspan.setAttribute("y", String(top + 1 + fontSize * (1 + 1.2 * i)));
+        tspan.textContent = line;
+        textEl.appendChild(tspan);
+      });
+    } else {
+      // A note's input is vertically centered in its box.
+      textEl.setAttribute("x", String(x + 4));
+      textEl.setAttribute("y", String(y + h / 2 + fontSize * 0.35));
+      textEl.textContent = value;
+    }
     fo.replaceWith(textEl);
   });
   return clone;
@@ -271,9 +297,22 @@ export async function addDrawingSheetPage(
   const tbX = drawAreaX + drawAreaW + GAP;
   const tbY = MARGIN;
   pdf.setDrawColor(0); // title block borders/dividers are all black, matching the on-screen panel
-  pdf.setLineWidth(THICK_LINE_MM); // outer frame of the title block — thick, like the on-screen panel's border-l-2
-  pdf.rect(tbX, tbY, titleBlockWidthMm, drawAreaH);
-  pdf.setLineWidth(THIN_LINE_MM); // everything inside (dividers, rows) stays thin
+
+  // Row geometry first — the gray label fills below must ALL be painted
+  // before any border line, otherwise each fill covers the inner half of
+  // the thick outer frame (and the divider lines) it overlaps, which is
+  // what made the frame look broken/uneven in the exported PDF.
+  const titleAreaH = drawAreaH - LOGO_H;
+  const rowH = fields.length > 0 ? Math.max(fieldRowMinHeightMm, titleAreaH / fields.length) : fieldRowMinHeightMm;
+  const rowLabelH = rowH * (ROW_LABEL_WEIGHT / (ROW_LABEL_WEIGHT + ROW_VALUE_WEIGHT));
+  const rowValueH = rowH - rowLabelH;
+
+  pdf.setFillColor(245, 245, 244); // matches --bg
+  let fillY = tbY + LOGO_H;
+  for (let i = 0; i < fields.length; i++) {
+    pdf.rect(tbX, fillY, titleBlockWidthMm, rowLabelH, "F");
+    fillY += rowH;
+  }
 
   if (flatLogo) {
     // Fit within the logo strip, preserving aspect ratio, centered.
@@ -298,39 +337,40 @@ export async function addDrawingSheetPage(
     pdf.setFont("Manrope", "bold");
     pdf.text(companyName || "—", tbX + titleBlockWidthMm / 2, tbY + LOGO_H / 2 + 2, { align: "center" });
   }
-  pdf.line(tbX, tbY + LOGO_H, tbX + titleBlockWidthMm, tbY + LOGO_H);
-
   // Row heights grow to fill whatever vertical room the field list leaves —
   // a template with few fields fills the whole title-block height instead
   // of crowding at the top with the page left blank below (never shrinks
   // past fieldRowMinHeightMm when there are many fields, in which case rows
   // sit at that user-set minimum same as before this).
-  const titleAreaH = drawAreaH - LOGO_H;
-  const rowH = fields.length > 0 ? Math.max(fieldRowMinHeightMm, titleAreaH / fields.length) : fieldRowMinHeightMm;
-  const rowLabelH = rowH * (ROW_LABEL_WEIGHT / (ROW_LABEL_WEIGHT + ROW_VALUE_WEIGHT));
-  const rowValueH = rowH - rowLabelH;
-
   let rowY = tbY + LOGO_H;
+  const dividerYs: number[] = [tbY + LOGO_H];
   for (const field of fields) {
-    pdf.setFillColor(245, 245, 244); // matches --bg
-    pdf.rect(tbX, rowY, titleBlockWidthMm, rowLabelH, "F");
     pdf.setFontSize(6.5);
     pdf.setFont("Manrope", "bold");
     pdf.setTextColor(0);
     // Vertically centered in the label strip (baseline sits ~1.1mm below
-    // true center for this font size), left-aligned — was bottom-anchored
-    // (rowLabelH - 1.2) before.
+    // true center for this font size), left-aligned.
     pdf.text(field.label.toUpperCase(), tbX + 2, rowY + rowLabelH / 2 + 1.1);
     rowY += rowLabelH;
-    pdf.line(tbX, rowY, tbX + titleBlockWidthMm, rowY); // divider between the label strip and the value strip
+    dividerYs.push(rowY); // between the label strip and the value strip
 
     pdf.setFontSize(9);
     pdf.setFont("Manrope", "normal");
     pdf.setTextColor(0);
     pdf.text(field.value || "—", tbX + 2, rowY + Math.min(rowValueH - 1.8, 4.4));
     rowY += rowValueH;
-    pdf.line(tbX, rowY, tbX + titleBlockWidthMm, rowY);
+    dividerYs.push(rowY);
   }
+
+  // Every border line last, on top of the fills: thin internal dividers
+  // first, then the thick outer frame, so the frame is one uninterrupted
+  // stroke all the way around.
+  pdf.setDrawColor(0);
+  pdf.setLineWidth(THIN_LINE_MM);
+  for (const dy of dividerYs) pdf.line(tbX, dy, tbX + titleBlockWidthMm, dy);
+  pdf.setLineWidth(THICK_LINE_MM);
+  pdf.rect(tbX, tbY, titleBlockWidthMm, drawAreaH);
+  pdf.setLineWidth(THIN_LINE_MM);
 }
 
 // Single-product export — unchanged behaviour/signature for every existing

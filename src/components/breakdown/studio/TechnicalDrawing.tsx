@@ -773,20 +773,45 @@ function WireframePaths({ polylines, strokeWidth = 0.7, color = FRAME_STROKE }: 
 // Each steel member drawn at its real FI (diameter) as the stroke width —
 // a "double-line" pipe convention, not an abstract centerline — so the
 // Khung sắt wireframe reads as actual tube stock, matching real fabrication.
+// Width (svg user-space mm, per side) of the dark "profile" line around the
+// whole frame — SketchUp's silhouette/profile edge. Drawn as a wider dark
+// stroke under every tube (all outlines first, then all tube fills on top),
+// so only the OUTER boundary of the combined frame survives: tubes crossing
+// or touching each other merge into one shape with a single clean outline,
+// instead of every tube being boxed in separately.
+const FRAME_PROFILE_WIDTH = 1.5;
+const FRAME_PROFILE_COLOR = "#1a1a1a";
+
 function TubeWireframe({ segments, color = FRAME_STROKE }: { segments: WireSegment[]; color?: string }) {
+  const pathData = (pts: [number, number][]) => pts.map(([x, y], j) => `${j === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`).join(" ");
   return (
     <g>
-      {segments.map((seg, i) => (
-        <path
-          key={i}
-          d={seg.points.map(([x, y], j) => `${j === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`).join(" ")}
-          fill="none"
-          stroke={color}
-          strokeWidth={Math.max(seg.diameterMm, 0.5)}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ))}
+      <g>
+        {segments.map((seg, i) => (
+          <path
+            key={`profile-${i}`}
+            d={pathData(seg.points)}
+            fill="none"
+            stroke={FRAME_PROFILE_COLOR}
+            strokeWidth={Math.max(seg.diameterMm, 0.5) + FRAME_PROFILE_WIDTH * 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </g>
+      <g>
+        {segments.map((seg, i) => (
+          <path
+            key={i}
+            d={pathData(seg.points)}
+            fill="none"
+            stroke={color}
+            strokeWidth={Math.max(seg.diameterMm, 0.5)}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </g>
     </g>
   );
 }
@@ -912,9 +937,10 @@ function NoteItem({
               fontSize: `${itemFontSize}px`,
               width: `${inputW}px`,
               boxSizing: "border-box",
-              border: `1px solid ${itemColor}`,
+              border: "none",
+              outline: "none",
               borderRadius: 2,
-              background: "#fffdf0",
+              background: "transparent",
               padding: "2px 4px",
               fontFamily: "var(--font-manrope), sans-serif",
               color: itemColor,
