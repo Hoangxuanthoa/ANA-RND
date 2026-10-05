@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
 import { parseJsonBody } from "@/lib/server/parse-json";
 import { canEditBreakdown, getBreakdownAccess } from "@/lib/server/breakdown-access";
+import { recordActivity } from "@/lib/server/breakdown-activity";
 
 // Single call that hydrates the whole studio page for this breakdown — the
 // breakdown's own name/activeProductId (for the header + "which product was
@@ -46,5 +47,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const created = await prisma.breakdownProduct.create({
     data: { breakdownId: id, code, name, data: body.data as Prisma.InputJsonValue, sortOrder: count },
   });
+  // The studio auto-creates a first product for an empty breakdown — not
+  // something the person did, so it isn't logged.
+  if (count > 0) {
+    const fromCode = typeof body.duplicatedFrom === "string" ? body.duplicatedFrom : null;
+    const from = fromCode ? await prisma.breakdownProduct.findFirst({ where: { breakdownId: id, code: fromCode }, select: { name: true } }) : null;
+    await recordActivity({
+      breakdownId: id,
+      userId: me.id,
+      kind: from ? "product_duplicate" : "product_add",
+      productCode: code,
+      productName: name,
+      summary: from ? `Nhân bản ${from.name} → ${name}` : `Thêm sản phẩm ${name}`,
+    });
+  }
   return NextResponse.json({ id: created.id, code: created.code, name: created.name, data: created.data });
 }

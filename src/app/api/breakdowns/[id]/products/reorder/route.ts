@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
 import { parseJsonBody } from "@/lib/server/parse-json";
 import { canEditBreakdown, getBreakdownAccess } from "@/lib/server/breakdown-access";
+import { recordActivity } from "@/lib/server/breakdown-activity";
 
 // Persists the product order the studio's ▲/▼ buttons produce. The client
 // sends the product row ids in their new order; any product of this breakdown
@@ -30,6 +31,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const listedSet = new Set(listed);
   const finalOrder = [...listed, ...existing.map((p) => p.id).filter((pid) => !listedSet.has(pid))];
 
+  const orderChanged = finalOrder.some((pid, index) => pid !== existing[index]?.id);
   await prisma.$transaction(finalOrder.map((pid, index) => prisma.breakdownProduct.update({ where: { id: pid }, data: { sortOrder: index } })));
+  // The duplicate flow re-PUTs the order only to park the copy next to its
+  // source (the "silent" flag), which the duplicate line already covers; real ▲/▼
+  // clicks in a row fold into one row.
+  if (orderChanged && body.silent !== true) {
+    await recordActivity({ breakdownId: id, userId: me.id, kind: "reorder", summary: "Đổi thứ tự sản phẩm", mergeRepeats: true });
+  }
   return NextResponse.json({ ok: true });
 }

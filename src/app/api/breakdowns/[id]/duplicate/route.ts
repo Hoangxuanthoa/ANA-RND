@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
 import { getBreakdownAccess, type BreakdownAccess } from "@/lib/server/breakdown-access";
+import { recordActivity } from "@/lib/server/breakdown-activity";
 
 // "Nhân bản": an independent copy of a breakdown (every product's full data,
 // drawing sessions included) owned by whoever clicked — e.g. the same products
@@ -37,6 +38,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     await prisma.breakdown.update({ where: { id: copy.id }, data: { activeProductId: copy.products[activeIndex].id } });
   }
 
+  await recordActivity({ breakdownId: copy.id, userId: me.id, kind: "create", summary: `Tạo hồ sơ bằng cách nhân bản từ "${src.name}"` });
   return NextResponse.json({
     id: copy.id,
     name: copy.name,

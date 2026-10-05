@@ -51,6 +51,7 @@ model User {
   requestedTasks          RndTask[]           @relation("TaskRequester")
   createdBreakdowns       Breakdown[]
   sharedBreakdowns        BreakdownShare[]    @relation("BreakdownSharedWith")
+  breakdownActivities     BreakdownActivity[]
 
   @@map("users")
 }
@@ -658,6 +659,7 @@ model Breakdown {
 
   products BreakdownProduct[]
   shares   BreakdownShare[]
+  activity BreakdownActivity[]
 
   @@map("breakdowns")
 }
@@ -676,6 +678,30 @@ model BreakdownShare {
 
   @@unique([breakdownId, userId])
   @@map("breakdown_shares")
+}
+
+// Edit history of a breakdown ("Lịch sử chỉnh sửa") — one row per burst of
+// changes, not per keystroke: the studio autosaves continuously, so the server
+// folds edits by the same person to the same product within a short window into
+// one row (see lib/server/breakdown-activity.ts). `details` holds the raw
+// bits a row was built from (e.g. which field groups changed) so a merge can
+// extend it; `summary` is the human-readable line shown in the UI.
+model BreakdownActivity {
+  id          String    @id @default(uuid()) @db.Uuid
+  breakdownId String    @db.Uuid
+  breakdown   Breakdown @relation(fields: [breakdownId], references: [id], onDelete: Cascade)
+  userId      String    @db.Uuid
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind        String // "edit" | "product_add" | "product_duplicate" | "product_delete" | "reorder" | "rename" | "share" | "create"
+  productCode String? // the product's own "P001"-style id, when the entry is about one product
+  productName String?
+  summary     String
+  details     Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@index([breakdownId, createdAt])
+  @@map("breakdown_activity")
 }
 
 model BreakdownProduct {

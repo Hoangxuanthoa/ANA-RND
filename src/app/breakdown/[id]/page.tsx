@@ -66,6 +66,7 @@ import { SteelFrameForm } from "@/components/breakdown/studio/SteelFrameForm";
 import { DrawingSheetA4 } from "@/components/breakdown/studio/DrawingSheetA4";
 import { MultiDrawingExport } from "@/components/breakdown/studio/MultiDrawingExport";
 import { BomSheet } from "@/components/breakdown/studio/BomSheet";
+import { ActivityPanel } from "@/components/breakdown/studio/ActivityPanel";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { canViewBreakdown } from "@/lib/permissions";
@@ -385,6 +386,7 @@ function BreakdownStudio({ id }: { id: string }) {
   const [showDrawing, setShowDrawing] = useState(false);
   const [showBom, setShowBom] = useState(false);
   const [showMultiExport, setShowMultiExport] = useState(false);
+  const [showActivity, setShowActivity] = useState(false);
 
   const active = products.find((p) => p.id === activeId) ?? products[0];
 
@@ -969,7 +971,7 @@ function BreakdownStudio({ id }: { id: string }) {
         const res = await fetch(`/api/breakdowns/${id}/products`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: copy.id, name: copy.name, data: copy }),
+          body: JSON.stringify({ code: copy.id, name: copy.name, data: copy, duplicatedFrom: source.id }),
         });
         if (!res.ok) return;
         const created: ApiProduct = await res.json();
@@ -978,7 +980,7 @@ function BreakdownStudio({ id }: { id: string }) {
         await fetch(`/api/breakdowns/${id}/products/reorder`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ order }),
+          body: JSON.stringify({ order, silent: true }),
         });
       } catch {
         // Autosave/reload will reconcile; nothing useful to surface here.
@@ -1025,6 +1027,15 @@ function BreakdownStudio({ id }: { id: string }) {
           )}
         </div>
         <div className="flex items-center gap-3">
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => setShowActivity(true)}
+              className="flex h-8 items-center justify-center rounded-md border border-line bg-white px-3 text-[12.5px] font-bold text-text hover:bg-bg"
+            >
+              Lịch sử
+            </button>
+          )}
           <ActionBar exportEnabled={!!drawingInput} onExportDrawing={() => setShowDrawing(true)} bomEnabled={bomEnabled} onCalculateBom={() => setShowBom(true)} />
           {products.length > 1 && (
             <button
@@ -1270,6 +1281,8 @@ function BreakdownStudio({ id }: { id: string }) {
           </div>
         </div>
       )}
+
+      {showActivity && <ActivityPanel breakdownId={id} onClose={() => setShowActivity(false)} />}
 
       {showMultiExport && (
         <MultiDrawingExport products={products} breakdownName={breakdownName} onClose={() => setShowMultiExport(false)} />

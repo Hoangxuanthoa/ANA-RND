@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
 import { parseJsonBody } from "@/lib/server/parse-json";
 import type { BreakdownAccess } from "@/lib/server/breakdown-access";
+import { recordActivity } from "@/lib/server/breakdown-activity";
 
 // Each person sees only their own breakdowns plus the ones shared WITH them;
 // Admin sees every breakdown. (See lib/server/breakdown-access.ts for the
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
   if (!name) return NextResponse.json({ error: "Thiếu tên." }, { status: 400 });
 
   const created = await prisma.breakdown.create({ data: { name, createdById: me.id }, include: { createdBy: { select: { id: true, fullName: true } } } });
+  await recordActivity({ breakdownId: created.id, userId: me.id, kind: "create", summary: "Tạo hồ sơ" });
   return NextResponse.json({
     id: created.id,
     name: created.name,

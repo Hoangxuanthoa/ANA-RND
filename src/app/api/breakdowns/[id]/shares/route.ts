@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth";
 import { canViewBreakdown } from "@/lib/permissions";
 import { parseJsonBody } from "@/lib/server/parse-json";
 import { canEditBreakdown, getBreakdownAccess } from "@/lib/server/breakdown-access";
+import { recordActivity } from "@/lib/server/breakdown-activity";
 
 // Who a breakdown can be shared with: active staff who can open "Bóc tách"
 // (RND / Mua hàng). Admin is left out — Admin already sees every breakdown —
@@ -64,9 +65,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   });
   const validIds = valid.map((u) => u.id);
 
+  const beforeShares = await prisma.breakdownShare.findMany({ where: { breakdownId: id }, select: { userId: true, user: { select: { fullName: true } } } });
   await prisma.$transaction([
     prisma.breakdownShare.deleteMany({ where: { breakdownId: id, userId: { notIn: validIds } } }),
     prisma.breakdownShare.createMany({ data: validIds.map((userId) => ({ breakdownId: id, userId })), skipDuplicates: true }),
   ]);
+  const beforeIds = new Set(beforeShares.map((s) => s.userId));
+  const added = valid.filter((u) => !beforeIds.has(u.id)).map((u) => u.fullName);
+  const removed = beforeShares.filter((s) => !validIds.includes(s.userId)).map((s) => s.user.fullName);
+  const parts = [added.length ? `Chia sẻ cho ${added.join(", ")}` : "", removed.length ? `Bỏ chia sẻ với ${removed.join(", ")}` : ""].filter(Boolean);
+  if (parts.length) await recordActivity({ breakdownId: id, userId: me.id, kind: "share", summary: parts.join("; ") });
   return NextResponse.json({ sharedWith: valid.map((u) => ({ userId: u.id, name: u.fullName })) });
 }
