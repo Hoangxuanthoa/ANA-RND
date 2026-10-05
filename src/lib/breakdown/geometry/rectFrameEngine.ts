@@ -195,9 +195,16 @@ function perimeterRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPos
   return out;
 }
 
+// The "theo góc bo + cạnh" scheme spaces face ribs between the corner bisector
+// ribs when that's the corner mode; every other layout keeps the tangent span.
+function edgeAnchorOf(frame: RectFrameInput): EdgeAnchor {
+  const edgesMode = frame.bodyRibMode !== "fixed_tips" && frame.bodyRibMode !== "even";
+  return edgesMode && frame.cornerRibMode === "bisector" ? "bisector" : "tangent";
+}
+
 function verticalRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPosition[] {
   if (frame.bodyRibMode === "fixed_tips" || frame.bodyRibMode === "even") return perimeterRibPositions(frame, mouth);
-  const anchor: EdgeAnchor = frame.cornerRibMode === "bisector" ? "bisector" : "tangent";
+  const anchor = edgeAnchorOf(frame);
   const positions: RibPosition[] = [];
   const lengthCount = Math.max(Math.round(frame.lengthRibCount), 0);
   const widthCount = Math.max(Math.round(frame.widthRibCount), 0);
@@ -317,20 +324,28 @@ function addHorizontalRings(tubes: FrameTube[], profile: RectProfileInput, frame
 }
 
 // The ONLY pattern for Đáy/Nắp per spec: straight parallel ribs, running
-// along the chosen axis, evenly spaced across the OTHER axis. Same
-// "subtract the corner segment, divide what's left evenly" rule the
-// vertical edge ribs use: the stacking position never wanders into the
-// corner-radius zone at either end (where the usable rib length tapers
-// toward zero anyway) — it's spread across [-(half - r), (half - r)] with
-// "(idx+1)/(count+1)" interior spacing, not the full [-half, half] span.
-// Each individual rib is still clipped to the rounded-rect boundary along
-// its own length, same as before.
-function parallelRibLines(length: number, width: number, cornerR: number, direction: "length" | "width", count: number): [THREE.Vector2, THREE.Vector2][] {
+// along the chosen axis, evenly spaced across the OTHER axis — over the SAME
+// span the body's face ribs use (EdgeAnchor: between the corner bisector ribs,
+// or the straight remainder between the corner arcs), so the vertical ribs
+// meet them exactly when the counts match. Each individual rib is still
+// clipped to the rounded-rect boundary along its own length.
+function parallelRibLines(
+  length: number,
+  width: number,
+  cornerR: number,
+  direction: "length" | "width",
+  count: number,
+  anchor: EdgeAnchor,
+): [THREE.Vector2, THREE.Vector2][] {
   const hl = length / 2;
   const hw = width / 2;
   const r = Math.max(Math.min(cornerR, hl, hw), 0);
   const n = clamp(count, 0, 96); // 0 = "Không có" — bare rim ring only, no fill ribs
   const lines: [THREE.Vector2, THREE.Vector2][] = [];
+  // Same span the body's face ribs are spaced over (see EdgeAnchor), so when the
+  // counts match each vertical rib lands exactly on a bottom/lid rib.
+  const reachX = hl - edgeInset(r, anchor);
+  const reachY = hw - edgeInset(r, anchor);
 
   function boundaryX(y: number): number {
     const ay = Math.abs(y);
@@ -348,13 +363,13 @@ function parallelRibLines(length: number, width: number, cornerR: number, direct
   for (let idx = 0; idx < n; idx++) {
     const frac = (idx + 1) / (n + 1);
     if (direction === "length") {
-      // Ribs run along X, stacked across Y ∈ [-(hw-r), hw-r].
-      const y = -(hw - r) + 2 * (hw - r) * frac;
+      // Ribs run along X, stacked across Y ∈ [-reachY, reachY].
+      const y = -reachY + 2 * reachY * frac;
       const x = boundaryX(y);
       lines.push([new THREE.Vector2(-x, y), new THREE.Vector2(x, y)]);
     } else {
-      // Ribs run along Y, stacked across X ∈ [-(hl-r), hl-r].
-      const x = -(hl - r) + 2 * (hl - r) * frac;
+      // Ribs run along Y, stacked across X ∈ [-reachX, reachX].
+      const x = -reachX + 2 * reachX * frac;
       const y = boundaryY(x);
       lines.push([new THREE.Vector2(x, -y), new THREE.Vector2(x, y)]);
     }
@@ -363,7 +378,7 @@ function parallelRibLines(length: number, width: number, cornerR: number, direct
 }
 
 function addBottom(tubes: FrameTube[], base: RectCorner, frame: RectFrameInput, diameter: number) {
-  const lines = parallelRibLines(base.length, base.width, base.cornerR, frame.bottomDirection, frame.bottomCount);
+  const lines = parallelRibLines(base.length, base.width, base.cornerR, frame.bottomDirection, frame.bottomCount, edgeAnchorOf(frame));
   const part: BomPart = { group: "Đáy", label: "Nan đáy" };
   for (const [a, b] of lines) {
     pushTube(tubes, [new THREE.Vector3(a.x, a.y, base.z), new THREE.Vector3(b.x, b.y, base.z)], diameter, { part });
@@ -391,7 +406,7 @@ function addLid(tubes: FrameTube[], mouth: RectCorner, lid: LidInput, frame: Fra
   const width =
     mode === "flat" ? Math.max(num(lid.width, mouth.width), 1) : Math.max(num(lid.width, mouth.width + RECT_LID_DEFAULT_OVERHANG_MM), 1);
 
-  const lines = parallelRibLines(length, width, cornerR, rectFrame.lidDirection, rectFrame.lidCount);
+  const lines = parallelRibLines(length, width, cornerR, rectFrame.lidDirection, rectFrame.lidCount, edgeAnchorOf(rectFrame));
   const lidRibPart: BomPart = { group: "Nắp", label: mode === "flat" ? "Nan nắp" : "Nan nắp - mặt trên" };
   for (const [a, b] of lines) {
     pushTube(tubes, [new THREE.Vector3(a.x, a.y, zTop), new THREE.Vector3(b.x, b.y, zTop)], ribDia, { part: lidRibPart });
