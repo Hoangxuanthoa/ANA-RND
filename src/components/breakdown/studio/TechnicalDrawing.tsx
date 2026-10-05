@@ -781,7 +781,7 @@ function WireframePaths({ polylines, strokeWidth = 0.7, color = FRAME_STROKE }: 
 // so only the OUTER boundary of the combined frame survives: tubes crossing
 // or touching each other merge into one shape with a single clean outline,
 // instead of every tube being boxed in separately.
-const FRAME_PROFILE_WIDTH = 1.5;
+const FRAME_PROFILE_WIDTH = 0.75;
 const FRAME_PROFILE_COLOR = "#1a1a1a";
 
 function TubeWireframe({ segments, color = FRAME_STROKE }: { segments: WireSegment[]; color?: string }) {
