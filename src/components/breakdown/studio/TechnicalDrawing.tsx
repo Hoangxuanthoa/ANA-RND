@@ -948,23 +948,26 @@ function NoteItem({
               color: itemColor,
             }}
           />
-          <button
-            type="button"
-            onClick={onDelete}
-            title="Xóa ghi chú"
-            style={{
-              fontSize: `${itemFontSize + 2}px`,
-              color: "#b3432f",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              lineHeight: 1,
-              padding: 0,
-              flexShrink: 0,
-            }}
-          >
-            ×
-          </button>
+          {/* × only while the note is selected (clicked/focused) — not on every note at rest */}
+          {selected && (
+            <button
+              type="button"
+              onClick={onDelete}
+              title="Xóa ghi chú"
+              style={{
+                fontSize: `${itemFontSize + 2}px`,
+                color: "#b3432f",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                lineHeight: 1,
+                padding: 0,
+                flexShrink: 0,
+              }}
+            >
+              ×
+            </button>
+          )}
         </div>
       </foreignObject>
     </g>
