@@ -87,7 +87,22 @@ export const DEFAULT_RECT_PROFILE: RectProfileInput = {
 export type RectCornerRibMode = "bisector" | "tangents" | "both"; // "1 nan" / "2 nan" / "3 nan"
 export type RectAxis = "length" | "width";
 
+// How a Rectangle/Square's body vertical ribs are laid out:
+// "edges"      — the original scheme: corner ribs (cornerRibMode) plus N ribs
+//                spaced along each straight face (lengthRibCount/widthRibCount).
+// "fixed_tips" / "even" — the Oval's own schemes (see OvalBodyRibMode), ported
+//                so a heavily rounded rectangle gets ribs spaced evenly by real
+//                ARC LENGTH around the outline instead of bunching at the
+//                corners: fixed_tips keeps the 2 mid-face ribs (at ±length/2) and
+//                spaces bodyRibsPerHalf evenly per half; even spaces
+//                bodyRibsPerQuarter within one quarter (mid-face → mid-edge)
+//                and mirrors it to the other 3.
+export type RectBodyRibMode = "edges" | "fixed_tips" | "even";
+
 export interface RectFrameInput {
+  bodyRibMode: RectBodyRibMode;
+  bodyRibsPerHalf: number; // "fixed_tips" mode only
+  bodyRibsPerQuarter: number; // "even" mode only
   // A straight edge's N ribs are always evenly spaced INCLUDING its own 2
   // corner endpoints (so those always get a rib no matter what) — this only
   // controls whether an EXTRA rib is added at the corner's own bisector
@@ -104,6 +119,9 @@ export interface RectFrameInput {
 }
 
 export const DEFAULT_RECT_FRAME: RectFrameInput = {
+  bodyRibMode: "edges",
+  bodyRibsPerHalf: 3,
+  bodyRibsPerQuarter: 2,
   cornerRibMode: "bisector",
   lengthRibCount: 5,
   widthRibCount: 4,

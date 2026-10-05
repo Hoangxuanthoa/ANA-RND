@@ -76,6 +76,38 @@ function widthEdgePoint(length: number, width: number, cornerR: number, side: 1 
   return [side * hl, y];
 }
 
+// Point at fractional arc length t∈[0,1] along the UPPER half of the outline —
+// from the +X mid-face (t=0, at y=0), up the right face, round the top-right
+// corner, across the top face, round the top-left corner, and down the left
+// face to the -X mid-face (t=1). The lower half is this mirrored (y → -y).
+// Same parametrization as the Oval's halfPerimeterPoint, generalized to a
+// rounded rectangle (whose straight faces the oval simply doesn't have on the
+// short axis).
+function halfPerimeterPoint(length: number, width: number, cornerR: number, t: number): [number, number] {
+  const hl = length / 2;
+  const hw = width / 2;
+  const r = Math.max(Math.min(cornerR, hl, hw), 0);
+  const side = hw - r; // each end face's straight half-run (y from 0 up to the corner)
+  const quarter = (Math.PI / 2) * r;
+  const top = 2 * (hl - r);
+  const total = 2 * side + 2 * quarter + top;
+  if (total < 0.0001) return [hl, 0];
+  const s = Math.max(0, Math.min(1, t)) * total;
+  const rr = Math.max(r, 0.0001);
+
+  if (s <= side) return [hl, s];
+  if (s <= side + quarter) {
+    const theta = (s - side) / rr;
+    return [hl - r + r * Math.cos(theta), hw - r + r * Math.sin(theta)];
+  }
+  if (s <= side + quarter + top) return [hl - r - (s - side - quarter), hw];
+  if (s <= side + 2 * quarter + top) {
+    const theta = Math.PI / 2 + (s - side - quarter - top) / rr;
+    return [-(hl - r) + r * Math.cos(theta), hw - r + r * Math.sin(theta)];
+  }
+  return [-hl, side - (s - side - 2 * quarter - top)];
+}
+
 // One (x,y) position per rib, in the profile's own local coordinates — Z is
 // resolved separately per-row since length/width/cornerR (and therefore
 // every rib's x,y) change at each Z along a "Vòng ngang".
@@ -103,7 +135,53 @@ interface RibPosition {
 // spaced ONLY across its own flat remainder — the straight portion left
 // over once the 2 corner arcs are subtracted — never landing on the
 // tangent points themselves (those belong exclusively to the corner set).
+// Tags an arc-length rib (see perimeterRibPositions) with the face it sits on,
+// judged at the mouth, so a cutout handle can still shorten the ribs that fall
+// inside its opening. Ribs on a corner arc belong to no face.
+function classifyAtMouth(xy: RibXY, mouth: RectCorner): Pick<RibPosition, "onFace" | "localOffsetAtMouth"> {
+  const [x, y] = xy(mouth.length, mouth.width, mouth.cornerR);
+  const hl = mouth.length / 2;
+  const hw = mouth.width / 2;
+  const r = Math.max(Math.min(mouth.cornerR, hl, hw), 0);
+  const eps = 0.01;
+  if (Math.abs(x) >= hl - eps && Math.abs(y) <= hw - r + eps) return { onFace: "width", localOffsetAtMouth: y };
+  if (Math.abs(y) >= hw - eps && Math.abs(x) <= hl - r + eps) return { onFace: "length", localOffsetAtMouth: x };
+  return { onFace: null, localOffsetAtMouth: null };
+}
+
+// The Oval's two arc-length layouts, ported (see RectBodyRibMode).
+function perimeterRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPosition[] {
+  const make = (xy: RibXY): RibPosition => ({ xy, ...classifyAtMouth(xy, mouth) });
+  const at = (t: number, mirrorY: boolean): RibXY => (l, w, r) => {
+    const [x, y] = halfPerimeterPoint(l, w, r, t);
+    return [x, mirrorY ? -y : y];
+  };
+  const out: RibPosition[] = [];
+  if (frame.bodyRibMode === "even") {
+    const perQuarter = Math.max(Math.round(frame.bodyRibsPerQuarter), 0);
+    for (let i = 0; i < perQuarter; i++) {
+      const t = ((i + 0.5) / perQuarter) * 0.5;
+      for (const tt of [t, 1 - t]) {
+        out.push(make(at(tt, false)));
+        out.push(make(at(tt, true)));
+      }
+    }
+    return out;
+  }
+  // fixed_tips: the 2 mid-face ribs, then N per half spaced evenly by arc length.
+  out.push(make((l) => [l / 2, 0]));
+  out.push(make((l) => [-l / 2, 0]));
+  const n = Math.max(Math.round(frame.bodyRibsPerHalf), 0);
+  for (let i = 0; i < n; i++) {
+    const t = (i + 1) / (n + 1);
+    out.push(make(at(t, false)));
+    out.push(make(at(t, true)));
+  }
+  return out;
+}
+
 function verticalRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPosition[] {
+  if (frame.bodyRibMode === "fixed_tips" || frame.bodyRibMode === "even") return perimeterRibPositions(frame, mouth);
   const positions: RibPosition[] = [];
   const lengthCount = Math.max(Math.round(frame.lengthRibCount), 0);
   const widthCount = Math.max(Math.round(frame.widthRibCount), 0);
@@ -111,8 +189,10 @@ function verticalRibPositions(frame: RectFrameInput, mouth: RectCorner): RibPosi
   for (const side of [1, -1] as const) {
     for (let i = 0; i < lengthCount; i++) {
       const t = (i + 1) / (lengthCount + 1); // strictly between the 2 tangent points
-      const [, offsetY] = lengthEdgePoint(mouth.length, mouth.width, mouth.cornerR, side, t);
-      positions.push({ xy: (l, w, r) => lengthEdgePoint(l, w, r, side, t), onFace: "length", localOffsetAtMouth: offsetY });
+      // A "mặt dài" face runs along X, so a rib's offset from the face's own
+      // center is its X (not the constant wall Y).
+      const [offsetX] = lengthEdgePoint(mouth.length, mouth.width, mouth.cornerR, side, t);
+      positions.push({ xy: (l, w, r) => lengthEdgePoint(l, w, r, side, t), onFace: "length", localOffsetAtMouth: offsetX });
     }
     for (let i = 0; i < widthCount; i++) {
       const t = (i + 1) / (widthCount + 1);

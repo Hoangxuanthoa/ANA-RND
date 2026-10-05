@@ -29,6 +29,7 @@ interface RectFrameFormProps {
 }
 
 export function RectFrameForm({ rectFrame, frame, lid, hasHorizontalRings, onChangeRectFrame, onChangeFrame }: RectFrameFormProps) {
+  const bodyMode = rectFrame.bodyRibMode ?? "edges";
   function set<K extends keyof RectFrameInput>(key: K, value: RectFrameInput[K]) {
     onChangeRectFrame({ ...rectFrame, [key]: value });
   }
@@ -39,24 +40,55 @@ export function RectFrameForm({ rectFrame, frame, lid, hasHorizontalRings, onCha
   return (
     <div className="flex flex-col gap-3.5">
       <div className="flex flex-wrap gap-4">
-        <Column title="Nan dọc — góc bo">
-          <Field label="Nan ở góc">
-            <select value={rectFrame.cornerRibMode} onChange={(e) => set("cornerRibMode", e.target.value as RectFrameInput["cornerRibMode"])} className={selectClass}>
-              <option value="bisector">1 nan (tâm góc bo)</option>
-              <option value="tangents">2 nan (điểm tiếp giáp)</option>
-              <option value="both">3 nan (cả 2)</option>
+        <Column title={bodyMode === "edges" ? "Nan dọc — góc bo" : "Nan dọc thân"}>
+          <Field label="Kiểu chia">
+            <select value={bodyMode} onChange={(e) => set("bodyRibMode", e.target.value as RectFrameInput["bodyRibMode"])} className={selectClass}>
+              <option value="edges">Theo góc bo + cạnh</option>
+              <option value="fixed_tips">Cố định 2 đầu (chia đều theo chu vi)</option>
+              <option value="even">Chia đều, không cố định (theo chu vi)</option>
             </select>
           </Field>
+          {bodyMode === "edges" && (
+            <Field label="Nan ở góc">
+              <select value={rectFrame.cornerRibMode} onChange={(e) => set("cornerRibMode", e.target.value as RectFrameInput["cornerRibMode"])} className={selectClass}>
+                <option value="bisector">1 nan (tâm góc bo)</option>
+                <option value="tangents">2 nan (điểm tiếp giáp)</option>
+                <option value="both">3 nan (cả 2)</option>
+              </select>
+            </Field>
+          )}
+          {bodyMode === "fixed_tips" && (
+            <>
+              <Field label="Số nan mỗi nửa">
+                <input type="number" min={0} value={rectFrame.bodyRibsPerHalf} onChange={(e) => set("bodyRibsPerHalf", Number(e.target.value))} className={inputClass} />
+              </Field>
+              <p className="text-[11px] text-text-faint">
+                2 nan ở giữa 2 mặt rộng luôn cố định (không tính ở đây) — số này chia đều theo chiều dài đường viền thật (đi qua cả góc bo) mỗi nửa trên/dưới, đối xứng qua trục dài.
+              </p>
+            </>
+          )}
+          {bodyMode === "even" && (
+            <>
+              <Field label="Số nan mỗi 1/4 chu vi">
+                <input type="number" min={0} value={rectFrame.bodyRibsPerQuarter} onChange={(e) => set("bodyRibsPerQuarter", Number(e.target.value))} className={inputClass} />
+              </Field>
+              <p className="text-[11px] text-text-faint">
+                Chia đều theo chiều dài chu vi thật trên 1/4 hình (từ giữa mặt rộng đến giữa mặt dài, qua góc bo) rồi lấy đối xứng ra 3 phần còn lại. Tổng số nan = số này × 4.
+              </p>
+            </>
+          )}
         </Column>
 
-        <Column title="Nan dọc — cạnh">
-          <Field label="Số nan mặt dài">
-            <input type="number" min={0} value={rectFrame.lengthRibCount} onChange={(e) => set("lengthRibCount", Number(e.target.value))} className={inputClass} />
-          </Field>
-          <Field label="Số nan mặt rộng">
-            <input type="number" min={0} value={rectFrame.widthRibCount} onChange={(e) => set("widthRibCount", Number(e.target.value))} className={inputClass} />
-          </Field>
-        </Column>
+        {bodyMode === "edges" && (
+          <Column title="Nan dọc — cạnh">
+            <Field label="Số nan mặt dài">
+              <input type="number" min={0} value={rectFrame.lengthRibCount} onChange={(e) => set("lengthRibCount", Number(e.target.value))} className={inputClass} />
+            </Field>
+            <Field label="Số nan mặt rộng">
+              <input type="number" min={0} value={rectFrame.widthRibCount} onChange={(e) => set("widthRibCount", Number(e.target.value))} className={inputClass} />
+            </Field>
+          </Column>
+        )}
 
         {hasHorizontalRings && (
           <Column title="Vòng ngang">

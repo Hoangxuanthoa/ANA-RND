@@ -160,6 +160,9 @@ function migrateProduct(p: ProductState): ProductState {
   // more `typeof` check per field every time this grows again, merge onto
   // the current defaults — any missing field (old OR future) falls back
   // safely while anything the user DID customize is preserved.
+  // rectFrame gained bodyRibMode/bodyRibsPerHalf/bodyRibsPerQuarter — same
+  // merge-onto-defaults as ovalFrame below so older saves pick them up.
+  const rectFrame = { ...DEFAULT_RECT_FRAME, ...(p.rectFrame ?? {}) };
   const ovalProfile = migrateOvalProfile(p.ovalProfile);
   const ovalFrame = { ...DEFAULT_OVAL_FRAME, ...(p.ovalFrame ?? {}) };
   const ovalPhotoCurve = p.ovalPhotoCurve ?? null;
@@ -172,6 +175,7 @@ function migrateProduct(p: ProductState): ProductState {
     ...p,
     material,
     code,
+    rectFrame,
     ovalProfile,
     ovalFrame,
     ovalPhotoCurve,
