@@ -20,6 +20,8 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 }
 
 interface RectFrameFormProps {
+  // Square: both faces are identical, so "Nan dọc — cạnh" is a single count.
+  isSquare?: boolean;
   rectFrame: RectFrameInput;
   frame: FrameInput;
   lid: LidInput;
@@ -28,7 +30,7 @@ interface RectFrameFormProps {
   onChangeFrame: (frame: FrameInput) => void;
 }
 
-export function RectFrameForm({ rectFrame, frame, lid, hasHorizontalRings, onChangeRectFrame, onChangeFrame }: RectFrameFormProps) {
+export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHorizontalRings, onChangeRectFrame, onChangeFrame }: RectFrameFormProps) {
   const bodyMode = rectFrame.bodyRibMode ?? "edges";
   function set<K extends keyof RectFrameInput>(key: K, value: RectFrameInput[K]) {
     onChangeRectFrame({ ...rectFrame, [key]: value });
@@ -81,12 +83,26 @@ export function RectFrameForm({ rectFrame, frame, lid, hasHorizontalRings, onCha
 
         {bodyMode === "edges" && (
           <Column title="Nan dọc — cạnh">
-            <Field label="Số nan mặt dài">
-              <input type="number" min={0} value={rectFrame.lengthRibCount} onChange={(e) => set("lengthRibCount", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Số nan mặt rộng">
-              <input type="number" min={0} value={rectFrame.widthRibCount} onChange={(e) => set("widthRibCount", Number(e.target.value))} className={inputClass} />
-            </Field>
+            {isSquare ? (
+              <Field label="Số nan mỗi mặt">
+                <input
+                  type="number"
+                  min={0}
+                  value={rectFrame.lengthRibCount}
+                  onChange={(e) => onChangeRectFrame({ ...rectFrame, lengthRibCount: Number(e.target.value), widthRibCount: Number(e.target.value) })}
+                  className={inputClass}
+                />
+              </Field>
+            ) : (
+              <>
+                <Field label="Số nan mặt dài">
+                  <input type="number" min={0} value={rectFrame.lengthRibCount} onChange={(e) => set("lengthRibCount", Number(e.target.value))} className={inputClass} />
+                </Field>
+                <Field label="Số nan mặt rộng">
+                  <input type="number" min={0} value={rectFrame.widthRibCount} onChange={(e) => set("widthRibCount", Number(e.target.value))} className={inputClass} />
+                </Field>
+              </>
+            )}
           </Column>
         )}
 

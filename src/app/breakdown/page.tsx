@@ -79,6 +79,7 @@ export default function BreakdownPage() {
   const [query, setQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [sharingRow, setSharingRow] = useState<BreakdownRow | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const allowed = canViewBreakdown(role);
   const isAdmin = role === "ADMIN";
@@ -168,6 +169,25 @@ export default function BreakdownPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: trimmed }),
     });
+  }
+
+  // "Nhân bản": copy a breakdown (all products + drawing sessions) into a new
+  // one of mine — e.g. the same products in another colour. The copy opens in
+  // inline-rename so it can be named right away.
+  async function duplicateBreakdown(id: string) {
+    if (duplicatingId) return;
+    setDuplicatingId(id);
+    try {
+      const res = await fetch(`/api/breakdowns/${id}/duplicate`, { method: "POST" });
+      if (res.ok) {
+        const copy: BreakdownRow = await res.json();
+        setRows((prev) => [copy, ...(prev ?? [])]);
+        setTab("all");
+        setRenamingId(copy.id);
+      }
+    } finally {
+      setDuplicatingId(null);
+    }
   }
 
   async function removeBreakdown(id: string) {
@@ -374,6 +394,19 @@ export default function BreakdownPage() {
                 >
                   {row.canEdit ? "Mở" : "Xem"}
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => duplicateBreakdown(row.id)}
+                  disabled={duplicatingId !== null}
+                  title="Nhân bản hồ sơ này (giữ nguyên toàn bộ sản phẩm)"
+                  className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-white px-2.5 text-[12px] font-bold text-text hover:bg-bg disabled:opacity-60"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                  </svg>
+                  {duplicatingId === row.id ? "Đang nhân bản…" : "Nhân bản"}
+                </button>
                 {row.canEdit && (
                   <button
                     type="button"

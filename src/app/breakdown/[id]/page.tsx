@@ -889,6 +889,8 @@ function BreakdownStudio({ id }: { id: string }) {
           mouth: { ...active.rectProfile.mouth, width: active.rectProfile.mouth.length },
           base: { ...active.rectProfile.base, width: active.rectProfile.base.length },
         },
+        // Square shows ONE rib count for both faces — make them agree now.
+        rectFrame: { ...active.rectFrame, widthRibCount: active.rectFrame.lengthRibCount },
         ...handlePatch,
       });
       return;
@@ -1172,6 +1174,7 @@ function BreakdownStudio({ id }: { id: string }) {
           <fieldset disabled={readOnly} className="min-h-[160px] min-w-0 flex-1 basis-0 overflow-y-auto border-t border-line bg-surface p-4">
             {isRect ? (
               <RectFrameForm
+                isSquare={active.shape === "square"}
                 rectFrame={active.rectFrame}
                 frame={active.frame}
                 lid={active.lid}
