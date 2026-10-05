@@ -1170,6 +1170,8 @@ function BreakdownStudio({ id }: { id: string }) {
               handlePaths={handlePaths}
               material={active.material}
               onClose={() => setShowDrawing(false)}
+              initialDoc={active.drawingDoc}
+              onDocChange={(drawingDoc) => updateActive({ drawingDoc })}
             />
           </div>
         </div>

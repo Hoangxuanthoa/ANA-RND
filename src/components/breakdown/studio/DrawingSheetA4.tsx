@@ -202,7 +202,7 @@ const UNDO_STACK_LIMIT = 50;
 // into one object so a single commit()/undo()/redo() covers every field
 // edit, dim tweak, note, and custom-measure at once, the same
 // burst-debounced history-stack pattern PhotoTraceForm.tsx already uses.
-interface DocState {
+export interface DocState {
   fields: TitleBlockField[];
   visible: Partial<Record<DrawingViewKey, boolean>>;
   mode: DrawMode;
@@ -235,6 +235,54 @@ interface DrawingSheetContentProps {
   // per selected product OFF-SCREEN (see MultiDrawingExport.tsx) purely to
   // get at its rendered SVGs, never shown to the user directly.
   onCaptured?: (capture: { views: PdfViewSpec[]; fields: PdfTitleField[] }) => void;
+  // The product's last saved sheet session (ProductState.drawingDoc), applied
+  // once when this sheet mounts; onDocChange fires with the new doc after
+  // every edit so the caller can save it back onto the product. Both are
+  // omitted by the off-screen multi-export mount that must not write back.
+  initialDoc?: unknown;
+  onDocChange?: (doc: DocState) => void;
+}
+
+const EMPTY_VIEW_BUCKETS = ["front", "side", "top", "iso"] as const;
+
+// Builds the sheet's starting doc: the defaults, overlaid with a previously
+// saved session when there is one. A saved doc is treated as untrusted-ish
+// (older app versions, template edits since) — anything missing or no longer
+// valid falls back to the default, title-block fields/views are re-matched
+// against the CURRENT template by id, and "frame" mode is dropped if this
+// product has no steel frame anymore.
+function buildInitialDoc(template: DrawingTemplate, productName: string, frameResult: SteelFrameResult | null, saved: unknown): DocState {
+  const defaults: DocState = {
+    fields: template.fields.map((f) => ({ id: f.id, label: f.label, value: fieldValue(f, productName) })),
+    visible: Object.fromEntries(template.views.map((k) => [k, true])),
+    mode: frameResult ? "frame" : "solid",
+    fontScale: 1.8,
+    dimColor: "#000000",
+    notes: { front: [], side: [], top: [], iso: [] },
+    textBoxes: { front: [], side: [], top: [], iso: [] },
+    dimSettings: { front: {}, side: {}, top: {}, iso: {} },
+    customDims: { front: [], side: [], top: [], iso: [] },
+    viewScale: { front: DEFAULT_VIEW_SCALE, side: DEFAULT_VIEW_SCALE, top: DEFAULT_VIEW_SCALE, iso: DEFAULT_VIEW_SCALE },
+  };
+  if (!saved || typeof saved !== "object") return defaults;
+  const s = saved as Partial<DocState>;
+  const bucketsOk = (v: unknown) => !!v && typeof v === "object" && EMPTY_VIEW_BUCKETS.every((k) => k in (v as object));
+  const savedFields = Array.isArray(s.fields) ? new Map(s.fields.map((f) => [f.id, f])) : new Map<string, TitleBlockField>();
+  return {
+    fields: defaults.fields.map((f) => {
+      const old = savedFields.get(f.id);
+      return old && typeof old.value === "string" ? { ...f, value: old.value } : f;
+    }),
+    visible: { ...defaults.visible, ...(s.visible && typeof s.visible === "object" ? s.visible : {}) },
+    mode: s.mode === "frame" && !frameResult ? "solid" : s.mode === "frame" || s.mode === "solid" ? s.mode : defaults.mode,
+    fontScale: typeof s.fontScale === "number" ? s.fontScale : defaults.fontScale,
+    dimColor: typeof s.dimColor === "string" ? s.dimColor : defaults.dimColor,
+    notes: bucketsOk(s.notes) ? s.notes! : defaults.notes,
+    textBoxes: bucketsOk(s.textBoxes) ? s.textBoxes! : defaults.textBoxes,
+    dimSettings: bucketsOk(s.dimSettings) ? s.dimSettings! : defaults.dimSettings,
+    customDims: bucketsOk(s.customDims) ? s.customDims! : defaults.customDims,
+    viewScale: bucketsOk(s.viewScale) ? s.viewScale! : defaults.viewScale,
+  };
 }
 
 export function DrawingSheetContent({
@@ -252,19 +300,24 @@ export function DrawingSheetContent({
   onSelectTemplate,
   onClose,
   onCaptured,
+  initialDoc,
+  onDocChange,
 }: DrawingSheetContentProps) {
-  const [doc, setDoc] = useState<DocState>(() => ({
-    fields: template.fields.map((f) => ({ id: f.id, label: f.label, value: fieldValue(f, productName) })),
-    visible: Object.fromEntries(template.views.map((k) => [k, true])),
-    mode: frameResult ? "frame" : "solid",
-    fontScale: 1.8,
-    dimColor: "#000000",
-    notes: { front: [], side: [], top: [], iso: [] },
-    textBoxes: { front: [], side: [], top: [], iso: [] },
-    dimSettings: { front: {}, side: {}, top: {}, iso: {} },
-    customDims: { front: [], side: [], top: [], iso: [] },
-    viewScale: { front: DEFAULT_VIEW_SCALE, side: DEFAULT_VIEW_SCALE, top: DEFAULT_VIEW_SCALE, iso: DEFAULT_VIEW_SCALE },
-  }));
+  const [doc, setDoc] = useState<DocState>(() => buildInitialDoc(template, productName, frameResult, initialDoc));
+
+  // Save every edit back onto the product (see initialDoc/onDocChange). The
+  // first doc is skipped — merely opening the sheet must not write anything —
+  // and the callback is read through a ref so an inline arrow from the
+  // parent doesn't re-fire this on every parent render.
+  const firstDocRef = useRef(doc);
+  const onDocChangeRef = useRef(onDocChange);
+  useEffect(() => {
+    onDocChangeRef.current = onDocChange;
+  });
+  useEffect(() => {
+    if (doc === firstDocRef.current) return;
+    onDocChangeRef.current?.(doc);
+  }, [doc]);
 
   // The ACTIVE template can change shape (fields/views added or removed)
   // while this exact sheet is open, via "Quản lý template" — sync doc.fields/
@@ -1200,7 +1253,11 @@ export function DrawingSheetA4({
   handlePaths,
   material,
   onClose,
+  initialDoc,
+  onDocChange,
 }: {
+  initialDoc?: unknown;
+  onDocChange?: (doc: DocState) => void;
   drawing: ShapeDrawingInput;
   productName: string;
   frameResult: SteelFrameResult | null;
@@ -1297,6 +1354,8 @@ export function DrawingSheetA4({
         activeTemplateId={activeTemplate.id}
         onSelectTemplate={selectTemplate}
         onClose={onClose}
+        initialDoc={initialDoc}
+        onDocChange={onDocChange}
       />
       {managerOpen && (
         <TemplateManager

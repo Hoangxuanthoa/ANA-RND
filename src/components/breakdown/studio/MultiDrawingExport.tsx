@@ -19,9 +19,9 @@ interface Captured {
 // each selected product gets its own hidden, off-screen instance (computed
 // via buildDrawingBundle, since this runs outside the studio's own `active`-
 // product hooks), which reports its rendered SVGs back via onCaptured the
-// moment it mounts (its `doc` is always fresh defaults — see
-// DrawingSheetContent's own comment on this — so "mounted" already means
-// "this product's default sheet, fully drawn", no further settling needed).
+// moment it mounts (its `doc` is built synchronously at mount from the
+// product's saved drawing session, or defaults if none — so "mounted"
+// already means "this product's sheet, fully drawn", no further settling).
 // Once every selected product has reported in, their pages are assembled
 // into one shared jsPDF document and saved as a single file.
 export function MultiDrawingExport({
@@ -192,6 +192,7 @@ export function MultiDrawingExport({
                 activeTemplateId={template.id}
                 onSelectTemplate={() => {}}
                 onClose={() => {}}
+                initialDoc={product.drawingDoc}
                 onCaptured={(capture) => handleOneCaptured(product.id, capture)}
               />
             </div>

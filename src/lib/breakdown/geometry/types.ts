@@ -633,4 +633,9 @@ export interface ProductState {
   scallop: ScallopInput;
   photoTrace: PhotoTraceInput;
   material: MaterialInput;
+  // The drawing sheet's last session for this product (title-block values,
+  // dims/notes/text boxes, scale, font…), saved with the product so
+  // reopening "Xuất bản vẽ" restores it. Opaque here — its shape belongs to
+  // DrawingSheetA4.tsx (DocState), which validates it on restore.
+  drawingDoc?: unknown;
 }
