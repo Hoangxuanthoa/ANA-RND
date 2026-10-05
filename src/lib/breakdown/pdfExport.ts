@@ -370,6 +370,12 @@ export async function addDrawingSheetPage(
   for (const dy of dividerYs) pdf.line(tbX, dy, tbX + titleBlockWidthMm, dy);
   pdf.setLineWidth(THICK_LINE_MM);
   pdf.rect(tbX, tbY, titleBlockWidthMm, drawAreaH);
+  // The sheet's overall border (the on-screen preview's `border-2 border-black`
+  // around the drawing area + title block together). It used to be implied by
+  // each view cell's own frame, so a template with "hide view frame" on lost the
+  // page border entirely in the PDF — draw it explicitly, drawn last so it sits
+  // on top of the title block's own outline.
+  pdf.rect(MARGIN, MARGIN, PAGE_W - MARGIN * 2, drawAreaH);
   pdf.setLineWidth(THIN_LINE_MM);
 }
 
