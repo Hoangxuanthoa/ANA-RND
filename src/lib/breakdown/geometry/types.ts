@@ -657,4 +657,7 @@ export interface ProductState {
   // reopening "Xuất bản vẽ" restores it. Opaque here — its shape belongs to
   // DrawingSheetA4.tsx (DocState), which validates it on restore.
   drawingDoc?: unknown;
+  // Same, for the separate "Nắp" drawing sheet of a product that has a lid
+  // (the Thân sheet above keeps using drawingDoc).
+  drawingDocLid?: unknown;
 }

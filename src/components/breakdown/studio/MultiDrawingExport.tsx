@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DrawingSheetContent } from "./DrawingSheetA4";
-import { buildDrawingBundle, type DrawingBundle } from "@/lib/breakdown/drawingBundle";
+import { DrawingSheetContent, withPartName } from "./DrawingSheetA4";
+import { buildDrawingBundle, productHasLid, SHEET_PART_LABEL, type DrawingBundle, type SheetPart } from "@/lib/breakdown/drawingBundle";
 import { addDrawingSheetPage, createA4Pdf, sanitizeFileName, type PdfTitleField, type PdfViewSpec } from "@/lib/breakdown/pdfExport";
 import { fetchDrawingTemplates, loadActiveTemplateId, type DrawingTemplate } from "@/lib/breakdown/drawingTemplate";
 import type { ProductState } from "@/lib/breakdown/geometry/types";
@@ -10,6 +10,15 @@ import type { ProductState } from "@/lib/breakdown/geometry/types";
 interface Captured {
   views: PdfViewSpec[];
   fields: PdfTitleField[];
+}
+
+// One drawing sheet = one PDF page. A product with a lid contributes two
+// (Thân, then Nắp), anything else one.
+interface SheetItem {
+  key: string;
+  product: ProductState;
+  part: SheetPart;
+  bundle: DrawingBundle;
 }
 
 // Lets the user pick several products from this breakdown and export ALL of
@@ -39,7 +48,7 @@ export function MultiDrawingExport({
   const [error, setError] = useState<string | null>(null);
   // Only set while actively capturing — the products (+ their precomputed
   // geometry bundle) currently mounted off-screen for this export run.
-  const [captureQueue, setCaptureQueue] = useState<{ product: ProductState; bundle: DrawingBundle }[] | null>(null);
+  const [captureQueue, setCaptureQueue] = useState<SheetItem[] | null>(null);
   const capturedRef = useRef<Map<string, Captured>>(new Map());
   const resolveWaitRef = useRef<(() => void) | null>(null);
 
@@ -67,8 +76,8 @@ export function MultiDrawingExport({
     setSelected((prev) => (prev.size === products.length ? new Set() : new Set(products.map((p) => p.id))));
   }
 
-  function handleOneCaptured(productId: string, capture: Captured) {
-    capturedRef.current.set(productId, capture);
+  function handleOneCaptured(key: string, capture: Captured) {
+    capturedRef.current.set(key, capture);
     if (captureQueue && capturedRef.current.size >= captureQueue.length) {
       resolveWaitRef.current?.();
     }
@@ -78,12 +87,20 @@ export function MultiDrawingExport({
     if (!template) return;
     setError(null);
     const chosen = products.filter((p) => selected.has(p.id));
-    const withBundles: { product: ProductState; bundle: DrawingBundle }[] = [];
+    const withBundles: SheetItem[] = [];
     const skipped: string[] = [];
     for (const product of chosen) {
-      const bundle = buildDrawingBundle(product);
-      if (bundle) withBundles.push({ product, bundle });
-      else skipped.push(product.name || product.id);
+      const bundle = buildDrawingBundle(product, "body");
+      if (!bundle) {
+        skipped.push(product.name || product.id);
+        continue;
+      }
+      withBundles.push({ key: `${product.id}:body`, product, part: "body", bundle });
+      if (productHasLid(product)) {
+        const lidBundle = buildDrawingBundle(product, "lid");
+        if (lidBundle) withBundles.push({ key: `${product.id}:lid`, product, part: "lid", bundle: lidBundle });
+        else skipped.push(`${product.name || product.id} (Nắp)`);
+      }
     }
     if (withBundles.length === 0) {
       setError("Không có sản phẩm nào hợp lệ để xuất.");
@@ -106,8 +123,8 @@ export function MultiDrawingExport({
 
       const pdf = await createA4Pdf();
       let first = true;
-      for (const { product } of withBundles) {
-        const capture = capturedRef.current.get(product.id);
+      for (const { key, product } of withBundles) {
+        const capture = capturedRef.current.get(key);
         if (!capture) continue;
         if (!first) pdf.addPage();
         first = false;
@@ -144,7 +161,7 @@ export function MultiDrawingExport({
         </div>
 
         <div className="mb-2 flex flex-shrink-0 items-center justify-between">
-          <span className="text-[12px] text-text-faint">Chọn sản phẩm để gộp vào 1 file PDF (mỗi sản phẩm 1 trang)</span>
+          <span className="text-[12px] text-text-faint">Chọn sản phẩm để gộp vào 1 file PDF (mỗi sản phẩm 1 trang; sản phẩm có nắp 2 trang: Thân + Nắp)</span>
           <button type="button" onClick={toggleAll} className="text-[12px] font-semibold text-accent hover:underline">
             {selected.size === products.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
           </button>
@@ -176,11 +193,11 @@ export function MultiDrawingExport({
           enough to draw their own SVGs and report back via onCaptured. */}
       {captureQueue && template && (
         <div style={{ position: "fixed", left: -99999, top: 0, width: 1200 }} aria-hidden>
-          {captureQueue.map(({ product, bundle }) => (
-            <div key={product.id} style={{ width: 1200, height: 800 }}>
+          {captureQueue.map(({ key, product, part, bundle }) => (
+            <div key={key} style={{ width: 1200, height: 800 }}>
               <DrawingSheetContent
                 drawing={bundle.drawing}
-                productName={product.name || product.id}
+                productName={productHasLid(product) ? `${product.name || product.id} — ${SHEET_PART_LABEL[part]}` : product.name || product.id}
                 frameResult={bundle.frameResult}
                 handle={product.handle}
                 handleArcView={bundle.handleArcView}
@@ -192,8 +209,12 @@ export function MultiDrawingExport({
                 activeTemplateId={template.id}
                 onSelectTemplate={() => {}}
                 onClose={() => {}}
-                initialDoc={product.drawingDoc}
-                onCaptured={(capture) => handleOneCaptured(product.id, capture)}
+                initialDoc={
+                  productHasLid(product)
+                    ? withPartName(part === "lid" ? product.drawingDocLid : product.drawingDoc, product.name || product.id, `${product.name || product.id} — ${SHEET_PART_LABEL[part]}`)
+                    : product.drawingDoc
+                }
+                onCaptured={(capture) => handleOneCaptured(key, capture)}
               />
             </div>
           ))}

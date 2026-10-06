@@ -40,6 +40,7 @@ const GROUP_BY_KEY: Record<string, string> = {
   ellipseFrame: "khung sắt",
   material: "vật liệu",
   drawingDoc: "bản vẽ",
+  drawingDocLid: "bản vẽ",
 };
 const GROUP_ORDER = ["tên", "mã sản phẩm", "dáng sản phẩm", "kích thước / hình dạng", "nắp", "quai", "miệng cánh hoa", "khung sắt", "vật liệu", "bản vẽ", "khác"];
 

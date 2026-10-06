@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { FrontSideSVG, IsoSVG, TopSVG, type CustomDim, type DimPickMode, type DimSettings, type DimSettingsMap, type DrawMode, type Note, type TextBoxItem } from "./TechnicalDrawing";
 import { TemplateManager } from "./TemplateManager";
 import {
+  addDrawingSheetPage,
+  createA4Pdf,
   exportDrawingSheetPdf,
   computeCellContentHeightMm,
   sanitizeFileName,
@@ -28,6 +30,7 @@ import type { SteelFrameResult } from "@/lib/breakdown/geometry/frameEngine";
 import { DEFAULT_ISO_ANGLE, ISO_ELEVATION_RANGE, type IsoAngle, type ShapeDrawingInput } from "@/lib/breakdown/geometry/drawingEngine";
 import type { HandleInput, MaterialInput } from "@/lib/breakdown/geometry/types";
 import { canManageDrawingTemplates } from "@/lib/permissions";
+import { SHEET_PART_LABEL, type SheetPart } from "@/lib/breakdown/drawingBundle";
 import { useRole } from "@/components/RoleProvider";
 
 type Point3 = { x: number; y: number; z: number };
@@ -251,6 +254,15 @@ const wrapAzimuth = (deg: number) => {
   const m = ((((deg + 180) % 360) + 360) % 360) - 180;
   return m === -180 ? 180 : m;
 };
+
+// A sheet saved before the product had a lid carries the plain product name in its
+// title block. Once the product has Thân + Nắp sheets, bring that untouched name
+// in line with the part ("… — Thân") — a name the person typed themselves stays.
+export function withPartName(doc: unknown, plainName: string, partName: string): unknown {
+  if (!doc || typeof doc !== "object" || !Array.isArray((doc as DocState).fields)) return doc;
+  const d = doc as DocState;
+  return { ...d, fields: d.fields.map((f) => (f.value === plainName ? { ...f, value: partName } : f)) };
+}
 
 const EMPTY_VIEW_BUCKETS = ["front", "side", "top", "iso"] as const;
 
@@ -1357,9 +1369,19 @@ export function DrawingSheetA4({
   onClose,
   initialDoc,
   onDocChange,
+  lidSheet,
 }: {
   initialDoc?: unknown;
   onDocChange?: (doc: DocState) => void;
+  // Present only for a product with a lid: the lid's own drawing, which becomes a
+  // second sheet ("Nắp") next to the body's ("Thân"), each with its own saved doc.
+  lidSheet?: {
+    drawing: ShapeDrawingInput;
+    frameResult: SteelFrameResult | null;
+    material: MaterialInput;
+    initialDoc?: unknown;
+    onDocChange?: (doc: DocState) => void;
+  };
   drawing: ShapeDrawingInput;
   productName: string;
   frameResult: SteelFrameResult | null;
@@ -1377,6 +1399,15 @@ export function DrawingSheetA4({
   const [templates, setTemplates] = useState<DrawingTemplate[] | null>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  // Thân | Nắp (only when the product has a lid). The latest doc of each sheet
+  // lives in a ref so switching tabs (which remounts the sheet) and the combined
+  // PDF export always see the newest edits, not what the parent last re-rendered with.
+  const [part, setPart] = useState<SheetPart>("body");
+  const docsRef = useRef<Record<SheetPart, unknown>>({ body: initialDoc, lid: lidSheet?.initialDoc });
+  const [bothExporting, setBothExporting] = useState(false);
+  const [captureParts, setCaptureParts] = useState<SheetPart[] | null>(null);
+  const capturedRef = useRef<Map<SheetPart, { views: PdfViewSpec[]; fields: PdfTitleField[] }>>(new Map());
+  const captureWaitRef = useRef<(() => void) | null>(null);
   // Debounced per-template-id, same 400ms cadence the breakdown product
   // autosave uses — editing a template field fires on every keystroke
   // (TemplateManager has no debounce of its own), so without this each
@@ -1438,27 +1469,136 @@ export function DrawingSheetA4({
   }
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? templates[0];
+  const hasLid = !!lidSheet;
+  const shownPart: SheetPart = hasLid ? part : "body";
+
+  // Everything one sheet needs, for the visible tab and the off-screen export copies alike.
+  const sheetProps = (p: SheetPart) => {
+    const isLid = p === "lid" && !!lidSheet;
+    const name = hasLid ? `${productName} — ${SHEET_PART_LABEL[p]}` : productName;
+    return {
+      drawing: isLid ? lidSheet!.drawing : drawing,
+      productName: name,
+      frameResult: isLid ? lidSheet!.frameResult : frameResult,
+      handle,
+      handleArcView: isLid ? ("side" as const) : handleArcView,
+      handlePaths: isLid ? [] : handlePaths,
+      material: isLid ? lidSheet!.material : material,
+      template: activeTemplate,
+      initialDoc: hasLid ? withPartName(docsRef.current[p], productName, name) : docsRef.current[p],
+    };
+  };
+  const saveDoc = (p: SheetPart) => (doc: DocState) => {
+    docsRef.current[p] = doc;
+    (p === "lid" ? lidSheet?.onDocChange : onDocChange)?.(doc);
+  };
+
+  // One PDF with both sheets (Thân, then Nắp). The sheets that aren't on screen
+  // are mounted off-screen just long enough to draw their SVGs and report back
+  // (same approach as MultiDrawingExport) — the on-screen one is re-captured too
+  // so all pages come from the same latest docs.
+  async function exportBothPdf() {
+    setBothExporting(true);
+    capturedRef.current = new Map();
+    setCaptureParts(["body", "lid"]);
+    try {
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          captureWaitRef.current = resolve;
+        }),
+        new Promise<void>((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
+      ]);
+      const pdf = await createA4Pdf();
+      let first = true;
+      for (const p of ["body", "lid"] as SheetPart[]) {
+        const cap = capturedRef.current.get(p);
+        if (!cap) continue;
+        if (!first) pdf.addPage();
+        first = false;
+        await addDrawingSheetPage(pdf, {
+          companyName: activeTemplate.companyName,
+          logoDataUrl: activeTemplate.logoDataUrl,
+          titleBlockWidthMm: activeTemplate.titleBlockWidthMm,
+          fieldRowMinHeightMm: activeTemplate.fieldRowMinHeightMm,
+          fields: cap.fields,
+          views: cap.views,
+          showViewFrame: activeTemplate.showViewFrame,
+        });
+      }
+      pdf.save(`${sanitizeFileName(productName)}-ban-ve-than-nap.pdf`);
+    } catch {
+      // The per-tab "Xuất PDF" still works; nothing more useful to surface here.
+    } finally {
+      setBothExporting(false);
+      setCaptureParts(null);
+    }
+  }
 
   return (
     <>
-      <DrawingSheetContent
-        key={activeTemplate.id}
-        drawing={drawing}
-        productName={productName}
-        frameResult={frameResult}
-        handle={handle}
-        handleArcView={handleArcView}
-        handlePaths={handlePaths}
-        material={material}
-        template={activeTemplate}
-        onOpenManager={() => setManagerOpen(true)}
-        templateOptions={templates.map((t) => ({ id: t.id, name: t.name }))}
-        activeTemplateId={activeTemplate.id}
-        onSelectTemplate={selectTemplate}
-        onClose={onClose}
-        initialDoc={initialDoc}
-        onDocChange={onDocChange}
-      />
+      <div className="flex h-full min-h-0 flex-col gap-2">
+        {hasLid && (
+          <div className="flex flex-shrink-0 items-center justify-between gap-3">
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-bg p-1">
+              {(["body", "lid"] as SheetPart[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPart(p)}
+                  className={
+                    shownPart === p
+                      ? "rounded-md bg-accent px-4 py-1.5 text-[12.5px] font-bold text-white"
+                      : "rounded-md px-4 py-1.5 text-[12.5px] font-semibold text-text-muted hover:bg-surface hover:text-text"
+                  }
+                >
+                  Bản vẽ {SHEET_PART_LABEL[p]}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={exportBothPdf}
+              disabled={bothExporting}
+              title="Xuất 1 file PDF 2 trang: Thân rồi Nắp"
+              className="h-8 rounded-md border border-line bg-white px-3 text-[12.5px] font-bold text-text hover:bg-bg disabled:opacity-60"
+            >
+              {bothExporting ? "Đang xuất…" : "⬇ Xuất PDF Thân + Nắp"}
+            </button>
+          </div>
+        )}
+        <div className="min-h-0 flex-1">
+          <DrawingSheetContent
+            key={`${activeTemplate.id}:${shownPart}`}
+            {...sheetProps(shownPart)}
+            onOpenManager={() => setManagerOpen(true)}
+            templateOptions={templates.map((t) => ({ id: t.id, name: t.name }))}
+            activeTemplateId={activeTemplate.id}
+            onSelectTemplate={selectTemplate}
+            onClose={onClose}
+            onDocChange={saveDoc(shownPart)}
+          />
+        </div>
+      </div>
+      {captureParts && (
+        <div style={{ position: "fixed", left: -99999, top: 0, width: 1200 }} aria-hidden>
+          {captureParts.map((p) => (
+            <div key={p} style={{ width: 1200, height: 800 }}>
+              <DrawingSheetContent
+                {...sheetProps(p)}
+                onOpenManager={() => {}}
+                templateOptions={[{ id: activeTemplate.id, name: activeTemplate.name }]}
+                activeTemplateId={activeTemplate.id}
+                onSelectTemplate={() => {}}
+                onClose={() => {}}
+                onCaptured={(capture) => {
+                  capturedRef.current.set(p, capture);
+                  if (capturedRef.current.size >= captureParts.length) captureWaitRef.current?.();
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
       {managerOpen && (
         <TemplateManager
           templates={templates}

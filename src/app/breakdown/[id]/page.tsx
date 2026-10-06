@@ -67,6 +67,7 @@ import { DrawingSheetA4 } from "@/components/breakdown/studio/DrawingSheetA4";
 import { MultiDrawingExport } from "@/components/breakdown/studio/MultiDrawingExport";
 import { BomSheet } from "@/components/breakdown/studio/BomSheet";
 import { ActivityPanel } from "@/components/breakdown/studio/ActivityPanel";
+import { buildDrawingBundle, frameWithoutLid, productHasLid } from "@/lib/breakdown/drawingBundle";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { canViewBreakdown } from "@/lib/permissions";
@@ -754,7 +755,14 @@ function BreakdownStudio({ id }: { id: string }) {
     return null;
   }, [active.shape, result, isRect, active.rectProfile, isOval, active.ovalProfile, ovalResult, isEllipse, active.ellipseProfile, ellipseResult]);
 
-  const drawingFrameResult = active.shape === "round" ? frameResult : isRect ? rectFrameResult : isOval ? ovalFrameResult : isEllipse ? ellipseFrameResult : null;
+  // A product with a lid exports two sheets — "Thân" (no lid tubes) and "Nắp"
+  // (the lid alone, see lidBundle) — so the body sheet gets the frame minus
+  // its lid members.
+  const drawingFrameResult = useMemo(
+    () => frameWithoutLid(active.shape === "round" ? frameResult : isRect ? rectFrameResult : isOval ? ovalFrameResult : isEllipse ? ellipseFrameResult : null),
+    [active.shape, frameResult, isRect, rectFrameResult, isOval, ovalFrameResult, isEllipse, ellipseFrameResult],
+  );
+  const lidBundle = useMemo(() => (showDrawing && productHasLid(active) ? buildDrawingBundle(active, "lid") : null), [showDrawing, active]);
 
   // Which view shows a standing handle's true arc — "front" only for a
   // Rectangle/Square handle mounted on the width axis (its arc then sweeps
@@ -1277,6 +1285,17 @@ function BreakdownStudio({ id }: { id: string }) {
               onClose={() => setShowDrawing(false)}
               initialDoc={active.drawingDoc}
               onDocChange={(drawingDoc) => updateActive({ drawingDoc })}
+              lidSheet={
+                lidBundle
+                  ? {
+                      drawing: lidBundle.drawing,
+                      frameResult: lidBundle.frameResult,
+                      material: lidBundle.material,
+                      initialDoc: active.drawingDocLid,
+                      onDocChange: (drawingDocLid) => updateActive({ drawingDocLid }),
+                    }
+                  : undefined
+              }
             />
           </div>
         </div>
