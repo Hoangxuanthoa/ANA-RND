@@ -9,7 +9,7 @@ import { useNotifications } from "@/components/NotificationsProvider";
 import { ProfileModal } from "@/components/ProfileModal";
 import { ROLE_LABEL, initialsFromName } from "@/lib/mock-data";
 import { TINT_AVATAR_BG } from "@/lib/badges";
-import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections, canViewBreakdown } from "@/lib/permissions";
+import { canViewLibrary, canReviewProducts, canViewMyTasks, canManageSettings, canManageCollections, canViewBreakdown, isBreakdownOnly } from "@/lib/permissions";
 
 function NavLink({
   href,
@@ -100,9 +100,9 @@ export function TopNav() {
 
   const navLinks = (fullWidth: boolean) => (
     <>
-      <NavLink href="/dashboard" fullWidth={fullWidth}>Dashboard</NavLink>
+      {!isBreakdownOnly(role) && <NavLink href="/dashboard" fullWidth={fullWidth}>Dashboard</NavLink>}
       {canViewLibrary(role) && <NavLink href="/library" fullWidth={fullWidth}>Library</NavLink>}
-      <NavLink href="/projects" fullWidth={fullWidth}>Projects</NavLink>
+      {!isBreakdownOnly(role) && <NavLink href="/projects" fullWidth={fullWidth}>Projects</NavLink>}
       {canViewMyTasks(role) && <NavLink href="/my-tasks" fullWidth={fullWidth}>My Task</NavLink>}
       {canManageCollections(role) && <NavLink href="/collections" fullWidth={fullWidth}>Collections</NavLink>}
       {canViewBreakdown(role) && <NavLink href="/breakdown" fullWidth={fullWidth}>Bóc tách kỹ thuật</NavLink>}

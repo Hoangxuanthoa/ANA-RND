@@ -49,7 +49,7 @@ const DEFAULT_FIELDS = [
 // there's always at least one template to pick even before Admin has
 // created any.
 export async function GET() {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const count = await prisma.drawingTemplate.count();
@@ -72,7 +72,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManageDrawingTemplates(me.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

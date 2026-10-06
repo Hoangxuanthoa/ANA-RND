@@ -11,7 +11,7 @@ import { recordActivity } from "@/lib/server/breakdown-activity";
 // in another colour. Anyone who can open the source may copy it; the copy is
 // the copier's own, so it's editable by them and not shared with anyone.
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;

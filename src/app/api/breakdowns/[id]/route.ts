@@ -9,7 +9,7 @@ import { recordActivity } from "@/lib/server/breakdown-activity";
 // Rename / change the product the studio reopens to — owner and Admin only
 // (a share recipient is read-only; see lib/server/breakdown-access.ts).
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
@@ -33,7 +33,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;

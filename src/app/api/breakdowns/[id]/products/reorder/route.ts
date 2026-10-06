@@ -12,7 +12,7 @@ import { recordActivity } from "@/lib/server/breakdown-activity";
 // current relative order after the listed ones, so sortOrder always ends up a
 // clean 0..n-1 sequence with no ties.
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;

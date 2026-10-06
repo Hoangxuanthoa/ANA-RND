@@ -8,7 +8,7 @@ import { canEditBreakdown, getBreakdownAccess } from "@/lib/server/breakdown-acc
 // (owner / Admin) can read it for now — a share recipient who can only look
 // doesn't need to see who touched what.
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;

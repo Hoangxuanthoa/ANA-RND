@@ -1,10 +1,17 @@
 import { type Role, type Project, type ProjectType, type Product, type Collection, type ProjectProductItem } from "@/lib/mock-data";
 import type { StaffMember } from "@/components/StaffProvider";
 
-export const canViewLibrary = (role: Role) => role !== "CUSTOMER";
+// Mua hàng (PURCHASING) only ever works in "Bóc tách kỹ thuật" — it's the one
+// place they need (reading BOM quantities/materials for sourcing). Everything
+// else (Dashboard, Library, Projects, Collections, …) is closed to them, both
+// in the UI (nav + route guard in RoleProvider) and on the server
+// (getSessionUser refuses them unless a route opts in — see lib/auth.ts).
+export const isBreakdownOnly = (role: Role) => role === "PURCHASING";
+
+export const canViewLibrary = (role: Role) => role !== "CUSTOMER" && !isBreakdownOnly(role);
 export const canCreateProduct = (role: Role) => role === "RND" || role === "ADMIN";
 export const canManageProduct = (role: Role) => role === "RND" || role === "ADMIN";
-export const canPickProduct = (role: Role) => role !== "CUSTOMER";
+export const canPickProduct = (role: Role) => role !== "CUSTOMER" && !isBreakdownOnly(role);
 export const isCustomer = (role: Role) => role === "CUSTOMER";
 export const canReviewProducts = (role: Role) => role === "ADMIN";
 
@@ -16,7 +23,7 @@ export const canViewMyTasks = (role: Role) => role === "RND" || role === "ADMIN"
 export const canManageSettings = (role: Role) => role === "ADMIN";
 // Collections are for assembling a set of designs to share — R&D included,
 // same as everyone else who isn't the Customer being shared with.
-export const canManageCollections = (role: Role) => role !== "CUSTOMER";
+export const canManageCollections = (role: Role) => role !== "CUSTOMER" && !isBreakdownOnly(role);
 
 // "Bóc tách kỹ thuật" (technical breakdown, ported from the standalone
 // ANASU Web app) — an internal R&D/production tool, not a customer- or

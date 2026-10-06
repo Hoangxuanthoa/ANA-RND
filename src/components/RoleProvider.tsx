@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { usePathname, useRouter } from "next/navigation";
 import type { Role } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/client";
+import { isBreakdownOnly } from "@/lib/permissions";
 
 interface Profile {
   email: string;
@@ -86,7 +87,15 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     router.refresh();
   }
 
-  if (loading) {
+  // Mua hàng can only use /breakdown/*: anywhere else, send them there (and show
+  // nothing meanwhile so the other page never flashes). The server refuses
+  // their data requests too — this is just the friendly half.
+  const blocked = !!real && isBreakdownOnly(real.role) && !isLoginPage && !pathname?.startsWith("/breakdown") && !pathname?.startsWith("/share/");
+  useEffect(() => {
+    if (blocked) router.replace("/breakdown");
+  }, [blocked, router]);
+
+  if (loading || blocked) {
     return <div className="flex min-h-screen items-center justify-center bg-bg" />;
   }
 

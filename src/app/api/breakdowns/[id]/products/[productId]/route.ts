@@ -11,7 +11,7 @@ import { changedGroups, recordActivity, recordProductEdit } from "@/lib/server/b
 // currently active after its own debounce, same cadence the old IndexedDB
 // save used (see anasu-web's studio/[projectId]/page.tsx history).
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string; productId: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, productId } = await params;
@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string; productId: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id, productId } = await params;

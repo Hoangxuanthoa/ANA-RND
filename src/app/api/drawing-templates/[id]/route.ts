@@ -6,7 +6,7 @@ import { canManageDrawingTemplates } from "@/lib/permissions";
 import { parseJsonBody } from "@/lib/server/parse-json";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManageDrawingTemplates(me.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
@@ -39,7 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManageDrawingTemplates(me.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 

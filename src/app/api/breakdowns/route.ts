@@ -10,7 +10,7 @@ import { recordActivity } from "@/lib/server/breakdown-activity";
 // Admin sees every breakdown. (See lib/server/breakdown-access.ts for the
 // full owner/admin/shared rules the per-breakdown routes enforce.)
 export async function GET() {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const isAdmin = me.role === "ADMIN";
@@ -49,7 +49,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const me = await getSessionUser();
+  const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me || !canViewBreakdown(me.role)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await parseJsonBody(request);
