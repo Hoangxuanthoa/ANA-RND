@@ -728,6 +728,17 @@ model BreakdownProduct {
 // by any one of them. Admin-managed only (create/edit/delete); every other
 // role that can open the breakdown studio can read the list and pick one to
 // export with, but can't change it — see canManageDrawingTemplates.
+// "Quy cách hàng đan" — Admin-editable auto-fill rules for the steel frame, one
+// row per shape ("round", later "square", …). `config` is the shape's rule
+// tables + fixed values (see lib/breakdown/weaveSpec.ts); no row = defaults.
+model WeaveSpec {
+  shape     String   @id
+  config    Json
+  updatedAt DateTime @updatedAt
+
+  @@map("weave_specs")
+}
+
 model DrawingTemplate {
   id                  String   @id @default(uuid())
   name                String

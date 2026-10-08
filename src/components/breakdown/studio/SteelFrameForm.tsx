@@ -2,6 +2,7 @@
 
 import type { FrameInput, HandleInput, LidInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecHeader, SpecTag, type SpecUi } from "./SpecTag";
 
 const COLOR_PRESETS = [
   { key: "beige", label: "Be", hex: "#e3d0b0" },
@@ -33,6 +34,8 @@ interface PatternFieldsProps {
   onCenterDiameterChange: (v: number) => void;
   parallelLines: number;
   onParallelLinesChange: (v: number) => void;
+  // Shown under "Số nan hướng tâm" (Quy cách hàng đan state).
+  countTag?: React.ReactNode;
 }
 
 function PatternFields({
@@ -46,6 +49,7 @@ function PatternFields({
   onCenterDiameterChange,
   parallelLines,
   onParallelLinesChange,
+  countTag,
 }: PatternFieldsProps) {
   return (
     <>
@@ -72,6 +76,7 @@ function PatternFields({
           <Field label="Số nan hướng tâm">
             <input type="number" value={radialCount} onChange={(e) => onRadialCountChange(Number(e.target.value))} className={inputClass} />
           </Field>
+          {countTag}
         </>
       )}
       {pattern === "parallel" && (
@@ -92,9 +97,11 @@ interface SteelFrameFormProps {
   // Whether the body actually has any middle rings beyond mouth/base — with
   // none, "Vị trí vòng" has nothing to place, so the whole column is noise.
   hasHorizontalRings: boolean;
+  // Round only: "Quy cách hàng đan" state + actions (see SpecTag.tsx).
+  spec?: SpecUi;
 }
 
-export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, hasHorizontalRings }: SteelFrameFormProps) {
+export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, hasHorizontalRings, spec }: SteelFrameFormProps) {
   function set<K extends keyof FrameInput>(key: K, value: FrameInput[K]) {
     onChange({ ...frame, [key]: value });
   }
@@ -108,7 +115,10 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, has
 
   return (
     <div>
-      <span className="mb-3 block text-[11px] font-bold tracking-wide text-text-muted uppercase">Khung sắt</span>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="text-[11px] font-bold tracking-wide text-text-muted uppercase">Khung sắt</span>
+        <SpecHeader spec={spec} />
+      </div>
       <div className="flex flex-wrap gap-4">
         <Column title="Nan dọc">
           <Field label="Kiểu nan">
@@ -129,6 +139,7 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, has
                 onChange={(e) => set("verticalCount", Number(e.target.value))}
                 className={inputClass}
               />
+              <SpecTag spec={spec} field="verticalCount" />
             </Field>
           ) : (
             Array.from({ length: Math.max(segmentCount, 1) }).map((_, i) => (
@@ -171,6 +182,7 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, has
             onCenterDiameterChange={(v) => set("bottomCenterDiameter", v)}
             parallelLines={frame.bottomParallelLines}
             onParallelLinesChange={(v) => set("bottomParallelLines", v)}
+            countTag={<SpecTag spec={spec} field="bottomRadialCount" />}
           />
         </Column>
 
@@ -197,6 +209,7 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, has
                   </button>
                 )}
               </div>
+              <SpecTag spec={spec} field="lidWallCount" />
             </Field>
           )}
           <PatternFields
@@ -210,6 +223,7 @@ export function SteelFrameForm({ frame, onChange, segmentCount, lid, handle, has
             onCenterDiameterChange={(v) => set("lidCenterDiameter", v)}
             parallelLines={frame.lidParallelLines}
             onParallelLinesChange={(v) => set("lidParallelLines", v)}
+            countTag={<SpecTag spec={spec} field="lidRadialCount" />}
           />
         </Column>
         )}

@@ -660,4 +660,10 @@ export interface ProductState {
   // Same, for the separate "Nắp" drawing sheet of a product that has a lid
   // (the Thân sheet above keeps using drawingDoc).
   drawingDocLid?: unknown;
+  // "Quy cách hàng đan" (lib/breakdown/weaveSpec.ts): when specAuto is on, the
+  // steel-frame fields the rules drive are re-filled whenever the sizes change,
+  // except the ones in specManual (taken over by hand). Off/absent on products
+  // made before the feature — those only change when "Áp dụng quy cách" is pressed.
+  specAuto?: boolean;
+  specManual?: string[];
 }

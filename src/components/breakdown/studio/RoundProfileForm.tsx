@@ -4,6 +4,7 @@ import { buildDiameterSpline, suggestRingZs, type DiameterPoint } from "@/lib/br
 import type { HandleInput, LidInput, RingInput, ScallopInput } from "@/lib/breakdown/geometry/types";
 import { scallopPetalWidthMm } from "@/lib/breakdown/geometry/scallopEngine";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecTag, type SpecUi } from "./SpecTag";
 
 // Ring identity is positional, same as ANASU's Shape Timeline (Miệng /
 // Vòng ngang N / Đáy) — there is no free-text "name" field in the plugin
@@ -15,6 +16,8 @@ function ringLabel(index: number, total: number): string {
 }
 
 interface RoundProfileFormProps {
+  // "Quy cách hàng đan" state (shows how the horizontal-ring count is set).
+  spec?: SpecUi;
   rings: RingInput[];
   lid: LidInput;
   handle: HandleInput;
@@ -36,6 +39,7 @@ interface RoundProfileFormProps {
 }
 
 export function RoundProfileForm({
+  spec,
   rings,
   lid,
   handle,
@@ -232,6 +236,12 @@ export function RoundProfileForm({
         );
       })}
 
+      {spec && spec.auto && spec.hasRule("ringCount") && (
+        <div className="flex items-center gap-2 text-[11.5px] text-text-muted">
+          Số vòng ngang: <b className="text-text">{Math.max(rings.length - 2, 0)}</b>
+          <SpecTag spec={spec} field="ringCount" />
+        </div>
+      )}
       <div className="flex gap-2.5">
         <button
           type="button"

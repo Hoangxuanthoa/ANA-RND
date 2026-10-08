@@ -68,6 +68,8 @@ import { MultiDrawingExport } from "@/components/breakdown/studio/MultiDrawingEx
 import { BomSheet } from "@/components/breakdown/studio/BomSheet";
 import { ActivityPanel } from "@/components/breakdown/studio/ActivityPanel";
 import { buildDrawingBundle, frameWithoutLid, productHasLid } from "@/lib/breakdown/drawingBundle";
+import { applyRoundSpec, manualAfterEdit, normalizeRoundSpec, type RoundSpecConfig, type SpecField } from "@/lib/breakdown/weaveSpec";
+import type { SpecUi } from "@/components/breakdown/studio/SpecTag";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { canViewBreakdown } from "@/lib/permissions";
@@ -289,6 +291,10 @@ function BreakdownStudio({ id }: { id: string }) {
   // help here since each invocation starts fresh, unaware of the other.
   // A ref survives across that synthetic pair within the same real mount.
   const bootstrappedRef = useRef(false);
+  // "Quy cách hàng đan" for Round (Settings → Quy cách hàng đan). The ref is what
+  // callbacks read; the state re-renders the forms once it has loaded.
+  const roundSpecRef = useRef<RoundSpecConfig | null>(null);
+  const [roundSpec, setRoundSpec] = useState<RoundSpecConfig | null>(null);
   // Serializes the ▲/▼ reorder PUTs (see moveProduct).
   const reorderChainRef = useRef<Promise<void>>(Promise.resolve());
 
@@ -310,9 +316,22 @@ function BreakdownStudio({ id }: { id: string }) {
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/breakdowns/${id}/products`)
+    // The rules load alongside the products so a brand-new first product can be
+    // created with them already applied.
+    const specLoad = fetch("/api/weave-specs", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((payload: { breakdown: { name: string; activeProductId: string | null; canEdit: boolean }; products: ApiProduct[] } | null) => {
+      .then((j) => {
+        if (!j?.round) return;
+        const cfg = normalizeRoundSpec(j.round);
+        roundSpecRef.current = cfg;
+        setRoundSpec(cfg);
+      })
+      .catch(() => {});
+    Promise.all([
+      fetch(`/api/breakdowns/${id}/products`).then((r) => (r.ok ? r.json() : null)),
+      specLoad,
+    ]).then(
+      ([payload]: [{ breakdown: { name: string; activeProductId: string | null; canEdit: boolean }; products: ApiProduct[] } | null, unknown]) => {
         if (cancelled || !payload) return;
         setBreakdownName(payload.breakdown.name);
         setCanEdit(payload.breakdown.canEdit);
@@ -338,7 +357,7 @@ function BreakdownStudio({ id }: { id: string }) {
         if (bootstrappedRef.current) return;
         bootstrappedRef.current = true;
         productSeqRef.current = 1;
-        const fresh = createProduct(productSeqRef.current++);
+        const fresh = withSpec(createProduct(productSeqRef.current++));
         setProducts([fresh]);
         setActiveId(fresh.id);
         fetch(`/api/breakdowns/${id}/products`, {
@@ -351,7 +370,8 @@ function BreakdownStudio({ id }: { id: string }) {
             if (!cancelled && created) dbIdByCodeRef.current[fresh.id] = created.id;
           });
         setHydrated(true);
-      });
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -391,9 +411,39 @@ function BreakdownStudio({ id }: { id: string }) {
 
   const active = products.find((p) => p.id === activeId) ?? products[0];
 
+  // A new Round product starts with the Quy cách applied (and following it).
+  function withSpec(p: ProductState): ProductState {
+    const cfg = roundSpecRef.current;
+    return cfg && p.shape === "round" ? applyRoundSpec(p, cfg, { full: true }) : p;
+  }
+
+  // Every edit goes through here. For a product that follows the Quy cách: first
+  // note which rule-driven fields THIS edit took over by hand (those stop being
+  // auto-filled), then — if the sizes/lid changed — re-fill the rest from the rules.
+  function withSpecEdit(p: ProductState, patch: Partial<ProductState>): ProductState {
+    const merged = { ...p, ...patch };
+    const cfg = roundSpecRef.current;
+    if (!cfg || !p.specAuto || merged.shape !== "round") return merged;
+    const withManual = { ...merged, specManual: manualAfterEdit(p, patch) };
+    return patch.rings || patch.lid || patch.shape || patch.photoCurve ? applyRoundSpec(withManual, cfg, { full: false }) : withManual;
+  }
+
   function updateActive(patch: Partial<ProductState>) {
     if (readOnly) return;
-    setProducts((prev) => prev.map((p) => (p.id === active.id ? { ...p, ...patch } : p)));
+    setProducts((prev) => prev.map((p) => (p.id === active.id ? withSpecEdit(p, patch) : p)));
+  }
+
+  // "Áp dụng quy cách" / "⟲ theo quy cách": re-apply everything, or just one field.
+  function reapplySpec(field?: SpecField) {
+    const cfg = roundSpecRef.current;
+    if (!cfg || readOnly) return;
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== active.id) return p;
+        if (!field) return applyRoundSpec(p, cfg, { full: true });
+        return applyRoundSpec({ ...p, specAuto: true, specManual: (p.specManual ?? []).filter((f) => f !== field) }, cfg, { full: false });
+      }),
+    );
   }
 
   // "Khóa dáng": captures the CURRENT ring-driven curve (the engine's own
@@ -914,7 +964,7 @@ function BreakdownStudio({ id }: { id: string }) {
     // state here would POST/DELETE against a `dbIdByCodeRef` that doesn't
     // yet reflect what's really in the database.
     if (!hydrated || readOnly) return;
-    const product = createProduct(productSeqRef.current++);
+    const product = withSpec(createProduct(productSeqRef.current++));
     setProducts((prev) => [...prev, product]);
     setActiveId(product.id);
     // Posted immediately (not left to the debounced autosave above) so
@@ -1014,6 +1064,16 @@ function BreakdownStudio({ id }: { id: string }) {
     }
   }
 
+  const specUi: SpecUi | undefined =
+    active.shape === "round" && roundSpec && !readOnly
+      ? {
+          auto: !!active.specAuto,
+          manual: active.specManual ?? [],
+          hasRule: (f) => roundSpec.rules[f].rows.length > 0,
+          onReapply: reapplySpec,
+        }
+      : undefined;
+
   if (!hydrated) {
     return (
       <div className="flex h-screen flex-col bg-bg">
@@ -1104,6 +1164,7 @@ function BreakdownStudio({ id }: { id: string }) {
                     <p className="rounded-lg bg-red-soft px-3 py-2 text-[12.5px] font-semibold text-red">{error}</p>
                   )}
                   <RoundProfileForm
+                    spec={specUi}
                     rings={active.rings}
                     lid={active.lid}
                     handle={active.handle}
@@ -1259,6 +1320,7 @@ function BreakdownStudio({ id }: { id: string }) {
               />
             ) : (
               <SteelFrameForm
+                spec={specUi}
                 frame={active.frame}
                 onChange={(frame) => updateActive({ frame })}
                 segmentCount={Math.max(active.rings.length - 1, 1)}
