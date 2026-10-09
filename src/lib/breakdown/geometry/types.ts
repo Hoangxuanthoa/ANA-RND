@@ -666,4 +666,9 @@ export interface ProductState {
   // made before the feature — those only change when "Áp dụng quy cách" is pressed.
   specAuto?: boolean;
   specManual?: string[];
+  // Square/Rectangle: the base ("đáy") length/width follow the mouth's as the person
+  // types them. baseManual lists the ones they've set by hand ("length"/"width"),
+  // which then stop following. Off/absent on products made before this existed.
+  baseFollow?: boolean;
+  baseManual?: string[];
 }

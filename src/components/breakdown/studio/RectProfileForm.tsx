@@ -5,7 +5,15 @@ import type { HandleInput, LidInput, RectCorner, RectProfileInput } from "@/lib/
 import { Field, inputClass, selectClass } from "./field";
 import { SpecTag, type SpecUi } from "./SpecTag";
 
+// State of "Đáy theo miệng" for a Square/Rectangle product (see ProductState.baseFollow).
+export interface BaseLink {
+  follow: boolean;
+  manual: string[];
+  onRelink: () => void;
+}
+
 interface RectProfileFormProps {
+  baseLink?: BaseLink;
   // "Quy cách hàng đan" state (shows how the horizontal-ring count is set).
   spec?: SpecUi;
   profile: RectProfileInput;
@@ -26,12 +34,14 @@ function CornerFields({
   isSquare,
   showCap,
   onChange,
+  linkTag,
 }: {
   label: string;
   corner: RectCorner;
   isSquare: boolean;
   showCap: boolean;
   onChange: (patch: Partial<RectCorner>) => void;
+  linkTag?: React.ReactNode;
 }) {
   return (
     <div className="rounded-lg border border-line bg-surface p-3.5 shadow-sm">
@@ -66,6 +76,7 @@ function CornerFields({
           </>
         )}
       </div>
+      {linkTag}
       {showCap && (
         <label className="mt-2.5 flex items-center gap-2 text-[12.5px] font-semibold text-text">
           <input type="checkbox" checked={!!corner.cap} onChange={(e) => onChange({ cap: e.target.checked })} className="h-4 w-4 accent-[var(--accent)]" />
@@ -76,7 +87,7 @@ function CornerFields({
   );
 }
 
-export function RectProfileForm({ spec, profile, isSquare, lid, handle, onChange, onChangeLid, onChangeHandle }: RectProfileFormProps) {
+export function RectProfileForm({ baseLink, spec, profile, isSquare, lid, handle, onChange, onChangeLid, onChangeHandle }: RectProfileFormProps) {
   function updateMouth(patch: Partial<RectCorner>) {
     onChange({ ...profile, mouth: { ...profile.mouth, ...patch } });
   }
@@ -128,7 +139,23 @@ export function RectProfileForm({ spec, profile, isSquare, lid, handle, onChange
         )}
       </div>
 
-      <CornerFields label="Đáy" corner={profile.base} isSquare={isSquare} showCap onChange={updateBase} />
+      <CornerFields
+        label="Đáy"
+        corner={profile.base}
+        isSquare={isSquare}
+        showCap
+        onChange={updateBase}
+        linkTag={
+          baseLink &&
+          (baseLink.follow && baseLink.manual.length === 0 ? (
+            <span className="mt-2 block text-[10.5px] font-semibold text-accent">Đáy theo miệng — nhập dài/rộng miệng thì đáy tự nhảy theo; sửa tay nếu đáy khác miệng</span>
+          ) : (
+            <button type="button" onClick={baseLink.onRelink} className="mt-2 block text-[10.5px] font-semibold text-amber-700 hover:underline">
+              {baseLink.follow ? "Đáy: thủ công · ⟲ theo miệng" : "⟲ Đáy theo miệng"}
+            </button>
+          ))
+        }
+      />
 
       <RectLidCard lid={lid} isSquare={isSquare} mouth={profile.mouth} onChange={onChangeLid} />
 

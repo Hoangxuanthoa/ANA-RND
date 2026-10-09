@@ -222,7 +222,8 @@ function createProduct(seq: number): ProductState {
     rings: DEFAULT_RINGS.map((r) => ({ ...r })),
     rectProfile: {
       mouth: { ...DEFAULT_RECT_PROFILE.mouth },
-      base: { ...DEFAULT_RECT_PROFILE.base },
+      // New Square/Rectangle: the base starts equal to the mouth and follows it (baseFollow).
+      base: { ...DEFAULT_RECT_PROFILE.base, length: DEFAULT_RECT_PROFILE.mouth.length, width: DEFAULT_RECT_PROFILE.mouth.width },
       horizontalRings: DEFAULT_RECT_PROFILE.horizontalRings.map((r) => ({ ...r })),
     },
     ovalProfile: { rings: DEFAULT_OVAL_PROFILE.rings.map((r) => ({ ...r })) },
@@ -243,6 +244,8 @@ function createProduct(seq: number): ProductState {
     photoCurve: null,
     photoCurveSource: "trace",
     preLockRings: null,
+    baseFollow: true,
+    baseManual: [],
   };
 }
 
@@ -431,9 +434,39 @@ function BreakdownStudio({ id }: { id: string }) {
     return sizesChanged ? applySpec(withManual, cfgs, { full: false }) : withManual;
   }
 
+  // Square/Rectangle "Đáy theo miệng": as the mouth's length/width change, the
+  // base's follow — except for the ones the person set on the base by hand
+  // (those are remembered in baseManual and stop following).
+  function linkBase(p: ProductState, patch: Partial<ProductState>): Partial<ProductState> {
+    if (!p.baseFollow || !patch.rectProfile) return patch;
+    const prev = p.rectProfile;
+    const next = patch.rectProfile;
+    const manual = new Set(p.baseManual ?? []);
+    const base = { ...next.base };
+    const isShapeSwitch = !!patch.shape && patch.shape !== p.shape;
+    for (const k of ["length", "width"] as const) {
+      if (!isShapeSwitch && next.base[k] !== prev.base[k]) manual.add(k); // edited on the base itself
+      else if (!manual.has(k) && (isShapeSwitch || next.mouth[k] !== prev.mouth[k])) base[k] = next.mouth[k]; // mouth changed → follow
+    }
+    return { ...patch, rectProfile: { ...next, base }, baseManual: [...manual] };
+  }
+
   function updateActive(patch: Partial<ProductState>) {
     if (readOnly) return;
-    setProducts((prev) => prev.map((p) => (p.id === active.id ? withSpecEdit(p, patch) : p)));
+    setProducts((prev) => prev.map((p) => (p.id === active.id ? withSpecEdit(p, linkBase(p, patch)) : p)));
+  }
+
+  // "⟲ Đáy theo miệng": base length/width back to the mouth's, following again
+  // (also switches it on for a product made before this existed).
+  function relinkBase() {
+    if (readOnly) return;
+    setProducts((prev) =>
+      prev.map((p) => {
+        if (p.id !== active.id) return p;
+        const { mouth, base } = p.rectProfile;
+        return withSpecEdit(p, { baseFollow: true, baseManual: [], rectProfile: { ...p.rectProfile, base: { ...base, length: mouth.length, width: mouth.width } } });
+      }),
+    );
   }
 
   // "Áp dụng quy cách" / "⟲ theo quy cách": re-apply everything, or just one field.
@@ -1187,6 +1220,7 @@ function BreakdownStudio({ id }: { id: string }) {
                     <p className="rounded-lg bg-red-soft px-3 py-2 text-[12.5px] font-semibold text-red">{rectError}</p>
                   )}
                   <RectProfileForm
+                    baseLink={{ follow: !!active.baseFollow, manual: active.baseManual ?? [], onRelink: relinkBase }}
                     spec={specUi}
                     profile={active.rectProfile}
                     isSquare={active.shape === "square"}
