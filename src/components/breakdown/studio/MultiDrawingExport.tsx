@@ -204,7 +204,6 @@ export function MultiDrawingExport({
                 handlePaths={bundle.handlePaths}
                 material={bundle.material}
                 template={template}
-                onOpenManager={() => {}}
                 templateOptions={[{ id: template.id, name: template.name }]}
                 activeTemplateId={template.id}
                 onSelectTemplate={() => {}}

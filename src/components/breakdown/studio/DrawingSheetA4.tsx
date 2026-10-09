@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FrontSideSVG, IsoSVG, TopSVG, type CustomDim, type DimPickMode, type DimSettings, type DimSettingsMap, type DrawMode, type Note, type TextBoxItem } from "./TechnicalDrawing";
-import { TemplateManager } from "./TemplateManager";
 import {
   addDrawingSheetPage,
   createA4Pdf,
@@ -16,22 +15,18 @@ import {
 } from "@/lib/breakdown/pdfExport";
 import {
   computeGridLayout,
-  createDrawingTemplateRemote,
-  deleteDrawingTemplateRemote,
   DRAWING_VIEW_LABELS,
   fetchDrawingTemplates,
   loadActiveTemplateId,
   saveActiveTemplateId,
-  updateDrawingTemplateRemote,
   type DrawingTemplate,
   type DrawingViewKey,
 } from "@/lib/breakdown/drawingTemplate";
 import type { SteelFrameResult } from "@/lib/breakdown/geometry/frameEngine";
 import { DEFAULT_ISO_ANGLE, ISO_ELEVATION_RANGE, type IsoAngle, type ShapeDrawingInput } from "@/lib/breakdown/geometry/drawingEngine";
 import type { HandleInput, MaterialInput } from "@/lib/breakdown/geometry/types";
-import { canManageDrawingTemplates } from "@/lib/permissions";
 import { SHEET_PART_LABEL, type SheetPart } from "@/lib/breakdown/drawingBundle";
-import { useRole } from "@/components/RoleProvider";
+import { useBreakdownSettingsAccess } from "@/components/breakdown/settings/useBreakdownSettingsAccess";
 
 type Point3 = { x: number; y: number; z: number };
 
@@ -229,7 +224,6 @@ interface DrawingSheetContentProps {
   handlePaths: Point3[][];
   material: MaterialInput;
   template: DrawingTemplate;
-  onOpenManager: () => void;
   templateOptions: { id: string; name: string }[];
   activeTemplateId: string;
   onSelectTemplate: (id: string) => void;
@@ -321,7 +315,6 @@ export function DrawingSheetContent({
   handlePaths,
   material,
   template,
-  onOpenManager,
   templateOptions,
   activeTemplateId,
   onSelectTemplate,
@@ -330,6 +323,9 @@ export function DrawingSheetContent({
   initialDoc,
   onDocChange,
 }: DrawingSheetContentProps) {
+  // Editing the templates now lives in Cài đặt Bóc tách; show the shortcut only to
+  // people who can open it.
+  const settingsAccess = useBreakdownSettingsAccess();
   const [doc, setDoc] = useState<DocState>(() => buildInitialDoc(template, productName, frameResult, initialDoc));
 
   // Save every edit back onto the product (see initialDoc/onDocChange). The
@@ -807,13 +803,16 @@ export function DrawingSheetContent({
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            onClick={onOpenManager}
-            className="w-full rounded-md border border-line bg-white px-2.5 py-1.5 text-[12px] font-semibold text-text-muted hover:bg-bg hover:text-text"
-          >
-            ⚙ Quản lý template
-          </button>
+          {settingsAccess.canOpen && (
+            <a
+              href="/breakdown/settings?tab=templates"
+              target="_blank"
+              rel="noreferrer"
+              className="w-full rounded-md border border-line bg-white px-2.5 py-1.5 text-center text-[12px] font-semibold text-text-muted hover:bg-bg hover:text-text"
+            >
+              ⚙ Sửa mẫu trong Cài đặt
+            </a>
+          )}
         </ControlGroup>
 
         <ControlGroup title="Lịch sử">
@@ -1394,11 +1393,8 @@ export function DrawingSheetA4({
   material: MaterialInput;
   onClose: () => void;
 }) {
-  const { role } = useRole();
-  const canManage = canManageDrawingTemplates(role);
   const [templates, setTemplates] = useState<DrawingTemplate[] | null>(null);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
-  const [managerOpen, setManagerOpen] = useState(false);
   // Thân | Nắp (only when the product has a lid). The latest doc of each sheet
   // lives in a ref so switching tabs (which remounts the sheet) and the combined
   // PDF export always see the newest edits, not what the parent last re-rendered with.
@@ -1408,14 +1404,6 @@ export function DrawingSheetA4({
   const [captureParts, setCaptureParts] = useState<SheetPart[] | null>(null);
   const capturedRef = useRef<Map<SheetPart, { views: PdfViewSpec[]; fields: PdfTitleField[] }>>(new Map());
   const captureWaitRef = useRef<(() => void) | null>(null);
-  // Debounced per-template-id, same 400ms cadence the breakdown product
-  // autosave uses — editing a template field fires on every keystroke
-  // (TemplateManager has no debounce of its own), so without this each
-  // keystroke would PATCH immediately instead of coalescing into one write
-  // once typing pauses.
-  const updateTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-  const pendingPatches = useRef<Record<string, Partial<DrawingTemplate>>>({});
-
   useEffect(() => {
     let cancelled = false;
     Promise.all([fetchDrawingTemplates(), loadActiveTemplateId()]).then(([list, savedActiveId]) => {
@@ -1431,37 +1419,6 @@ export function DrawingSheetA4({
   function selectTemplate(id: string) {
     setActiveTemplateId(id);
     saveActiveTemplateId(id);
-  }
-
-  // Admin-only mutations — TemplateManager itself hides the controls that
-  // call these for anyone else, this is just the belt (server-side
-  // canManageDrawingTemplates is the actual suspenders).
-  async function createTemplate(template: DrawingTemplate) {
-    const created = await createDrawingTemplateRemote(template);
-    if (!created) return;
-    setTemplates((prev) => [...(prev ?? []), created]);
-    selectTemplate(created.id);
-  }
-
-  function updateTemplate(id: string, patch: Partial<DrawingTemplate>) {
-    setTemplates((prev) => (prev ?? []).map((t) => (t.id === id ? { ...t, ...patch } : t)));
-    pendingPatches.current[id] = { ...pendingPatches.current[id], ...patch };
-    clearTimeout(updateTimers.current[id]);
-    updateTimers.current[id] = setTimeout(() => {
-      const toSend = pendingPatches.current[id];
-      delete pendingPatches.current[id];
-      if (toSend) updateDrawingTemplateRemote(id, toSend);
-    }, 400);
-  }
-
-  async function deleteTemplate(id: string) {
-    const ok = await deleteDrawingTemplateRemote(id);
-    if (!ok) return;
-    setTemplates((prev) => {
-      const next = (prev ?? []).filter((t) => t.id !== id);
-      if (activeTemplateId === id && next.length) selectTemplate(next[0].id);
-      return next;
-    });
   }
 
   if (!templates || activeTemplateId === null) {
@@ -1570,7 +1527,6 @@ export function DrawingSheetA4({
           <DrawingSheetContent
             key={`${activeTemplate.id}:${shownPart}`}
             {...sheetProps(shownPart)}
-            onOpenManager={() => setManagerOpen(true)}
             templateOptions={templates.map((t) => ({ id: t.id, name: t.name }))}
             activeTemplateId={activeTemplate.id}
             onSelectTemplate={selectTemplate}
@@ -1585,7 +1541,6 @@ export function DrawingSheetA4({
             <div key={p} style={{ width: 1200, height: 800 }}>
               <DrawingSheetContent
                 {...sheetProps(p)}
-                onOpenManager={() => {}}
                 templateOptions={[{ id: activeTemplate.id, name: activeTemplate.name }]}
                 activeTemplateId={activeTemplate.id}
                 onSelectTemplate={() => {}}
@@ -1598,18 +1553,6 @@ export function DrawingSheetA4({
             </div>
           ))}
         </div>
-      )}
-      {managerOpen && (
-        <TemplateManager
-          templates={templates}
-          activeTemplateId={activeTemplate.id}
-          canManage={canManage}
-          onSelectTemplate={selectTemplate}
-          onCreateTemplate={createTemplate}
-          onUpdateTemplate={updateTemplate}
-          onDeleteTemplate={deleteTemplate}
-          onClose={() => setManagerOpen(false)}
-        />
       )}
     </>
   );

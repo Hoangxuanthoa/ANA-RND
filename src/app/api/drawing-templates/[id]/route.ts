@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { canManageDrawingTemplates } from "@/lib/permissions";
+import { canOpenBreakdownSettings } from "@/lib/server/breakdown-settings-access";
 import { parseJsonBody } from "@/lib/server/parse-json";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageDrawingTemplates(me.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canOpenBreakdownSettings(me))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const body = await parseJsonBody(request);
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageDrawingTemplates(me.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canOpenBreakdownSettings(me))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { id } = await params;
   const count = await prisma.drawingTemplate.count();

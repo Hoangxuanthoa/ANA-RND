@@ -23,7 +23,9 @@ interface TemplateManagerProps {
   onCreateTemplate: (template: DrawingTemplate) => void;
   onUpdateTemplate: (id: string, patch: Partial<DrawingTemplate>) => void;
   onDeleteTemplate: (id: string) => void;
-  onClose: () => void;
+  // Modal use (inside Xuất bản vẽ): close handler. Embedded use (Cài đặt Bóc tách > Mẫu bản vẽ): no close.
+  onClose?: () => void;
+  embedded?: boolean;
 }
 
 function newFieldId(): string {
@@ -39,6 +41,7 @@ export function TemplateManager({
   onUpdateTemplate,
   onDeleteTemplate,
   onClose,
+  embedded = false,
 }: TemplateManagerProps) {
   const [editingId, setEditingId] = useState(activeTemplateId);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -114,18 +117,26 @@ export function TemplateManager({
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-      <div className="flex h-[88vh] w-[900px] max-w-[95vw] flex-col rounded-xl bg-surface p-5 shadow-xl">
+    <div className={embedded ? "" : "fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"}>
+      <div
+        className={
+          embedded
+            ? "flex h-[78vh] min-h-[520px] w-full flex-col rounded-xl border border-line bg-surface p-5"
+            : "flex h-[88vh] w-[900px] max-w-[95vw] flex-col rounded-xl bg-surface p-5 shadow-xl"
+        }
+      >
         <div className="mb-4 flex flex-shrink-0 items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[15px] font-bold text-text">{canManage ? "Quản lý template bản vẽ" : "Chọn template bản vẽ"}</span>
             {!canManage && (
-              <span className="rounded bg-bg px-2 py-0.5 text-[11px] font-semibold text-text-faint">Chỉ Admin được tạo/sửa</span>
+              <span className="rounded bg-bg px-2 py-0.5 text-[11px] font-semibold text-text-faint">Bạn không có quyền tạo/sửa</span>
             )}
           </div>
-          <button type="button" onClick={onClose} className="rounded-md px-2.5 py-1 text-[13px] font-semibold text-text-muted hover:bg-bg hover:text-text">
-            Đóng
-          </button>
+          {onClose && !embedded && (
+            <button type="button" onClick={onClose} className="rounded-md px-2.5 py-1 text-[13px] font-semibold text-text-muted hover:bg-bg hover:text-text">
+              Đóng
+            </button>
+          )}
         </div>
 
         <div className="flex min-h-0 flex-1 gap-4">

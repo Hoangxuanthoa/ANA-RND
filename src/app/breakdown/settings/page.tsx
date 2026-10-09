@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
@@ -8,6 +8,7 @@ import { canViewBreakdown } from "@/lib/permissions";
 import { useBreakdownSettingsAccess } from "@/components/breakdown/settings/useBreakdownSettingsAccess";
 import { WeaveSpecEditor } from "@/components/breakdown/settings/WeaveSpecEditor";
 import { SettingsAccessTab } from "@/components/breakdown/settings/SettingsAccessTab";
+import { DrawingTemplatesTab } from "@/components/breakdown/settings/DrawingTemplatesTab";
 
 // "Cài đặt Bóc tách" — settings that belong to the Bóc tách module (so they live
 // here, not in the system-wide Settings). Admin always has it; other roles only
@@ -16,8 +17,17 @@ export default function BreakdownSettingsPage() {
   const { role } = useRole();
   const access = useBreakdownSettingsAccess();
   const isAdmin = role === "ADMIN";
-  const tabs = [{ key: "weave", label: "Quy cách hàng đan" }, ...(isAdmin ? [{ key: "access", label: "Phân quyền" }] : [])];
+  const tabs = [
+    { key: "weave", label: "Quy cách hàng đan" },
+    { key: "templates", label: "Mẫu bản vẽ" },
+    ...(isAdmin ? [{ key: "access", label: "Phân quyền" }] : []),
+  ];
   const [tab, setTab] = useState("weave");
+  // /breakdown/settings?tab=templates opens straight on that tab (the link in Xuất bản vẽ).
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    if (wanted && ["weave", "templates", "access"].includes(wanted)) setTab(wanted);
+  }, []);
 
   const denied = !canViewBreakdown(role) || (access.loaded && !access.canOpen);
   if (denied) {
@@ -62,7 +72,7 @@ export default function BreakdownSettingsPage() {
             </button>
           ))}
         </div>
-        {!access.loaded ? <p className="text-[13px] text-text-faint">Đang tải…</p> : tab === "weave" ? <WeaveSpecEditor /> : <SettingsAccessTab />}
+        {!access.loaded ? <p className="text-[13px] text-text-faint">Đang tải…</p> : tab === "weave" ? <WeaveSpecEditor /> : tab === "templates" ? <DrawingTemplatesTab /> : isAdmin ? <SettingsAccessTab /> : null}
       </div>
     </div>
   );

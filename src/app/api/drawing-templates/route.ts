@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
-import { canManageDrawingTemplates, canViewBreakdown } from "@/lib/permissions";
+import { canViewBreakdown } from "@/lib/permissions";
+import { canOpenBreakdownSettings } from "@/lib/server/breakdown-settings-access";
 import { parseJsonBody } from "@/lib/server/parse-json";
 
 function serialize(row: {
@@ -74,7 +75,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const me = await getSessionUser({ allowBreakdownOnly: true });
   if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManageDrawingTemplates(me.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!(await canOpenBreakdownSettings(me))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const body = await parseJsonBody(request);
   if (!body || typeof body.name !== "string") return NextResponse.json({ error: "Thiếu name." }, { status: 400 });
