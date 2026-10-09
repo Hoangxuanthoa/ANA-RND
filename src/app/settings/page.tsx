@@ -10,7 +10,6 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { ROLE_LABEL, type Role } from "@/lib/mock-data";
 import { canManageSettings } from "@/lib/permissions";
 import { uploadFile } from "@/lib/upload";
-import { WeaveSpecEditor } from "@/components/settings/WeaveSpecEditor";
 
 const TABS = [
   { key: "category", label: "Category" },
@@ -19,7 +18,6 @@ const TABS = [
   { key: "color", label: "Màu sắc" },
   { key: "user", label: "User" },
   { key: "pptx", label: "Mẫu PPTX" },
-  { key: "weave", label: "Quy cách hàng đan" },
 ] as const;
 
 const STAFF_ROLES: Exclude<Role, "CUSTOMER">[] = ["ADMIN", "RND", "SALES", "MARKETING", "PURCHASING"];
@@ -730,8 +728,6 @@ export default function SettingsPage() {
         {tab === "user" && <UserTab />}
 
         {tab === "pptx" && <PptxTemplateTab />}
-
-        {tab === "weave" && <WeaveSpecEditor />}
       </div>
     </div>
   );

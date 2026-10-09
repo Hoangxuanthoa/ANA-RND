@@ -5,6 +5,7 @@ import Link from "next/link";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
 import { canViewBreakdown } from "@/lib/permissions";
+import { useBreakdownSettingsAccess } from "@/components/breakdown/settings/useBreakdownSettingsAccess";
 
 type Access = "owner" | "admin" | "shared";
 
@@ -82,6 +83,8 @@ export default function BreakdownPage() {
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const allowed = canViewBreakdown(role);
+  // ⚙ Cài đặt: Admin, plus any role Admin switched on (Cài đặt Bóc tách > Phân quyền).
+  const settingsAccess = useBreakdownSettingsAccess();
   const isAdmin = role === "ADMIN";
 
   useEffect(() => {
@@ -223,15 +226,26 @@ export default function BreakdownPage() {
               {isAdmin ? "Admin xem được toàn bộ hồ sơ của mọi tài khoản." : "Hồ sơ của bạn và những hồ sơ được chia sẻ cho bạn."}
             </p>
           </div>
-          {!creating && (
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              className="h-9 flex-shrink-0 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
-            >
-              + Tạo mới
-            </button>
-          )}
+          <div className="flex flex-shrink-0 items-center gap-2">
+            {settingsAccess.canOpen && (
+              <Link
+                href="/breakdown/settings"
+                title="Cài đặt Bóc tách (quy cách hàng đan…)"
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3 text-[12.5px] font-bold text-text hover:bg-bg"
+              >
+                ⚙ Cài đặt
+              </Link>
+            )}
+            {!creating && (
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                className="h-9 flex-shrink-0 rounded-lg bg-accent px-3.5 text-[12.5px] font-bold text-white hover:bg-accent-hover"
+              >
+                + Tạo mới
+              </button>
+            )}
+          </div>
         </div>
 
         {creating && (

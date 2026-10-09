@@ -766,6 +766,10 @@ model AppSettings {
   pptxCoverImage   String?
   pptxClosingImage String?
   pptxClosingText  String  @default("Cảm ơn quý khách")
+  // Roles (besides Admin, who always can) allowed to open "Cài đặt Bóc tách" —
+  // a JSON array of Role strings; null/absent = Admin only. See
+  // lib/server/breakdown-settings-access.ts.
+  breakdownSettingsRoles Json?
 
   @@map("app_settings")
 }
