@@ -126,7 +126,7 @@ export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onR
           ‹
         </button>
 
-        <div ref={boxRef} className="relative min-w-0 flex-1">
+        <div ref={boxRef} className="relative min-w-0 max-w-[300px] flex-1">
           <input
             ref={inputRef}
             value={open ? query : active ? productLabel(active, activeIndex) : ""}
@@ -197,9 +197,9 @@ export function ProductList({ products, activeId, onSelect, onAdd, onRemove, onR
             type="button"
             onClick={onAdd}
             title="Thêm sản phẩm"
-            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-dashed border-line text-[15px] font-bold text-text-muted hover:border-accent hover:text-accent"
+            className="ml-1 flex h-8 flex-shrink-0 items-center gap-1.5 rounded-md bg-accent px-3 text-[12.5px] font-bold text-white hover:bg-accent-hover"
           >
-            +
+            <span className="text-[15px] leading-none">+</span> Thêm sản phẩm mới
           </button>
         )}
       </div>
