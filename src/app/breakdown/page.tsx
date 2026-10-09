@@ -81,6 +81,24 @@ export default function BreakdownPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [sharingRow, setSharingRow] = useState<BreakdownRow | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  // List (compact rows, default) or card grid — remembered per browser. The rows only
+  // render after the data has loaded on the client, so reading storage here can't
+  // cause a server/client mismatch.
+  const [view, setViewState] = useState<"list" | "grid">(() => {
+    try {
+      return window.localStorage.getItem("breakdownListView") === "grid" ? "grid" : "list";
+    } catch {
+      return "list";
+    }
+  });
+  function setView(v: "list" | "grid") {
+    setViewState(v);
+    try {
+      window.localStorage.setItem("breakdownListView", v);
+    } catch {
+      /* storage blocked — just don't remember */
+    }
+  }
 
   const allowed = canViewBreakdown(role);
   // ⚙ Cài đặt: Admin, plus any role Admin switched on (Cài đặt Bóc tách > Phân quyền).
@@ -305,6 +323,19 @@ export default function BreakdownPage() {
             placeholder="Tìm theo tên hồ sơ, sản phẩm, người tạo…"
             className="h-9 w-[300px] max-w-full rounded-lg border border-line bg-surface px-3 text-[12.5px] focus:border-accent focus:outline-none focus:ring-[3px] focus:ring-accent/15"
           />
+          <div className="flex items-center gap-0.5 rounded-lg border border-line bg-surface p-1" role="group" aria-label="Kiểu hiển thị">
+            {(["list", "grid"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                title={v === "list" ? "Dạng danh sách" : "Dạng thẻ"}
+                className={`flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-semibold ${view === v ? "bg-accent text-white" : "text-text-muted hover:bg-bg hover:text-text"}`}
+              >
+                {v === "list" ? "☰ Danh sách" : "▦ Thẻ"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {rows.length === 0 && !creating && (
@@ -316,6 +347,119 @@ export default function BreakdownPage() {
           <p className="rounded-xl border border-dashed border-line bg-surface p-10 text-center text-[13px] text-text-faint">Không có hồ sơ nào khớp.</p>
         )}
 
+        {view === "list" ? (
+          <div className="overflow-hidden rounded-xl border border-line bg-surface">
+            <div className="hidden grid-cols-[minmax(0,2.4fr)_70px_minmax(0,1.3fr)_110px_90px_330px] items-center gap-3 border-b border-line bg-bg px-4 py-2 text-[11px] font-bold tracking-wide text-text-muted uppercase md:grid">
+              <span>Hồ sơ</span>
+              <span>SP</span>
+              <span>Người tạo</span>
+              <span>Cập nhật</span>
+              <span>Chia sẻ</span>
+              <span className="text-right">Thao tác</span>
+            </div>
+            {visible.map((row) => (
+              <div
+                key={row.id}
+                className="grid grid-cols-1 items-center gap-x-3 gap-y-1.5 border-b border-line px-4 py-2.5 last:border-b-0 hover:bg-bg/60 md:grid-cols-[minmax(0,2.4fr)_70px_minmax(0,1.3fr)_110px_90px_330px]"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className={`h-6 w-[3px] flex-shrink-0 rounded ${row.access === "shared" ? "bg-amber-400" : "bg-accent"}`} />
+                  {renamingId === row.id ? (
+                    <input
+                      defaultValue={row.name}
+                      autoFocus
+                      onBlur={(e) => renameBreakdown(row.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                        if (e.key === "Escape") setRenamingId(null);
+                      }}
+                      className="h-8 w-full rounded-md border border-accent bg-white px-2 text-[13.5px] font-bold focus:outline-none"
+                    />
+                  ) : (
+                    <Link href={`/breakdown/${row.id}`} className="truncate text-[13.5px] font-bold text-text hover:text-accent" title={row.name}>
+                      {row.name}
+                    </Link>
+                  )}
+                  <AccessBadge row={row} />
+                </div>
+                <span className="text-[12.5px] text-text-muted" title={row.productNames.join(", ")}>
+                  {row.productCount}
+                </span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Avatar name={row.owner.name} size={22} />
+                  <span className="truncate text-[12.5px] text-text">{row.owner.name}</span>
+                </div>
+                <span className="text-[12px] text-text-faint">{formatUpdated(row.updatedAt)}</span>
+                <div className="flex items-center" title={row.sharedCount > 0 && row.canEdit ? `Đã chia sẻ cho: ${row.sharedWith.map((x) => x.name).join(", ")}` : undefined}>
+                  {row.canEdit && row.sharedCount > 0 ? (
+                    <>
+                      {row.sharedWith.slice(0, 3).map((x) => (
+                        <span key={x.userId} className="-ml-1.5 rounded-full ring-2 ring-surface first:ml-0">
+                          <Avatar name={x.name} size={20} />
+                        </span>
+                      ))}
+                      {row.sharedCount > 3 && <span className="ml-1 text-[11px] font-semibold text-text-faint">+{row.sharedCount - 3}</span>}
+                    </>
+                  ) : (
+                    <span className="text-[12px] text-text-faint">—</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-end gap-1.5">
+                  <Link href={`/breakdown/${row.id}`} className="flex h-7 items-center rounded-md bg-accent px-3 text-[12px] font-bold text-white hover:bg-accent-hover">
+                    {row.canEdit ? "Mở" : "Xem"}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => duplicateBreakdown(row.id)}
+                    disabled={duplicatingId !== null}
+                    title="Nhân bản hồ sơ này (giữ nguyên toàn bộ sản phẩm)"
+                    className="h-7 rounded-md border border-line bg-white px-2 text-[12px] font-semibold text-text hover:bg-bg disabled:opacity-60"
+                  >
+                    {duplicatingId === row.id ? "Đang nhân bản…" : "Nhân bản"}
+                  </button>
+                  {row.canEdit && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setSharingRow(row)}
+                        className="h-7 rounded-md border border-line bg-white px-2 text-[12px] font-semibold text-text hover:bg-bg"
+                      >
+                        Chia sẻ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRenamingId(row.id)}
+                        title="Đổi tên"
+                        className="h-7 rounded-md px-1.5 text-[12px] text-text-faint hover:bg-bg hover:text-text"
+                      >
+                        ✎
+                      </button>
+                      {confirmingId === row.id ? (
+                        <span className="flex items-center gap-1.5">
+                          <button type="button" onClick={() => removeBreakdown(row.id)} className="rounded bg-red px-2 py-1 text-[11.5px] font-bold text-white hover:opacity-90">
+                            Xóa thật
+                          </button>
+                          <button type="button" onClick={() => setConfirmingId(null)} className="text-[11.5px] font-semibold text-text-muted hover:underline">
+                            Hủy
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingId(row.id)}
+                          title="Xóa"
+                          className="h-7 rounded-md px-1.5 text-[12px] text-text-faint hover:bg-red-soft hover:text-red"
+                        >
+                          🗑
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visible.map((row) => (
             <div
@@ -466,6 +610,7 @@ export default function BreakdownPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {sharingRow && (
