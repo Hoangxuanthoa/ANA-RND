@@ -68,7 +68,7 @@ import { MultiDrawingExport } from "@/components/breakdown/studio/MultiDrawingEx
 import { BomSheet } from "@/components/breakdown/studio/BomSheet";
 import { ActivityPanel } from "@/components/breakdown/studio/ActivityPanel";
 import { buildDrawingBundle, frameWithoutLid, productHasLid } from "@/lib/breakdown/drawingBundle";
-import { applyRoundSpec, manualAfterEdit, normalizeRoundSpec, type RoundSpecConfig, type SpecField } from "@/lib/breakdown/weaveSpec";
+import { applySpec, manualAfterEdit, normalizeSpec, SPEC_SHAPES, type ShapeSpecConfig, type SpecShape } from "@/lib/breakdown/weaveSpec";
 import type { SpecUi } from "@/components/breakdown/studio/SpecTag";
 import { TopNav } from "@/components/TopNav";
 import { useRole } from "@/components/RoleProvider";
@@ -291,10 +291,10 @@ function BreakdownStudio({ id }: { id: string }) {
   // help here since each invocation starts fresh, unaware of the other.
   // A ref survives across that synthetic pair within the same real mount.
   const bootstrappedRef = useRef(false);
-  // "Quy cách hàng đan" for Round (Settings → Quy cách hàng đan). The ref is what
-  // callbacks read; the state re-renders the forms once it has loaded.
-  const roundSpecRef = useRef<RoundSpecConfig | null>(null);
-  const [roundSpec, setRoundSpec] = useState<RoundSpecConfig | null>(null);
+  // "Quy cách hàng đan" per shape (Cài đặt Bóc tách → Quy cách hàng đan). The ref is
+  // what callbacks read; the state re-renders the forms once it has loaded.
+  const specsRef = useRef<Partial<Record<SpecShape, ShapeSpecConfig>>>({});
+  const [specs, setSpecs] = useState<Partial<Record<SpecShape, ShapeSpecConfig>>>({});
   // Serializes the ▲/▼ reorder PUTs (see moveProduct).
   const reorderChainRef = useRef<Promise<void>>(Promise.resolve());
 
@@ -321,10 +321,10 @@ function BreakdownStudio({ id }: { id: string }) {
     const specLoad = fetch("/api/weave-specs", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
-        if (!j?.round) return;
-        const cfg = normalizeRoundSpec(j.round);
-        roundSpecRef.current = cfg;
-        setRoundSpec(cfg);
+        if (!j?.specs) return;
+        const all = Object.fromEntries(SPEC_SHAPES.map((s) => [s, normalizeSpec(s, j.specs[s])])) as Record<SpecShape, ShapeSpecConfig>;
+        specsRef.current = all;
+        setSpecs(all);
       })
       .catch(() => {});
     Promise.all([
@@ -411,10 +411,9 @@ function BreakdownStudio({ id }: { id: string }) {
 
   const active = products.find((p) => p.id === activeId) ?? products[0];
 
-  // A new Round product starts with the Quy cách applied (and following it).
+  // A new product starts with its shape's Quy cách applied (and following it).
   function withSpec(p: ProductState): ProductState {
-    const cfg = roundSpecRef.current;
-    return cfg && p.shape === "round" ? applyRoundSpec(p, cfg, { full: true }) : p;
+    return applySpec(p, specsRef.current, { full: true });
   }
 
   // Every edit goes through here. For a product that follows the Quy cách: first
@@ -422,10 +421,14 @@ function BreakdownStudio({ id }: { id: string }) {
   // auto-filled), then — if the sizes/lid changed — re-fill the rest from the rules.
   function withSpecEdit(p: ProductState, patch: Partial<ProductState>): ProductState {
     const merged = { ...p, ...patch };
-    const cfg = roundSpecRef.current;
-    if (!cfg || !p.specAuto || merged.shape !== "round") return merged;
+    const cfgs = specsRef.current;
+    if (!p.specAuto) return merged;
+    // Switched to another shape: that shape's Quy cách applies from scratch.
+    if (patch.shape && patch.shape !== p.shape) return applySpec({ ...merged, specManual: [] }, cfgs, { full: true });
+    if (!cfgs[merged.shape as SpecShape]) return merged;
     const withManual = { ...merged, specManual: manualAfterEdit(p, patch) };
-    return patch.rings || patch.lid || patch.shape || patch.photoCurve ? applyRoundSpec(withManual, cfg, { full: false }) : withManual;
+    const sizesChanged = patch.rings || patch.lid || patch.photoCurve || patch.rectProfile || patch.ovalProfile || patch.ellipseProfile;
+    return sizesChanged ? applySpec(withManual, cfgs, { full: false }) : withManual;
   }
 
   function updateActive(patch: Partial<ProductState>) {
@@ -434,14 +437,13 @@ function BreakdownStudio({ id }: { id: string }) {
   }
 
   // "Áp dụng quy cách" / "⟲ theo quy cách": re-apply everything, or just one field.
-  function reapplySpec(field?: SpecField) {
-    const cfg = roundSpecRef.current;
-    if (!cfg || readOnly) return;
+  function reapplySpec(field?: string) {
+    if (readOnly) return;
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== active.id) return p;
-        if (!field) return applyRoundSpec(p, cfg, { full: true });
-        return applyRoundSpec({ ...p, specAuto: true, specManual: (p.specManual ?? []).filter((f) => f !== field) }, cfg, { full: false });
+        if (!field) return applySpec(p, specsRef.current, { full: true });
+        return applySpec({ ...p, specAuto: true, specManual: (p.specManual ?? []).filter((f) => f !== field) }, specsRef.current, { full: false });
       }),
     );
   }
@@ -1064,12 +1066,13 @@ function BreakdownStudio({ id }: { id: string }) {
     }
   }
 
+  const activeSpec = specs[active.shape as SpecShape];
   const specUi: SpecUi | undefined =
-    active.shape === "round" && roundSpec && !readOnly
+    activeSpec && !readOnly
       ? {
           auto: !!active.specAuto,
           manual: active.specManual ?? [],
-          hasRule: (f) => roundSpec.rules[f].rows.length > 0,
+          hasRule: (f) => (activeSpec.rules[f]?.rows.length ?? 0) > 0,
           onReapply: reapplySpec,
         }
       : undefined;
@@ -1184,6 +1187,7 @@ function BreakdownStudio({ id }: { id: string }) {
                     <p className="rounded-lg bg-red-soft px-3 py-2 text-[12.5px] font-semibold text-red">{rectError}</p>
                   )}
                   <RectProfileForm
+                    spec={specUi}
                     profile={active.rectProfile}
                     isSquare={active.shape === "square"}
                     lid={active.lid}
@@ -1199,6 +1203,7 @@ function BreakdownStudio({ id }: { id: string }) {
                     <p className="rounded-lg bg-red-soft px-3 py-2 text-[12.5px] font-semibold text-red">{ovalError}</p>
                   )}
                   <OvalProfileForm
+                    spec={specUi}
                     profile={active.ovalProfile}
                     lid={active.lid}
                     handle={active.handle}
@@ -1216,6 +1221,7 @@ function BreakdownStudio({ id }: { id: string }) {
                     <p className="rounded-lg bg-red-soft px-3 py-2 text-[12.5px] font-semibold text-red">{ellipseError}</p>
                   )}
                   <EllipseProfileForm
+                    spec={specUi}
                     profile={active.ellipseProfile}
                     lid={active.lid}
                     handle={active.handle}
@@ -1292,6 +1298,7 @@ function BreakdownStudio({ id }: { id: string }) {
           <fieldset disabled={readOnly} className="min-h-[160px] min-w-0 flex-1 basis-0 overflow-y-auto border-t border-line bg-surface p-4">
             {isRect ? (
               <RectFrameForm
+                spec={specUi}
                 isSquare={active.shape === "square"}
                 rectFrame={active.rectFrame}
                 frame={active.frame}
@@ -1302,6 +1309,7 @@ function BreakdownStudio({ id }: { id: string }) {
               />
             ) : isOval ? (
               <OvalFrameForm
+                spec={specUi}
                 ovalFrame={active.ovalFrame}
                 frame={active.frame}
                 lid={active.lid}
@@ -1311,6 +1319,7 @@ function BreakdownStudio({ id }: { id: string }) {
               />
             ) : isEllipse ? (
               <EllipseFrameForm
+                spec={specUi}
                 ellipseFrame={active.ellipseFrame}
                 frame={active.frame}
                 lid={active.lid}

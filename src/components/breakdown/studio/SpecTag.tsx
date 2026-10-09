@@ -1,20 +1,18 @@
 "use client";
 
-import type { SpecField } from "@/lib/breakdown/weaveSpec";
-
 // What the forms need to show "Quy cách hàng đan" state on a product: whether
 // it follows the rules, which fields the person took over by hand, and how to
 // hand a field (or everything) back to the rules.
 export interface SpecUi {
   auto: boolean;
   manual: string[];
-  hasRule: (field: SpecField) => boolean;
-  onReapply: (field?: SpecField) => void;
+  hasRule: (field: string) => boolean;
+  onReapply: (field?: string) => void;
 }
 
 // Small note under a field the rules can fill: "theo quy cách" while it follows
 // them, "thủ công · ⟲ theo quy cách" once edited by hand.
-export function SpecTag({ spec, field }: { spec?: SpecUi; field: SpecField }) {
+export function SpecTag({ spec, field }: { spec?: SpecUi; field: string }) {
   if (!spec || !spec.auto || !spec.hasRule(field)) return null;
   if (spec.manual.includes(field)) {
     return (

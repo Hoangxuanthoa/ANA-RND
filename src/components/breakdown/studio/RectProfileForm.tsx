@@ -3,8 +3,11 @@
 import { RECT_LID_DEFAULT_OVERHANG_MM } from "@/lib/breakdown/geometry/rectProfileEngine";
 import type { HandleInput, LidInput, RectCorner, RectProfileInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecTag, type SpecUi } from "./SpecTag";
 
 interface RectProfileFormProps {
+  // "Quy cách hàng đan" state (shows how the horizontal-ring count is set).
+  spec?: SpecUi;
   profile: RectProfileInput;
   isSquare: boolean;
   lid: LidInput;
@@ -73,7 +76,7 @@ function CornerFields({
   );
 }
 
-export function RectProfileForm({ profile, isSquare, lid, handle, onChange, onChangeLid, onChangeHandle }: RectProfileFormProps) {
+export function RectProfileForm({ spec, profile, isSquare, lid, handle, onChange, onChangeLid, onChangeHandle }: RectProfileFormProps) {
   function updateMouth(patch: Partial<RectCorner>) {
     onChange({ ...profile, mouth: { ...profile.mouth, ...patch } });
   }
@@ -112,6 +115,7 @@ export function RectProfileForm({ profile, isSquare, lid, handle, onChange, onCh
             onChange={(e) => setRingCount(Number(e.target.value))}
             className={inputClass}
           />
+          <SpecTag spec={spec} field="ringCount" />
         </Field>
         {profile.horizontalRings.length > 0 && (
           <div className="mt-2.5 grid grid-cols-2 gap-2.5">

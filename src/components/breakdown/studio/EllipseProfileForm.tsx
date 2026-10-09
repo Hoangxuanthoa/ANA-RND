@@ -3,6 +3,7 @@
 import { buildDiameterSpline } from "@/lib/breakdown/geometry/photoSpline";
 import type { EllipseCorner, EllipseProfileInput, EllipseRingInput, HandleInput, LidInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecTag, type SpecUi } from "./SpecTag";
 
 // Ring identity is positional, same as RoundProfileForm/OvalProfileForm's
 // own ringLabel — no free-text "name" field, the role is implied by
@@ -14,6 +15,8 @@ function ringLabel(index: number, total: number): string {
 }
 
 interface EllipseProfileFormProps {
+  // "Quy cách hàng đan" state (shows how the horizontal-ring count is set).
+  spec?: SpecUi;
   profile: EllipseProfileInput;
   lid: LidInput;
   handle: HandleInput;
@@ -41,7 +44,7 @@ interface EllipseProfileFormProps {
 // mouth→base in a straight line, so there was no way to describe a
 // belly/waist the way Round can — now every ring is a first-class control
 // point with its own dims and its own transition curve to the next ring.
-export function EllipseProfileForm({ profile, lid, handle, photoCurve, onChange, onChangeLid, onChangeHandle, onLockShape, onUnlockShape }: EllipseProfileFormProps) {
+export function EllipseProfileForm({ spec, profile, lid, handle, photoCurve, onChange, onChangeLid, onChangeHandle, onLockShape, onUnlockShape }: EllipseProfileFormProps) {
   const { rings } = profile;
   const locked = !!photoCurve && photoCurve.length >= 2;
   // 2 independent splines (length-by-Z, width-by-Z) — an ellipse
@@ -206,6 +209,12 @@ export function EllipseProfileForm({ profile, lid, handle, photoCurve, onChange,
         );
       })}
 
+      {spec && spec.auto && spec.hasRule("ringCount") && (
+        <div className="flex items-center gap-2 text-[11.5px] text-text-muted">
+          Số vòng ngang: <b className="text-text">{Math.max(rings.length - 2, 0)}</b>
+          <SpecTag spec={spec} field="ringCount" />
+        </div>
+      )}
       <button
         type="button"
         onClick={addRing}

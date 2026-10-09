@@ -2,6 +2,7 @@
 
 import type { FrameInput, LidInput, RectFrameInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecHeader, SpecTag, type SpecUi } from "./SpecTag";
 
 const COLOR_PRESETS = [
   { key: "beige", label: "Be", hex: "#e3d0b0" },
@@ -20,6 +21,8 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 }
 
 interface RectFrameFormProps {
+  // "Quy cách hàng đan" state + actions (see SpecTag.tsx).
+  spec?: SpecUi;
   // Square: both faces are identical, so "Nan dọc — cạnh" is a single count.
   isSquare?: boolean;
   rectFrame: RectFrameInput;
@@ -30,7 +33,7 @@ interface RectFrameFormProps {
   onChangeFrame: (frame: FrameInput) => void;
 }
 
-export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHorizontalRings, onChangeRectFrame, onChangeFrame }: RectFrameFormProps) {
+export function RectFrameForm({ spec, isSquare = false, rectFrame, frame, lid, hasHorizontalRings, onChangeRectFrame, onChangeFrame }: RectFrameFormProps) {
   const bodyMode = rectFrame.bodyRibMode ?? "edges";
   function set<K extends keyof RectFrameInput>(key: K, value: RectFrameInput[K]) {
     onChangeRectFrame({ ...rectFrame, [key]: value });
@@ -41,6 +44,12 @@ export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHori
 
   return (
     <div className="flex flex-col gap-3.5">
+      {spec && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] font-bold tracking-wide text-text-muted uppercase">Khung sắt</span>
+          <SpecHeader spec={spec} />
+        </div>
+      )}
       <div className="flex flex-wrap gap-4">
         <Column title={bodyMode === "edges" ? "Nan dọc — góc bo" : "Nan dọc thân"}>
           <Field label="Kiểu chia">
@@ -63,7 +72,8 @@ export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHori
             <>
               <Field label="Số nan mỗi nửa">
                 <input type="number" min={0} value={rectFrame.bodyRibsPerHalf} onChange={(e) => set("bodyRibsPerHalf", Number(e.target.value))} className={inputClass} />
-              </Field>
+              <SpecTag spec={spec} field="bodyRibsPerHalf" />
+</Field>
               <p className="text-[11px] text-text-faint">
                 2 nan ở giữa 2 mặt rộng luôn cố định (không tính ở đây) — số này chia đều theo chiều dài đường viền thật (đi qua cả góc bo) mỗi nửa trên/dưới, đối xứng qua trục dài.
               </p>
@@ -73,7 +83,8 @@ export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHori
             <>
               <Field label="Số nan mỗi 1/4 chu vi">
                 <input type="number" min={0} value={rectFrame.bodyRibsPerQuarter} onChange={(e) => set("bodyRibsPerQuarter", Number(e.target.value))} className={inputClass} />
-              </Field>
+              <SpecTag spec={spec} field="bodyRibsPerQuarter" />
+</Field>
               <p className="text-[11px] text-text-faint">
                 Chia đều theo chiều dài chu vi thật trên 1/4 hình (từ giữa mặt rộng đến giữa mặt dài, qua góc bo) rồi lấy đối xứng ra 3 phần còn lại. Tổng số nan = số này × 4.
               </p>
@@ -92,14 +103,17 @@ export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHori
                   onChange={(e) => onChangeRectFrame({ ...rectFrame, lengthRibCount: Number(e.target.value), widthRibCount: Number(e.target.value) })}
                   className={inputClass}
                 />
+                <SpecTag spec={spec} field="ribsPerFace" />
               </Field>
             ) : (
               <>
                 <Field label="Số nan mặt dài">
                   <input type="number" min={0} value={rectFrame.lengthRibCount} onChange={(e) => set("lengthRibCount", Number(e.target.value))} className={inputClass} />
+                  <SpecTag spec={spec} field="lengthRibCount" />
                 </Field>
                 <Field label="Số nan mặt rộng">
                   <input type="number" min={0} value={rectFrame.widthRibCount} onChange={(e) => set("widthRibCount", Number(e.target.value))} className={inputClass} />
+                  <SpecTag spec={spec} field="widthRibCount" />
                 </Field>
               </>
             )}
@@ -126,7 +140,8 @@ export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHori
           </Field>
           <Field label="Số nan (0 = không có nan)">
             <input type="number" min={0} value={rectFrame.bottomCount} onChange={(e) => set("bottomCount", Number(e.target.value))} className={inputClass} />
-          </Field>
+          <SpecTag spec={spec} field="bottomCount" />
+</Field>
         </Column>
 
         {lid.mode !== "none" && (
@@ -139,7 +154,8 @@ export function RectFrameForm({ isSquare = false, rectFrame, frame, lid, hasHori
             </Field>
             <Field label="Số nan (0 = không có nan)">
               <input type="number" min={0} value={rectFrame.lidCount} onChange={(e) => set("lidCount", Number(e.target.value))} className={inputClass} />
-            </Field>
+            <SpecTag spec={spec} field="lidCount" />
+</Field>
           </Column>
         )}
 

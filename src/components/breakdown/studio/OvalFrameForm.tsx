@@ -2,6 +2,7 @@
 
 import type { FrameInput, LidInput, OvalFrameInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecHeader, SpecTag, type SpecUi } from "./SpecTag";
 
 const COLOR_PRESETS = [
   { key: "beige", label: "Be", hex: "#e3d0b0" },
@@ -20,6 +21,8 @@ function Column({ title, children }: { title: string; children: React.ReactNode 
 }
 
 interface OvalFrameFormProps {
+  // "Quy cách hàng đan" state + actions (see SpecTag.tsx).
+  spec?: SpecUi;
   ovalFrame: OvalFrameInput;
   frame: FrameInput;
   lid: LidInput;
@@ -28,7 +31,7 @@ interface OvalFrameFormProps {
   onChangeFrame: (frame: FrameInput) => void;
 }
 
-export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onChangeOvalFrame, onChangeFrame }: OvalFrameFormProps) {
+export function OvalFrameForm({ spec, ovalFrame, frame, lid, hasHorizontalRings, onChangeOvalFrame, onChangeFrame }: OvalFrameFormProps) {
   function set<K extends keyof OvalFrameInput>(key: K, value: OvalFrameInput[K]) {
     onChangeOvalFrame({ ...ovalFrame, [key]: value });
   }
@@ -38,6 +41,12 @@ export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onCha
 
   return (
     <div className="flex flex-col gap-3.5">
+      {spec && (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] font-bold tracking-wide text-text-muted uppercase">Khung sắt</span>
+          <SpecHeader spec={spec} />
+        </div>
+      )}
       <div className="flex flex-wrap gap-4">
         <Column title="Nan dọc thân">
           <Field label="Kiểu chia">
@@ -56,7 +65,8 @@ export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onCha
                   onChange={(e) => set("bodyRibsPerHalf", Number(e.target.value))}
                   className={inputClass}
                 />
-              </Field>
+              <SpecTag spec={spec} field="bodyRibsPerHalf" />
+</Field>
               <p className="text-[11px] text-text-faint">
                 2 nan ở tâm cung 2 đầu luôn cố định (không tính ở đây) — số này chia đều theo chiều dài đường viền mỗi nửa (trên/dưới), đối xứng qua trục dài.
               </p>
@@ -71,7 +81,8 @@ export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onCha
                   onChange={(e) => set("bodyRibsPerQuarter", Number(e.target.value))}
                   className={inputClass}
                 />
-              </Field>
+              <SpecTag spec={spec} field="bodyRibsPerQuarter" />
+</Field>
               <p className="text-[11px] text-text-faint">
                 Không cố định nan ở đầu bo — chia đều theo chiều dài chu vi thật trên 1/4 hình rồi lấy đối xứng ra 3 phần còn lại, nên 2 cạnh thẳng luôn giống nhau và 2 đầu bo luôn giống nhau. Tổng số nan = số này × 4.
               </p>
@@ -99,7 +110,8 @@ export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onCha
           </Field>
           <Field label="Số nan (0 = không có nan)">
             <input type="number" min={0} value={ovalFrame.bottomCount} onChange={(e) => set("bottomCount", Number(e.target.value))} className={inputClass} />
-          </Field>
+          <SpecTag spec={spec} field="bottomCount" />
+</Field>
         </Column>
 
         {lid.mode !== "none" && (
@@ -112,7 +124,8 @@ export function OvalFrameForm({ ovalFrame, frame, lid, hasHorizontalRings, onCha
             </Field>
             <Field label="Số nan (0 = không có nan)">
               <input type="number" min={0} value={ovalFrame.lidCount} onChange={(e) => set("lidCount", Number(e.target.value))} className={inputClass} />
-            </Field>
+            <SpecTag spec={spec} field="lidCount" />
+</Field>
           </Column>
         )}
 

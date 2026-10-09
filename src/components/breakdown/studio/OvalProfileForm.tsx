@@ -4,6 +4,7 @@ import { buildDiameterSpline } from "@/lib/breakdown/geometry/photoSpline";
 import { ovalCornerToRect } from "@/lib/breakdown/geometry/ovalProfileEngine";
 import type { HandleInput, LidInput, OvalProfileInput, OvalRingInput } from "@/lib/breakdown/geometry/types";
 import { Field, inputClass, selectClass } from "./field";
+import { SpecTag, type SpecUi } from "./SpecTag";
 import { RectLidCard } from "./RectProfileForm";
 
 // Ring identity is positional, same as RoundProfileForm's own ringLabel —
@@ -15,6 +16,8 @@ function ringLabel(index: number, total: number): string {
 }
 
 interface OvalProfileFormProps {
+  // "Quy cách hàng đan" state (shows how the horizontal-ring count is set).
+  spec?: SpecUi;
   profile: OvalProfileInput;
   lid: LidInput;
   handle: HandleInput;
@@ -43,7 +46,7 @@ interface OvalProfileFormProps {
 // own), so there was no way to describe a belly/waist the way Round can —
 // now every ring is a first-class control point with its own dims and its
 // own transition curve to the next ring, exactly like Round's.
-export function OvalProfileForm({ profile, lid, handle, photoCurve, onChange, onChangeLid, onChangeHandle, onLockShape, onUnlockShape }: OvalProfileFormProps) {
+export function OvalProfileForm({ spec, profile, lid, handle, photoCurve, onChange, onChangeLid, onChangeHandle, onLockShape, onUnlockShape }: OvalProfileFormProps) {
   const { rings } = profile;
   const locked = !!photoCurve && photoCurve.length >= 2;
   // 2 independent splines (length-by-Z, width-by-Z) — an oval cross-section
@@ -215,6 +218,12 @@ export function OvalProfileForm({ profile, lid, handle, photoCurve, onChange, on
         );
       })}
 
+      {spec && spec.auto && spec.hasRule("ringCount") && (
+        <div className="flex items-center gap-2 text-[11.5px] text-text-muted">
+          Số vòng ngang: <b className="text-text">{Math.max(rings.length - 2, 0)}</b>
+          <SpecTag spec={spec} field="ringCount" />
+        </div>
+      )}
       <button
         type="button"
         onClick={addRing}
