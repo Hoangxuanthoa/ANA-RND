@@ -31,7 +31,7 @@ const CELL_HEADER_H = 5;
 // chosen "1:x" scale is computed against, so the stated ratio stays exact
 // for whatever content area this leaves rather than an approximation.
 const CELL_PAD = 4;
-const LOGO_H = 14;
+const LOGO_H_BASE = 14; // at A4; scaled with the paper (see `k` in addDrawingSheetPage)
 // Two-tier line weight (ISO 128 / TCVN 8-20 drafting convention — a thick
 // outline for the drawing's own main frames, a thin one for internal grid
 // lines/dividers, roughly a 2:1 ratio) so the sheet reads as views + a
@@ -250,6 +250,11 @@ export async function addDrawingSheetPage(
   },
 ): Promise<void> {
   const { w: PAGE_W, h: PAGE_H } = paperOf(paperSize);
+  // The title block's text, logo strip and paddings are drawn in A4-sized units; on a
+  // bigger sheet they scale by the same factor as the page (A3 = 1.414×) so the
+  // text-to-page proportion matches A4 instead of looking tiny on A3.
+  const k = PAGE_W / paperOf("A4").w;
+  const LOGO_H = LOGO_H_BASE * k;
   const { svg2pdf } = await import("svg2pdf.js");
 
   const flatLogo = logoDataUrl ? await flattenLogoOnWhite(logoDataUrl) : null;
@@ -320,24 +325,24 @@ export async function addDrawingSheetPage(
     // Fit within the logo strip, preserving aspect ratio, centered.
     try {
       const props = pdf.getImageProperties(flatLogo);
-      const maxW = titleBlockWidthMm - 6;
-      const maxH = LOGO_H - 3;
+      const maxW = titleBlockWidthMm - 6 * k;
+      const maxH = LOGO_H - 3 * k;
       const scale = Math.min(maxW / props.width, maxH / props.height);
       const w = props.width * scale;
       const h = props.height * scale;
       pdf.addImage(flatLogo, "PNG", tbX + (titleBlockWidthMm - w) / 2, tbY + (LOGO_H - h) / 2, w, h);
     } catch {
       // Corrupt/unsupported image data — fall back to text so export still succeeds.
-      pdf.setFontSize(13);
+      pdf.setFontSize(13 * k);
       pdf.setTextColor(0);
       pdf.setFont("Manrope", "bold");
-      pdf.text(companyName || "—", tbX + titleBlockWidthMm / 2, tbY + LOGO_H / 2 + 2, { align: "center" });
+      pdf.text(companyName || "—", tbX + titleBlockWidthMm / 2, tbY + LOGO_H / 2 + 2 * k, { align: "center" });
     }
   } else {
-    pdf.setFontSize(13);
+    pdf.setFontSize(13 * k);
     pdf.setTextColor(0);
     pdf.setFont("Manrope", "bold");
-    pdf.text(companyName || "—", tbX + titleBlockWidthMm / 2, tbY + LOGO_H / 2 + 2, { align: "center" });
+    pdf.text(companyName || "—", tbX + titleBlockWidthMm / 2, tbY + LOGO_H / 2 + 2 * k, { align: "center" });
   }
   // Row heights grow to fill whatever vertical room the field list leaves —
   // a template with few fields fills the whole title-block height instead
@@ -347,19 +352,19 @@ export async function addDrawingSheetPage(
   let rowY = tbY + LOGO_H;
   const dividerYs: number[] = [tbY + LOGO_H];
   for (const field of fields) {
-    pdf.setFontSize(6.5);
+    pdf.setFontSize(6.5 * k);
     pdf.setFont("Manrope", "bold");
     pdf.setTextColor(0);
     // Vertically centered in the label strip (baseline sits ~1.1mm below
     // true center for this font size), left-aligned.
-    pdf.text(field.label.toUpperCase(), tbX + 2, rowY + rowLabelH / 2 + 1.1);
+    pdf.text(field.label.toUpperCase(), tbX + 2 * k, rowY + rowLabelH / 2 + 1.1 * k);
     rowY += rowLabelH;
     dividerYs.push(rowY); // between the label strip and the value strip
 
-    pdf.setFontSize(9);
+    pdf.setFontSize(9 * k);
     pdf.setFont("Manrope", "normal");
     pdf.setTextColor(0);
-    pdf.text(field.value || "—", tbX + 2, rowY + Math.min(rowValueH - 1.8, 4.4));
+    pdf.text(field.value || "—", tbX + 2 * k, rowY + Math.min(rowValueH - 1.8 * k, 4.4 * k));
     rowY += rowValueH;
     dividerYs.push(rowY);
   }

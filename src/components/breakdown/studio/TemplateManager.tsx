@@ -7,6 +7,7 @@ import {
   DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
   DEFAULT_TITLE_BLOCK_WIDTH_MM,
   PAPER_SIZES,
+  paperOf,
   type PaperSize,
   DRAWING_VIEW_LABELS,
   type DrawingTemplate,
@@ -288,7 +289,17 @@ export function TemplateManager({
                   Khổ giấy
                   <select
                     value={editing.paperSize ?? "A4"}
-                    onChange={(e) => updateEditing({ paperSize: e.target.value as PaperSize })}
+                    onChange={(e) => {
+                      // Switching sheet size also rescales the title block (width + row height)
+                      // by the same factor, so the block keeps its proportion of the page.
+                      const next = e.target.value as PaperSize;
+                      const ratio = paperOf(next).w / paperOf(editing.paperSize).w;
+                      updateEditing({
+                        paperSize: next,
+                        titleBlockWidthMm: Math.round(editing.titleBlockWidthMm * ratio),
+                        fieldRowMinHeightMm: Math.round(editing.fieldRowMinHeightMm * ratio * 10) / 10,
+                      });
+                    }}
                     className="h-8 rounded-md border border-line bg-white px-2 text-[12.5px] font-semibold focus:border-accent focus:outline-none"
                   >
                     {(Object.keys(PAPER_SIZES) as PaperSize[]).map((k) => (
@@ -298,7 +309,7 @@ export function TemplateManager({
                     ))}
                   </select>
                   <span className="text-[11px] font-normal text-text-faint">
-                    Đổi khổ giấy thì bản vẽ và file PDF/ảnh theo khổ mới. Cột khung tên giữ nguyên số mm — khổ A3 rộng hơn nên a có thể tăng &quot;Bề rộng khung tiêu đề&quot; nếu muốn.
+                    Đổi khổ giấy thì bản vẽ và file PDF/ảnh theo khổ mới; bề rộng khung tên và chiều cao dòng tự nhân theo tỷ lệ khổ (sửa lại ở dưới nếu muốn).
                   </span>
                 </label>
                 <label className="mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-[12.5px] font-semibold text-text">
