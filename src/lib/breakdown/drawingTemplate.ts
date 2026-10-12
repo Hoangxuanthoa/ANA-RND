@@ -46,7 +46,17 @@ export interface DrawingTemplateField {
   defaultValue?: string;
 }
 
+// Sheet sizes a template can use (always landscape). The drawing sheet, the PNG
+// export and the PDF all take their page size from the template's paperSize.
+export type PaperSize = "A4" | "A3";
+export const PAPER_SIZES: Record<PaperSize, { w: number; h: number; label: string }> = {
+  A4: { w: 297, h: 210, label: "A4 ngang (297 × 210 mm)" },
+  A3: { w: 420, h: 297, label: "A3 ngang (420 × 297 mm)" },
+};
+export const paperOf = (size: PaperSize | undefined) => PAPER_SIZES[size ?? "A4"] ?? PAPER_SIZES.A4;
+
 export interface DrawingTemplate {
+  paperSize: PaperSize;
   id: string;
   name: string; // the template's OWN name (e.g. "Công ty A") — not shown on the drawing itself
   companyName: string;
@@ -92,6 +102,7 @@ export function createDefaultTemplate(): DrawingTemplate {
     titleBlockWidthMm: DEFAULT_TITLE_BLOCK_WIDTH_MM,
     fieldRowMinHeightMm: DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
     showViewFrame: true,
+    paperSize: "A4",
     fields: [
       { id: newFieldId(), label: "Tên bản vẽ", autoFill: "productName" },
       { id: newFieldId(), label: "Mã bản vẽ" },
@@ -116,6 +127,7 @@ export function createBlankTemplate(name: string): DrawingTemplate {
     titleBlockWidthMm: DEFAULT_TITLE_BLOCK_WIDTH_MM,
     fieldRowMinHeightMm: DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
     showViewFrame: true,
+    paperSize: "A4",
     fields: [{ id: newFieldId(), label: "Tên bản vẽ", autoFill: "productName" }],
   };
 }
@@ -151,6 +163,7 @@ function normalizeTemplate(t: Partial<DrawingTemplate> & { id: string; name: str
     titleBlockWidthMm: t.titleBlockWidthMm ?? DEFAULT_TITLE_BLOCK_WIDTH_MM,
     fieldRowMinHeightMm: t.fieldRowMinHeightMm ?? DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
     showViewFrame: t.showViewFrame ?? true,
+    paperSize: t.paperSize === "A3" ? "A3" : "A4",
   };
 }
 

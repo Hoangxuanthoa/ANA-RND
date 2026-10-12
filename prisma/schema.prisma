@@ -751,6 +751,9 @@ model DrawingTemplate {
   titleBlockWidthMm   Float
   fieldRowMinHeightMm Float
   showViewFrame       Boolean  @default(true)
+  // Sheet size, landscape: "A4" (297×210) or "A3" (420×297). See PAPER_SIZES in
+  // lib/breakdown/drawingTemplate.ts.
+  paperSize           String   @default("A4")
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

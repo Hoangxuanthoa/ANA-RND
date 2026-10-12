@@ -16,6 +16,7 @@ function serialize(row: {
   titleBlockWidthMm: number;
   fieldRowMinHeightMm: number;
   showViewFrame: boolean;
+  paperSize: string;
 }) {
   return {
     id: row.id,
@@ -27,6 +28,7 @@ function serialize(row: {
     titleBlockWidthMm: row.titleBlockWidthMm,
     fieldRowMinHeightMm: row.fieldRowMinHeightMm,
     showViewFrame: row.showViewFrame,
+    paperSize: row.paperSize,
   };
 }
 
@@ -90,6 +92,7 @@ export async function POST(request: Request) {
       titleBlockWidthMm: typeof body.titleBlockWidthMm === "number" ? body.titleBlockWidthMm : 70,
       fieldRowMinHeightMm: typeof body.fieldRowMinHeightMm === "number" ? body.fieldRowMinHeightMm : 10.8,
       showViewFrame: typeof body.showViewFrame === "boolean" ? body.showViewFrame : true,
+      paperSize: body.paperSize === "A3" ? "A3" : "A4",
     },
   });
   return NextResponse.json(serialize(created));

@@ -23,6 +23,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (typeof body.titleBlockWidthMm === "number") data.titleBlockWidthMm = body.titleBlockWidthMm;
   if (typeof body.fieldRowMinHeightMm === "number") data.fieldRowMinHeightMm = body.fieldRowMinHeightMm;
   if (typeof body.showViewFrame === "boolean") data.showViewFrame = body.showViewFrame;
+  if (body.paperSize === "A4" || body.paperSize === "A3") data.paperSize = body.paperSize;
 
   const updated = await prisma.drawingTemplate.update({ where: { id }, data });
   return NextResponse.json({
@@ -35,6 +36,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     titleBlockWidthMm: updated.titleBlockWidthMm,
     fieldRowMinHeightMm: updated.fieldRowMinHeightMm,
     showViewFrame: updated.showViewFrame,
+    paperSize: updated.paperSize,
   });
 }
 

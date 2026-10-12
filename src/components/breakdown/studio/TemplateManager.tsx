@@ -6,6 +6,8 @@ import {
   createBlankTemplate,
   DEFAULT_FIELD_ROW_MIN_HEIGHT_MM,
   DEFAULT_TITLE_BLOCK_WIDTH_MM,
+  PAPER_SIZES,
+  type PaperSize,
   DRAWING_VIEW_LABELS,
   type DrawingTemplate,
   type DrawingTemplateField,
@@ -282,6 +284,23 @@ export function TemplateManager({
                 <p className="mt-2 text-[11px] text-text-faint">
                   Chọn bao nhiêu view cũng được — bản vẽ tự sắp lưới cho vừa. Back/Left/Right/Bottom hiện giống Front/Side/Top vì sản phẩm hiện tại luôn đối xứng 2 bên.
                 </p>
+                <label className="mt-3 flex flex-col gap-1 border-t border-line pt-3 text-[12.5px] font-semibold text-text">
+                  Khổ giấy
+                  <select
+                    value={editing.paperSize ?? "A4"}
+                    onChange={(e) => updateEditing({ paperSize: e.target.value as PaperSize })}
+                    className="h-8 rounded-md border border-line bg-white px-2 text-[12.5px] font-semibold focus:border-accent focus:outline-none"
+                  >
+                    {(Object.keys(PAPER_SIZES) as PaperSize[]).map((k) => (
+                      <option key={k} value={k}>
+                        {PAPER_SIZES[k].label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[11px] font-normal text-text-faint">
+                    Đổi khổ giấy thì bản vẽ và file PDF/ảnh theo khổ mới. Cột khung tên giữ nguyên số mm — khổ A3 rộng hơn nên a có thể tăng &quot;Bề rộng khung tiêu đề&quot; nếu muốn.
+                  </span>
+                </label>
                 <label className="mt-3 flex items-center gap-1.5 border-t border-line pt-3 text-[12.5px] font-semibold text-text">
                   <input
                     type="checkbox"

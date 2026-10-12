@@ -4,6 +4,7 @@
 // the live SVG DOM, we hand that same DOM to svg2pdf.js rather than
 // re-implementing the drawing logic a second time in jsPDF's own API.
 import { computeGridLayout } from "./drawingTemplate";
+import { paperOf, type PaperSize } from "@/lib/breakdown/drawingTemplate";
 
 export interface PdfTitleField {
   label: string;
@@ -17,8 +18,6 @@ export interface PdfViewSpec {
   svgEl: SVGSVGElement | null;
 }
 
-const PAGE_W = 297;
-const PAGE_H = 210;
 // Standard drafting-frame margin (ISO 5457) — matches DrawingSheetA4.tsx's
 // own PAGE_MARGIN_MM so the exported PDF and the on-screen preview agree on
 // where the frame sits relative to the physical paper edge.
@@ -64,8 +63,8 @@ export const ROW_VALUE_WEIGHT = 6.2;
 // rather than always exactly 2×2; every view in the SAME sheet still
 // shares one row height (a uniform grid), so callers compute this once per
 // sheet render from computeGridLayout(views.length).rows.
-export function computeCellContentHeightMm(rows: number, showViewFrame: boolean = true): number {
-  const drawAreaH = PAGE_H - MARGIN * 2;
+export function computeCellContentHeightMm(rows: number, showViewFrame: boolean = true, paperSize: PaperSize = "A4"): number {
+  const drawAreaH = paperOf(paperSize).h - MARGIN * 2;
   const cellH = (drawAreaH - GAP * (rows - 1)) / rows;
   return cellH - (showViewFrame ? CELL_HEADER_H : 0) - CELL_PAD * 2;
 }
@@ -205,9 +204,9 @@ type PdfDoc = InstanceType<typeof import("jspdf").jsPDF>;
 // export MULTIPLE products into one combined file create this ONCE, then
 // call addDrawingSheetPage once per product (with pdf.addPage() between
 // them), instead of each product getting its own separate PDF.
-export async function createA4Pdf(): Promise<PdfDoc> {
+export async function createA4Pdf(paperSize: PaperSize = "A4"): Promise<PdfDoc> {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: paperSize.toLowerCase() });
   await ensureManropeFont(pdf);
   pdf.setFont("Manrope", "normal");
   pdf.setLineWidth(THIN_LINE_MM);
@@ -232,6 +231,7 @@ export async function addDrawingSheetPage(
     fields,
     views,
     showViewFrame,
+    paperSize = "A4",
   }: {
     // Not read here — the title block's own "Tên bản vẽ" field (inside
     // `fields`) already carries the product name onto the page; this is
@@ -246,8 +246,10 @@ export async function addDrawingSheetPage(
     fields: PdfTitleField[];
     views: PdfViewSpec[];
     showViewFrame: boolean;
+    paperSize?: PaperSize;
   },
 ): Promise<void> {
+  const { w: PAGE_W, h: PAGE_H } = paperOf(paperSize);
   const { svg2pdf } = await import("svg2pdf.js");
 
   const flatLogo = logoDataUrl ? await flattenLogoOnWhite(logoDataUrl) : null;
@@ -390,8 +392,9 @@ export async function exportDrawingSheetPdf(params: {
   fields: PdfTitleField[];
   views: PdfViewSpec[];
   showViewFrame: boolean;
+  paperSize?: PaperSize;
 }): Promise<void> {
-  const pdf = await createA4Pdf();
+  const pdf = await createA4Pdf(params.paperSize);
   await addDrawingSheetPage(pdf, params);
   pdf.save(`${sanitizeFileName(params.productName)}-ban-ve.pdf`);
 }

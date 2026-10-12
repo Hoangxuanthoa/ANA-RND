@@ -121,7 +121,7 @@ export function MultiDrawingExport({
         new Promise<void>((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
       ]);
 
-      const pdf = await createA4Pdf();
+      const pdf = await createA4Pdf(template.paperSize);
       let first = true;
       for (const { key, product } of withBundles) {
         const capture = capturedRef.current.get(key);
@@ -137,6 +137,7 @@ export function MultiDrawingExport({
           fields: capture.fields,
           views: capture.views,
           showViewFrame: template.showViewFrame,
+          paperSize: template.paperSize,
         });
       }
       pdf.save(`${sanitizeFileName(breakdownName)}-gop-ban-ve.pdf`);

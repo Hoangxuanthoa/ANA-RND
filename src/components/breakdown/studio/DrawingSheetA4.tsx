@@ -18,6 +18,7 @@ import {
   DRAWING_VIEW_LABELS,
   fetchDrawingTemplates,
   loadActiveTemplateId,
+  paperOf,
   saveActiveTemplateId,
   type DrawingTemplate,
   type DrawingViewKey,
@@ -179,9 +180,6 @@ const DIM_COLOR_PRESETS = [
   { value: "#555555", name: "Xám" },
 ];
 
-const PAGE_W_MM = 297;
-const PAGE_H_MM = 210;
-const A4_RATIO = PAGE_W_MM / PAGE_H_MM;
 // Standard drafting-frame margin (ISO 5457) — the drawing's own border/
 // content sits this far in from the physical paper edge on every side,
 // instead of running flush to it. Matches pdfExport.ts's own MARGIN
@@ -326,6 +324,9 @@ export function DrawingSheetContent({
   // Editing the templates now lives in Cài đặt Bóc tách; show the shortcut only to
   // people who can open it.
   const settingsAccess = useBreakdownSettingsAccess();
+  // The sheet's size comes from the template (A4 / A3).
+  const { w: PAGE_W_MM, h: PAGE_H_MM } = paperOf(template.paperSize);
+  const A4_RATIO = PAGE_W_MM / PAGE_H_MM;
   const [doc, setDoc] = useState<DocState>(() => buildInitialDoc(template, productName, frameResult, initialDoc));
 
   // Save every edit back onto the product (see initialDoc/onDocChange). The
@@ -553,7 +554,7 @@ export function DrawingSheetContent({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [A4_RATIO]);
 
   // Wheel zooms toward the cursor (SketchUp/CAD convention — scroll alone
   // zooms, no modifier needed): the point under the pointer stays put while
@@ -590,7 +591,7 @@ export function DrawingSheetContent({
   }
 
   const { cols, rows } = computeGridLayout(template.views.length);
-  const cellContentHeightMm = computeCellContentHeightMm(rows, template.showViewFrame);
+  const cellContentHeightMm = computeCellContentHeightMm(rows, template.showViewFrame, template.paperSize);
 
   async function handleExportPdf() {
     setExporting(true);
@@ -610,6 +611,7 @@ export function DrawingSheetContent({
         fields: fields.map((f) => ({ label: f.label, value: f.value })),
         views,
         showViewFrame: template.showViewFrame,
+        paperSize: template.paperSize,
       });
     } finally {
       setExporting(false);
@@ -1273,15 +1275,15 @@ export function DrawingSheetContent({
           )}
         </ControlGroup>
 
-        <div className="mt-auto text-[11px] text-text-faint">Khổ A4 ngang (297×210mm)</div>
+        <div className="mt-auto text-[11px] text-text-faint">Khổ {paperOf(template.paperSize).label}</div>
       </div>
 
-      {/* A4 landscape sheet (297×210mm) — scrolls/zooms in place */}
+      {/* Landscape sheet (A4 or A3, per the template) — scrolls/zooms in place */}
       <div ref={scrollRef} className="min-w-0 flex-1 overflow-auto rounded-lg border border-line bg-bg p-4">
         <div
           ref={sheetRef}
           className="relative overflow-hidden rounded-lg bg-white shadow-sm"
-          style={{ width: fitWidth * zoom, aspectRatio: "297 / 210", flexShrink: 0 }}
+          style={{ width: fitWidth * zoom, aspectRatio: `${PAGE_W_MM} / ${PAGE_H_MM}`, flexShrink: 0 }}
         >
           {/* The drafting frame — inset PAGE_MARGIN_MM (1cm) from the
               physical paper edge on every side (ISO 5457), rather than
@@ -1465,7 +1467,7 @@ export function DrawingSheetA4({
         }),
         new Promise<void>((_, reject) => setTimeout(() => reject(new Error("timeout")), 15000)),
       ]);
-      const pdf = await createA4Pdf();
+      const pdf = await createA4Pdf(activeTemplate.paperSize);
       let first = true;
       for (const p of ["body", "lid"] as SheetPart[]) {
         const cap = capturedRef.current.get(p);
@@ -1480,6 +1482,7 @@ export function DrawingSheetA4({
           fields: cap.fields,
           views: cap.views,
           showViewFrame: activeTemplate.showViewFrame,
+          paperSize: activeTemplate.paperSize,
         });
       }
       pdf.save(`${sanitizeFileName(productName)}-ban-ve-than-nap.pdf`);
