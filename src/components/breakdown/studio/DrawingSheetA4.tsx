@@ -209,6 +209,10 @@ export interface DocState {
   dimSettings: Record<ViewKey, DimSettingsMap>;
   customDims: Record<ViewKey, CustomDim[]>;
   viewScale: Record<ViewKey, ViewScaleState>;
+  // The product name this sheet's auto-filled title-block fields were filled with.
+  // A field that still equals it was never edited by hand, so it follows the
+  // product when the product is renamed (see buildInitialDoc).
+  autoName?: string;
   // Camera for the Iso view (xoay trái/phải + nghiêng lên/xuống, in degrees).
   isoAngle: IsoAngle;
 }
@@ -277,6 +281,7 @@ function buildInitialDoc(template: DrawingTemplate, productName: string, frameRe
     customDims: { front: [], side: [], top: [], iso: [] },
     viewScale: { front: DEFAULT_VIEW_SCALE, side: DEFAULT_VIEW_SCALE, top: DEFAULT_VIEW_SCALE, iso: DEFAULT_VIEW_SCALE },
     isoAngle: DEFAULT_ISO_ANGLE,
+    autoName: productName,
   };
   if (!saved || typeof saved !== "object") return defaults;
   const s = saved as Partial<DocState>;
@@ -285,8 +290,15 @@ function buildInitialDoc(template: DrawingTemplate, productName: string, frameRe
   return {
     fields: defaults.fields.map((f) => {
       const old = savedFields.get(f.id);
-      return old && typeof old.value === "string" ? { ...f, value: old.value } : f;
+      if (!old || typeof old.value !== "string") return f;
+      // A "tên sản phẩm" field the person never edited follows a rename of the product:
+      // it still equals the name it was filled with. Sheets saved before autoName
+      // existed are judged by whether the value is still a default "Sản phẩm P001".
+      const auto = template.fields.find((t) => t.id === f.id)?.autoFill === "productName";
+      const untouched = typeof s.autoName === "string" ? old.value === s.autoName : /^Sản phẩm P\d+( — (Thân|Nắp))?$/.test(old.value);
+      return auto && untouched ? f : { ...f, value: old.value };
     }),
+    autoName: productName,
     visible: { ...defaults.visible, ...(s.visible && typeof s.visible === "object" ? s.visible : {}) },
     mode: s.mode === "frame" && !frameResult ? "solid" : s.mode === "frame" || s.mode === "solid" ? s.mode : defaults.mode,
     fontScale: typeof s.fontScale === "number" ? s.fontScale : defaults.fontScale,
