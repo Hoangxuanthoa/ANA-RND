@@ -69,22 +69,34 @@ export function computeCellContentHeightMm(rows: number, showViewFrame: boolean 
   return cellH - (showViewFrame ? CELL_HEADER_H : 0) - CELL_PAD * 2;
 }
 
+// A note / text box pulled out of the drawing SVG, in that SVG's user units.
+interface PdfNote {
+  lines: string[];
+  x: number;
+  // Baseline y of each line.
+  ys: number[];
+  fontSize: number;
+  color: string;
+}
+
 // svg2pdf can't render <foreignObject> (our notes and the transient dim-edit
-// input both use it, for easy on-screen editing) — replace each with a
-// plain <text> carrying the same content before handing the SVG off, on a
-// detached clone so the live, interactive page is never touched.
-function prepareSvgClone(svgEl: SVGSVGElement): SVGSVGElement {
+// input both use it, for easy on-screen editing), so each one is removed from a
+// detached clone (the live, interactive page is never touched) and returned as
+// data; drawNotes() prints them with jsPDF directly afterwards. They are NOT
+// turned into <text> for svg2pdf: it prints text with a transform matrix, which
+// with the registered Manrope (Identity-H) font emitted only the first glyph, so
+// Vietnamese notes came out as a clipped "S" while the PNG export was fine.
+function prepareSvgClone(svgEl: SVGSVGElement): { clone: SVGSVGElement; notes: PdfNote[] } {
   const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  const notes: PdfNote[] = [];
   clone.querySelectorAll("foreignObject").forEach((fo) => {
     const field = fo.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea");
     const value = field ? field.value : (fo.textContent ?? "").trim();
     const x = Number(fo.getAttribute("x")) || 0;
     const y = Number(fo.getAttribute("y")) || 0;
     const h = Number(fo.getAttribute("height")) || 12;
-    if (!value) {
-      fo.remove();
-      return;
-    }
+    fo.remove();
+    if (!value) return;
     // The note/text box's own size and color live in the field's inline
     // style (see NoteItem/TextBoxItem in TechnicalDrawing.tsx) in the SAME
     // svg user-space units as everything else, so reading them back here is
@@ -93,34 +105,51 @@ function prepareSvgClone(svgEl: SVGSVGElement): SVGSVGElement {
     // the on-screen font size.
     const parsedSize = field ? parseFloat(field.style.fontSize) : NaN;
     const fontSize = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 10.5;
-    const fill = (field && field.style.color) || "#1a1a1a";
-    const isTextarea = field instanceof HTMLTextAreaElement;
-    const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-    textEl.setAttribute("font-size", String(fontSize));
-    textEl.setAttribute("font-family", "Manrope, sans-serif");
-    textEl.setAttribute("fill", fill);
+    const color = (field && field.style.color) || "#1a1a1a";
     const lines = value.split("\n");
-    if (isTextarea) {
+    if (field instanceof HTMLTextAreaElement) {
       // Top-anchored, multi-line: the textarea sits at its own `top` inside
       // the foreignObject (offset down by the drag handle while selected).
       const top = y + (parseFloat(field.style.top) || 0);
-      textEl.setAttribute("x", String(x + 1));
-      lines.forEach((line, i) => {
-        const tspan = document.createElementNS("http://www.w3.org/2000/svg", "tspan");
-        tspan.setAttribute("x", String(x + 1));
-        tspan.setAttribute("y", String(top + 1 + fontSize * (1 + 1.2 * i)));
-        tspan.textContent = line;
-        textEl.appendChild(tspan);
-      });
+      notes.push({ lines, x: x + 1, ys: lines.map((_, i) => top + 1 + fontSize * (1 + 1.2 * i)), fontSize, color });
     } else {
       // A note's input is vertically centered in its box.
-      textEl.setAttribute("x", String(x + 4));
-      textEl.setAttribute("y", String(y + h / 2 + fontSize * 0.35));
-      textEl.textContent = value;
+      notes.push({ lines, x: x + 4, ys: [y + h / 2 + fontSize * 0.35], fontSize, color });
     }
-    fo.replaceWith(textEl);
   });
-  return clone;
+  return { clone, notes };
+}
+
+// Any CSS color → "#rrggbb" (the canvas normalises whatever the inline style held).
+function cssColorToHex(color: string): string {
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return "#1a1a1a";
+  ctx.fillStyle = "#1a1a1a";
+  ctx.fillStyle = color;
+  return ctx.fillStyle;
+}
+
+// Prints the notes taken out by prepareSvgClone onto the PDF, mapping the SVG's
+// user units into the box svg2pdf was given (viewBox fitted "xMidYMid meet", the
+// SVG default, same as svg2pdf did for the rest of the drawing).
+function drawNotes(
+  pdf: PdfDoc,
+  clone: SVGSVGElement,
+  box: { x: number; y: number; width: number; height: number },
+  notes: PdfNote[],
+): void {
+  if (notes.length === 0) return;
+  const vb = clone.viewBox.baseVal;
+  if (!vb || !vb.width || !vb.height) return;
+  const scale = Math.min(box.width / vb.width, box.height / vb.height);
+  const ox = box.x + (box.width - vb.width * scale) / 2 - vb.x * scale;
+  const oy = box.y + (box.height - vb.height * scale) / 2 - vb.y * scale;
+  pdf.setFont("Manrope", "normal");
+  for (const note of notes) {
+    pdf.setFontSize(note.fontSize * scale * (72 / 25.4));
+    pdf.setTextColor(cssColorToHex(note.color));
+    note.lines.forEach((line, i) => pdf.text(line, ox + note.x * scale, oy + note.ys[i] * scale));
+  }
 }
 
 // jsPDF renders a transparent PNG's see-through pixels as black rather than
@@ -285,13 +314,15 @@ export async function addDrawingSheetPage(
     }
 
     if (view.visible && view.svgEl) {
-      const clone = prepareSvgClone(view.svgEl);
-      await svg2pdf(clone, pdf, {
+      const { clone, notes } = prepareSvgClone(view.svgEl);
+      const box = {
         x: pos.x + CELL_PAD,
         y: pos.y + headerH + CELL_PAD,
         width: cellW - CELL_PAD * 2,
         height: cellH - headerH - CELL_PAD * 2,
-      });
+      };
+      await svg2pdf(clone, pdf, box);
+      drawNotes(pdf, clone, box, notes);
     } else if (!view.visible) {
       pdf.setFontSize(9);
       pdf.setTextColor(170);
