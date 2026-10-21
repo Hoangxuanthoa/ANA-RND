@@ -1359,6 +1359,11 @@ export function DrawingSheetContent({
   );
 }
 
+// The templates + which one is picked, kept at module level so stepping to another
+// product (which remounts the sheet) shows it instantly instead of a "Đang tải template…"
+// flash each time; the effect below still refreshes it in the background.
+let templateCache: { templates: DrawingTemplate[]; activeId: string } | null = null;
+
 export function DrawingSheetA4({
   drawing,
   productName,
@@ -1395,8 +1400,8 @@ export function DrawingSheetA4({
   material: MaterialInput;
   onClose: () => void;
 }) {
-  const [templates, setTemplates] = useState<DrawingTemplate[] | null>(null);
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<DrawingTemplate[] | null>(() => templateCache?.templates ?? null);
+  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(() => templateCache?.activeId ?? null);
   // Thân | Nắp (only when the product has a lid). The latest doc of each sheet
   // lives in a ref so switching tabs (which remounts the sheet) and the combined
   // PDF export always see the newest edits, not what the parent last re-rendered with.
@@ -1410,8 +1415,10 @@ export function DrawingSheetA4({
     let cancelled = false;
     Promise.all([fetchDrawingTemplates(), loadActiveTemplateId()]).then(([list, savedActiveId]) => {
       if (cancelled) return;
+      const activeId = savedActiveId && list.some((t) => t.id === savedActiveId) ? savedActiveId : list[0].id;
+      templateCache = { templates: list, activeId };
       setTemplates(list);
-      setActiveTemplateId(savedActiveId && list.some((t) => t.id === savedActiveId) ? savedActiveId : list[0].id);
+      setActiveTemplateId(activeId);
     });
     return () => {
       cancelled = true;
@@ -1419,6 +1426,7 @@ export function DrawingSheetA4({
   }, []);
 
   function selectTemplate(id: string) {
+    if (templateCache) templateCache = { ...templateCache, activeId: id };
     setActiveTemplateId(id);
     saveActiveTemplateId(id);
   }

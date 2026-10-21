@@ -1100,6 +1100,13 @@ function BreakdownStudio({ id }: { id: string }) {
   }
 
   const activeSpec = specs[active.shape as SpecShape];
+  // Drawing dialog ‹ ›: step to the neighbouring product (its sheet remounts via key).
+  const activeIndex = products.findIndex((p) => p.id === active.id);
+  function goProduct(delta: -1 | 1) {
+    const next = products[activeIndex + delta];
+    if (next) setActiveId(next.id);
+  }
+
   const specUi: SpecUi | undefined =
     activeSpec && !readOnly
       ? {
@@ -1376,10 +1383,46 @@ function BreakdownStudio({ id }: { id: string }) {
         </div>
       </div>
 
-      {showDrawing && drawingInput && (
+      {showDrawing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="flex h-[94vh] w-[97vw] max-w-[1800px] flex-col rounded-xl bg-surface p-5 shadow-xl">
+            {/* Step through this breakdown's products without closing the dialog. */}
+            {products.length > 1 && (
+              <div className="mb-3 flex flex-shrink-0 items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => goProduct(-1)}
+                  disabled={activeIndex <= 0}
+                  className="h-8 rounded-md border border-line bg-white px-3 text-[12.5px] font-bold text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹ Sản phẩm trước
+                </button>
+                <span className="min-w-[220px] text-center text-[13px] font-bold text-text">
+                  {active.name || active.id}
+                  <span className="ml-2 text-[12px] font-semibold text-text-faint">
+                    {activeIndex + 1}/{products.length}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => goProduct(1)}
+                  disabled={activeIndex >= products.length - 1}
+                  className="h-8 rounded-md border border-line bg-white px-3 text-[12.5px] font-bold text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Sản phẩm sau ›
+                </button>
+              </div>
+            )}
+            {!drawingInput ? (
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-[13px] text-text-muted">
+                <p>Sản phẩm này chưa dựng được hình để xuất bản vẽ (kiểm tra kích thước).</p>
+                <button type="button" onClick={() => setShowDrawing(false)} className="rounded-md border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold hover:bg-bg">
+                  Đóng
+                </button>
+              </div>
+            ) : (
             <DrawingSheetA4
+              key={active.id}
               drawing={drawingInput}
               productName={active.name}
               frameResult={drawingFrameResult}
@@ -1402,6 +1445,7 @@ function BreakdownStudio({ id }: { id: string }) {
                   : undefined
               }
             />
+            )}
           </div>
         </div>
       )}
