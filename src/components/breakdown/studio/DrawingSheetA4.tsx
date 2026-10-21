@@ -114,7 +114,7 @@ function ViewCell({
   children: React.ReactNode;
 }) {
   return (
-    <div className={showFrame ? "flex min-h-0 flex-col rounded-md border border-black bg-white" : "flex min-h-0 flex-col bg-white"}>
+    <div className={showFrame ? "flex min-h-0 flex-col rounded-md border border-black" : "flex min-h-0 flex-col"}>
       {showFrame && (
         <div className="flex-shrink-0 border-b border-black px-2 py-0.5 text-[10px] font-bold tracking-wide text-black uppercase">{label}</div>
       )}

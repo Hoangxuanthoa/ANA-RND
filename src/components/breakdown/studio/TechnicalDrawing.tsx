@@ -872,6 +872,11 @@ function useNoteDraft(onFinish: (anchor: [number, number], label: [number, numbe
   return { draft, onPointerDown, onPointerMove, onPointerUp };
 }
 
+// Note text box metrics (svg user units): line height as a multiple of the font
+// size, and top/bottom padding. pdfExport.ts mirrors these when it prints notes.
+const NOTE_LINE_H = 1.2;
+const NOTE_PAD_Y = 2;
+
 function NoteItem({
   note,
   fontSize,
@@ -894,9 +899,15 @@ function NoteItem({
   // Sized generously — foreignObject clips its content to exactly width×height
   // (in the SAME svg user-space units as everything else here), so an
   // undersized box silently clips/shrinks the clickable input underneath it.
-  const inputW = Math.max(note.text.length * itemFontSize * 0.62 + 20, 110);
+  // A note can run to several lines (Enter = new line), so it is a textarea
+  // sized from its longest line / line count; the first line stays centred on
+  // the leader line's end, extra lines grow downward.
+  const noteLines = note.text.split("\n");
+  const longest = Math.max(...noteLines.map((l) => l.length));
+  const inputW = Math.max(longest * itemFontSize * 0.62 + 20, 110);
   const boxW = inputW + 26;
-  const boxH = itemFontSize * 2.6;
+  const lineH = itemFontSize * NOTE_LINE_H;
+  const boxH = lineH * noteLines.length + NOTE_PAD_Y * 2 + 2;
   return (
     <g>
       <line
@@ -917,11 +928,11 @@ function NoteItem({
             : undefined
         }
       />
-      <foreignObject x={note.label[0]} y={note.label[1] - boxH / 2} width={boxW} height={boxH} style={{ overflow: "visible" }}>
+      <foreignObject x={note.label[0]} y={note.label[1] - lineH / 2 - NOTE_PAD_Y} width={boxW} height={boxH} style={{ overflow: "visible" }}>
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             gap: 3,
             width: "100%",
             height: "100%",
@@ -930,20 +941,28 @@ function NoteItem({
             borderRadius: 3,
           }}
         >
-          <input
+          <textarea
+            data-kind="note"
             value={note.text}
             onChange={(e) => onChange(e.target.value)}
             onFocus={onSelect}
             placeholder="Ghi chú…"
+            rows={noteLines.length}
+            wrap="off"
             style={{
               fontSize: `${itemFontSize}px`,
+              lineHeight: NOTE_LINE_H,
               width: `${inputW}px`,
+              height: lineH * noteLines.length + NOTE_PAD_Y * 2,
               boxSizing: "border-box",
               border: "none",
               outline: "none",
+              resize: "none",
+              overflow: "hidden",
+              whiteSpace: "pre",
               borderRadius: 2,
               background: "transparent",
-              padding: "2px 4px",
+              padding: `${NOTE_PAD_Y}px 4px`,
               fontFamily: "var(--font-manrope), sans-serif",
               color: itemColor,
             }}
@@ -2023,7 +2042,7 @@ export function FrontSideSVG({
     <svg
       viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
       className="h-full w-full"
-      style={{ cursor: noteMode || dimPickMode || textBoxMode ? "crosshair" : "grab", touchAction: "none" }}
+      style={{ cursor: noteMode || dimPickMode || textBoxMode ? "crosshair" : "grab", touchAction: "none", overflow: "visible" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClearSelection?.();
       }}
@@ -2245,7 +2264,7 @@ export function TopSVG({
     <svg
       viewBox={`${-vb + panX} ${-vb + panY} ${vb * 2} ${vb * 2}`}
       className="h-full w-full"
-      style={{ cursor: noteMode || dimPickMode || textBoxMode ? "crosshair" : "grab", touchAction: "none" }}
+      style={{ cursor: noteMode || dimPickMode || textBoxMode ? "crosshair" : "grab", touchAction: "none", overflow: "visible" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClearSelection?.();
       }}
@@ -2375,7 +2394,7 @@ export function IsoSVG({
     <svg
       viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
       className="h-full w-full"
-      style={{ cursor: noteMode || textBoxMode ? "crosshair" : "grab", touchAction: "none" }}
+      style={{ cursor: noteMode || textBoxMode ? "crosshair" : "grab", touchAction: "none", overflow: "visible" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClearSelection?.();
       }}

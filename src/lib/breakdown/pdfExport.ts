@@ -107,7 +107,12 @@ function prepareSvgClone(svgEl: SVGSVGElement): { clone: SVGSVGElement; notes: P
     const fontSize = Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : 10.5;
     const color = (field && field.style.color) || "#1a1a1a";
     const lines = value.split("\n");
-    if (field instanceof HTMLTextAreaElement) {
+    if (field instanceof HTMLTextAreaElement && field.dataset.kind === "note") {
+      // Multi-line note: text starts 4px in and 2px (NOTE_PAD_Y) below the box
+      // top, 1.2 line height (NOTE_LINE_H in TechnicalDrawing.tsx); the baseline
+      // sits ~0.98 of the font size into the first line.
+      notes.push({ lines, x: x + 4, ys: lines.map((_, i) => y + 2 + fontSize * (0.98 + 1.2 * i)), fontSize, color });
+    } else if (field instanceof HTMLTextAreaElement) {
       // Top-anchored, multi-line: the textarea sits at its own `top` inside
       // the foreignObject (offset down by the drag handle while selected).
       const top = y + (parseFloat(field.style.top) || 0);
